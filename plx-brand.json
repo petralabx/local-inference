@@ -1,0 +1,20 @@
+{
+  "schemaVersion": "plx-brand/v1",
+  "repoKind": "platform",
+  "brand": {
+    "slug": "local-inference",
+    "displayName": "Local Inference"
+  },
+  "designSystem": {
+    "adoptsPlxTokens": false,
+    "tokenPrefix": "--li-",
+    "boundaryClass": "brand-local-inference",
+    "decidedBy": "vince",
+    "decidedAt": "2026-06-30",
+    "rationale": "Platform tooling for local LLM inference; not on PLX portal tokens."
+  },
+  "mc": {
+    "github": "Petra-Lab-X/local-inference",
+    "registryId": "local-inference"
+  }
+}
