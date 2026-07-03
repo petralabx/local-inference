@@ -1,0 +1,27 @@
+# Example cutover config for tomorrow. Copy values into litellm/config.yaml after DGX backend is proven.
+model_list:
+  - model_name: local-primary
+    litellm_params:
+      model: openai/Qwen/Qwen3-Coder-30B-A3B-Instruct-FP8
+      api_base: http://DGX_HEAD_IP:8000/v1
+      api_key: sk-local
+  - model_name: local-fast
+    litellm_params:
+      model: openai/Qwen/Qwen3-32B-AWQ
+      api_base: http://127.0.0.1:8000/v1
+      api_key: sk-local
+  - model_name: local-glm52-experimental
+    litellm_params:
+      model: openai/zai-org/GLM-5.2-FP8
+      api_base: http://DGX_HEAD_IP:8000/v1
+      api_key: sk-local
+
+litellm_settings:
+  drop_params: true
+  set_verbose: false
+  request_timeout: 600
+  num_retries: 1
+
+general_settings:
+  # Read from env (LOCAL_LITELLM_MASTER_KEY -> LITELLM_MASTER_KEY via start_proxy.sh)
+  master_key: os.environ/LITELLM_MASTER_KEY

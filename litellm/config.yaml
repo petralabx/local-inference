@@ -1,0 +1,36 @@
+model_list:
+  - model_name: local-primary
+    litellm_params:
+      model: openai/Qwen/Qwen3-32B-AWQ
+      api_base: http://127.0.0.1:8000/v1
+      api_key: sk-local
+  - model_name: local-fast
+    litellm_params:
+      model: openai/Qwen/Qwen3-32B-AWQ
+      api_base: http://127.0.0.1:8000/v1
+      api_key: sk-local
+  - model_name: local-dgx-smoke
+    litellm_params:
+      model: openai/smoke-qwen2.5-0.5b-rpc
+      api_base: http://100.111.220.1:18081/v1
+      api_key: local-inference
+  - model_name: local-glm52
+    litellm_params:
+      model: openai/local-glm52-ud-iq1m
+      api_base: http://100.111.220.1:18082/v1
+      api_key: local-inference
+  # local-glm52-experimental is intentionally absent on the Dell stack.
+  # Do not route GLM through the tower vLLM lane — add this alias only after
+  # the 2-node DGX cutover (see litellm/config.dgx.example.yaml).
+
+litellm_settings:
+  drop_params: true
+  set_verbose: false
+  request_timeout: 600
+  num_retries: 1
+
+general_settings:
+  # Master key is read from the environment (LOCAL_LITELLM_MASTER_KEY in
+  # .env.local, gitignored). Never hardcode a real key here. start_proxy.sh
+  # exports LITELLM_MASTER_KEY from that value before launching.
+  master_key: os.environ/LITELLM_MASTER_KEY

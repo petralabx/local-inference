@@ -1,0 +1,43 @@
+# Local inference execution primitives (overlay for agentic-swarm registry)
+# schema_version: execution-primitives.local.v1
+
+schema_version: execution-primitives.local.v1
+repo: taylorvalton/local-inference
+control_plane_host: dell-vta
+
+client_contract:
+  proxy_url_tailscale: http://100.103.33.54:4000/v1
+  proxy_url_lan: http://192.168.2.12:4000/v1
+  proxy_url_local: http://127.0.0.1:4000/v1
+  master_key_env: LOCAL_LITELLM_MASTER_KEY
+
+aliases:
+  - id: local-primary
+    litellm_name: local-primary
+    backend_port: 8000
+    model: Qwen/Qwen3-32B-AWQ
+    status: production-dell
+  - id: local-fast
+    litellm_name: local-fast
+    status: production-dell
+  - id: local-glm52-experimental
+    litellm_name: local-glm52-experimental
+    status: dgx-cutover-only
+    live_config: false  # not in litellm/config.yaml until QSFP cluster day
+
+health_gates:
+  - script: scripts/smoke_proxy.sh
+    description: Proxy /v1/models + chat smoke
+  - script: scripts/smoke_backend.sh
+    description: Direct vLLM backend smoke
+  - external: agentic-swarm/scripts/local_inference_bridge_promotion_gate.sh
+    description: TRADINGBOX tailnet + auth bridge promotion
+
+start_scripts:
+  backend_durable: scripts/start_dell_vllm_qwen3_32b_awq_durable.sh
+  proxy: scripts/start_proxy.sh
+  prereqs: scripts/check_prereqs.sh
+
+parity:
+  host_capability: serves_local_inference
+  keys: [local_inference_repo_ok, local_inference_proxy_reachable]
