@@ -2,6 +2,23 @@
 
 MC-Checkout: dsp_mr24bm9au2e44s
 
+## Status Update (2026-07-03)
+
+First production consumer is live: Stage Rail escalation on TRADINGBOX routes
+through the Dell LiteLLM proxy to the DGX GLM lane.
+
+- `STAGE_RAIL_ESCALATION_BASE_URL=http://100.103.33.54:4000/v1`
+- `STAGE_RAIL_ESCALATION_MODEL=local-glm52`
+- Exports live in TRADINGBOX `/home/ec2-user/load-secrets.sh` (sourced by the
+  stage-rail-loop cron every 15 min); key never committed.
+- Promotion gate run 2026-07-03: Tailscale PASS, `/v1/models` PASS, chat via
+  `local-glm52` PASS end-to-end from TRADINGBOX (~9.5 tok/s decode).
+- Caveat: `local-primary` chat fails while the Dell vLLM backend (`:8000`) is
+  down; `local-glm52` is the working lane. Rollback: remove the export block
+  from `load-secrets.sh` (loop falls back to Anthropic).
+
+Details: `agentic-swarm/docs/runbooks/local-inference-tradingbox-bridge.md`.
+
 ## Conclusion
 
 The DGX Spark `llama.cpp` endpoint is proven as an OpenAI-compatible backend, but the broader repo ecosystem already has a canonical local inference control plane in `c:\Users\vince\local-inference` using LiteLLM.
