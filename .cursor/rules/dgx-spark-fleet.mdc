@@ -1,0 +1,37 @@
+---
+description: DGX Spark two-node cluster context — read fleet runbook before networking or LiteLLM cutover
+globs: "**/*"
+alwaysApply: true
+---
+
+# DGX Spark fleet (local-inference)
+
+Before changing LiteLLM config, DGX networking, NVIDIA Sync, QSFP clustering, or
+`local-glm52-experimental` routing, read:
+
+**`docs/runbooks/dgx-spark-fleet.md`**
+
+## Stable client contract
+
+- Proxy URL: `http://100.103.33.54:4000/v1` (Tailscale; prefer over LAN)
+- Aliases: `local-primary`, `local-fast`, `local-glm52-experimental`
+- Never point loops at Spark `:8000` directly — only the Dell proxy
+
+## Fleet (2026-06-28)
+
+| Node | LAN | Tailscale | SSH user |
+|------|-----|-----------|----------|
+| Spark #1 `spark-7d3d` | `192.168.2.17` | `100.111.220.1` (`phase-f-dgx-spark`) | `vinnysachet` |
+| Spark #2 `spark-b4ec` | `192.168.2.18` | `100.92.253.61` | `vinnysachet2` |
+| Dell VTA | `192.168.2.12` | `100.103.33.54` | — |
+
+## Next gate
+
+QSFP cable + Bell LAN ethernet → Cluster Assistant (2-node) → NCCL → vLLM/GLM →
+update `litellm/config.yaml` per `litellm/config.dgx.example.yaml`.
+
+## Pitfalls
+
+- No `Dell-Direct` / `192.168.137.x` on Sparks — Bell LAN only
+- NVIDIA Sync: use `100.x` IP, not `.ts.net` MagicDNS
+- Do not run GLM on the Dell tower

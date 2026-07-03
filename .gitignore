@@ -1,0 +1,15 @@
+# Python env
+.venv/
+__pycache__/
+*.pyc
+
+# Secrets — never commit; use .env.example as the template
+.env
+*.env
+.env.*
+!.env.example
+
+# Local logs / scratch
+*.log
+logs/
+.DS_Store
