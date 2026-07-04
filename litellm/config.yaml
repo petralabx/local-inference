@@ -9,6 +9,11 @@ model_list:
       model: openai/Qwen/Qwen3-32B-AWQ
       api_base: http://127.0.0.1:8000/v1
       api_key: sk-local
+  - model_name: local-coder
+    litellm_params:
+      model: openai/Qwen/Qwen3-Coder-30B-A3B-Instruct-FP8
+      api_base: http://127.0.0.1:8000/v1
+      api_key: sk-local
   - model_name: local-dgx-smoke
     litellm_params:
       model: openai/smoke-qwen2.5-0.5b-rpc

@@ -5,8 +5,8 @@ control plane (LiteLLM proxy + vLLM backend) and the two-node DGX Spark GLM
 cluster.
 
 - MC registry: `local-inference`
-- Canonical GitHub: `Petra-Lab-X/local-inference` (promotion target)
-- Dev repo: `taylorvalton/local-inference` (working copy — see AGENTS.md for the dev→promote workflow)
+- Canonical GitHub: [petralabx/local-inference](https://github.com/petralabx/local-inference) (org; promotion target)
+- Dev repo: [taylorvalton/local-inference](https://github.com/taylorvalton/local-inference) (working copy — see AGENTS.md)
 
 ## Contract
 
@@ -15,7 +15,8 @@ All loops and agents should call the proxy, not the direct backend:
 - Base URL (durable, survives ISP/router changes): `http://100.103.33.54:4000/v1` (Dell Tailscale IP)
 - Base URL (LAN — verify after any network change): `http://192.168.2.12:4000/v1`
 - Base URL (on the Dell itself): `http://127.0.0.1:4000/v1`
-- Model alias: `local-primary`
+- Model alias: `local-primary` (Dell Qwen3-32B — tools/JSON/code worker)
+- Code worker alias: `local-coder` (Qwen3-Coder — swap Dell container first)
 - Fallback alias: `local-fast`
 - DGX GLM alias: `local-glm52` (two-node DGX Spark cluster, live since 2026-07-02)
 - DGX smoke alias: `local-dgx-smoke` (small-model RPC path check)
@@ -132,6 +133,12 @@ gone after a reboot). To make the stack auto-start:
 
 Verify after a reboot: `curl http://127.0.0.1:4000/v1/models`.
 Remove the proxy task: `schtasks /Delete /TN "LocalInferenceProxy" /F`.
+
+## Worker lanes and Cursor routing
+
+- **Dell Qwen worker lane:** `docs/runbooks/dell-qwen-worker-lane.md` — `local-primary`, `local-coder`, health checks
+- **Cursor orchestrator/worker:** `docs/runbooks/cursor-orchestrator-worker.md` — frontier orchestrator + local worker tiers
+- **Quick smoke:** `powershell -ExecutionPolicy Bypass -File scripts/health_check_local_inference.ps1 -SmokeChat`
 
 ## Notes
 

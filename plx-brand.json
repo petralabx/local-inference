@@ -14,7 +14,7 @@
     "rationale": "Platform tooling for local LLM inference; not on PLX portal tokens."
   },
   "mc": {
-    "github": "Petra-Lab-X/local-inference",
+    "github": "petralabx/local-inference",
     "registryId": "local-inference"
   }
 }

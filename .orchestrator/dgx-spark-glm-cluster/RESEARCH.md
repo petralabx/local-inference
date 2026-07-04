@@ -39,7 +39,7 @@ Current observed devices:
 This repository is currently a platform placeholder rather than a deployed inference router. The only root files are:
 
 - `README.md`: identifies the repo as PLX local LLM inference runtime and tooling.
-- `plx-brand.json`: declares `local-inference` as a PLX platform repo, with GitHub metadata `Petra-Lab-X/local-inference`.
+- `plx-brand.json`: declares `local-inference` as a PLX platform repo, with GitHub metadata `petralabx/local-inference`.
 - `AGENTS.md`: requires PLX Mission Control linkage.
 - `scripts/check-brand-repo-structure.py`: unrelated brand-structure validator.
 
