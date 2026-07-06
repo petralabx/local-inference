@@ -1,0 +1,44 @@
+# Compliance gate drift-check (EN-007). plx-mc-compliance.yml in this repo is a
+# generated copy of the PLX MC compliance gate. The single source is
+# scripts/generate-compliance-gate.py in the PUBLIC taylorvalton/PLX_MC repo,
+# pinned to a commit SHA. This job fetches that generator, emits the downstream
+# variant, and diffs it against the committed gate — failing on drift.
+
+name: Compliance Gate Drift
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  drift:
+    runs-on: ubuntu-latest
+    env:
+      GEN_REPO: taylorvalton/PLX_MC
+      GEN_SHA: 6f9031027d130b2ab773a5f10084c56da9e84f79
+      GEN_PATH: scripts/generate-compliance-gate.py
+      GATE_FILE: .github/workflows/plx-mc-compliance.yml
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify gate matches the pinned PLX_MC source
+        run: |
+          set -euo pipefail
+          url="https://raw.githubusercontent.com/${GEN_REPO}/${GEN_SHA}/${GEN_PATH}"
+          echo "source: $url"
+          ok=
+          for i in 1 2 3; do
+            if curl -fsSL "$url" -o /tmp/generate-compliance-gate.py; then ok=1; break; fi
+            echo "fetch attempt $i failed; retrying..."; sleep 3
+          done
+          [ -n "$ok" ] || { echo "::error::could not fetch the pinned generator from $url"; exit 1; }
+          python3 /tmp/generate-compliance-gate.py --emit downstream > /tmp/expected-gate.yml
+          if ! diff -u "$GATE_FILE" /tmp/expected-gate.yml; then
+            echo "::error::Compliance gate drift — $GATE_FILE no longer matches the PLX_MC source (pinned ${GEN_SHA})."
+            echo "Fix: regenerate from PLX_MC, or bump GEN_SHA if the source changed intentionally."
+            exit 1
+          fi
+          echo "Compliance gate matches the PLX_MC source (pinned ${GEN_SHA})."
