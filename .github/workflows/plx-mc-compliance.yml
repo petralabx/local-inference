@@ -1,0 +1,91 @@
+# PLX MC Compliance Gate (EN-007 Step 6) — copied into this repo (self-contained)
+# rather than calling the reusable workflow cross-repo: a private repo calling a
+# public-repo reusable with `secrets: inherit` startup-fails. Same logic as the
+# PLX_MC gate. Soft by default (vars.COMPLIANCE_MODE); skips if PLX_MC_BASE_URL is
+# unset. Untrusted PR fields are passed via env (never interpolated into shell).
+name: PLX MC Compliance Gate
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  compliance:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Verify against PLX MC
+        env:
+          MC_BASE_URL: ${{ secrets.PLX_MC_BASE_URL }}
+          MC_CI_TOKEN: ${{ secrets.COMPLIANCE_CI_TOKEN }}
+          MODE: ${{ vars.COMPLIANCE_MODE || 'soft' }}
+          PR_BODY: ${{ github.event.pull_request.body }}
+          PR_LABELS: ${{ toJson(github.event.pull_request.labels.*.name) }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          PR_BASE_REF: ${{ github.base_ref }}
+          REPO_NAME: ${{ github.event.repository.name }}
+        run: |
+          set -euo pipefail
+          if [ -z "${MC_BASE_URL:-}" ]; then
+            echo "PLX_MC_BASE_URL not configured — compliance gate skipped (pre-rollout)."
+            exit 0
+          fi
+          git fetch --no-tags --depth=1 origin "$PR_BASE_REF" || true
+          # Capture the diff separately from jq. Piping `git diff | jq ... || echo '[]'`
+          # double-emits ([] from jq AND [] from the ||) when git diff prints nothing
+          # AND fails (a shallow fetch of a busy base has no merge base) — that invalid
+          # JSON crashes the --argjson below and hard-fails this otherwise-soft gate.
+          diff_out=$(git diff --name-only "origin/${PR_BASE_REF}...HEAD" 2>/dev/null || true)
+          changed=$(printf '%s' "$diff_out" | jq -R -s 'split("\n") | map(select(length>0))')
+          # Read EVERY MC-Checkout stamp (one per task) — a PR may complete N
+          # related tasks; verify checks all of them and blocks if any is incomplete.
+          # `grep || true` swallows the no-match exit (operator PR) under pipefail;
+          # jq then emits a valid empty array for the no-stamp case.
+          checkoutIds=$(printf '%s' "$PR_BODY" \
+            | { grep -oE 'MC-Checkout: dsp_[A-Za-z0-9]+' || true; } \
+            | sed 's/.* //' | sort -u \
+            | jq -R -s 'split("\n") | map(select(length>0))')
+          # Also send checkoutId (first stamp) so a not-yet-deployed single-task
+          # verify still gates the PR during the deploy window (back-compat); the
+          # multi-task verify prefers checkoutIds and ignores it.
+          checkout=$(printf '%s' "$checkoutIds" | jq -r '.[0] // ""')
+          body=$(jq -n \
+            --arg repo "$REPO_NAME" \
+            --argjson prNumber "$PR_NUMBER" \
+            --arg headSha "$PR_HEAD_SHA" \
+            --argjson changedPaths "$changed" \
+            --argjson labels "${PR_LABELS:-[]}" \
+            --argjson checkoutIds "${checkoutIds:-[]}" \
+            --arg checkoutId "${checkout:-}" \
+            '{repo:$repo, prNumber:$prNumber, headSha:$headSha, changedPaths:$changedPaths, labels:$labels, checkoutIds:$checkoutIds}
+             + (if $checkoutId != "" then {checkoutId:$checkoutId} else {} end)')
+          resp=$(curl -sS --max-time 20 -X POST "${MC_BASE_URL%/}/api/compliance/verify" \
+            -H 'content-type: application/json' \
+            -H "authorization: Bearer ${MC_CI_TOKEN:-}" \
+            -d "$body" || true)
+          echo "verify response: $resp"
+          if [ -z "$resp" ]; then
+            echo "Compliance gate: MC unreachable (network/timeout)."
+            if [ "$MODE" = "hard" ]; then exit 1; fi
+            echo "soft mode — not failing the check"; exit 0
+          fi
+          verdict=$(printf '%s' "$resp" | jq -r '.data.verdict // "block"')
+          reasons=$(printf '%s' "$resp" | jq -r '(.data.reasons // []) | join("; ")')
+          echo "verdict=$verdict mode=$MODE"
+          if [ "$verdict" = "pass" ]; then
+            echo "Compliance gate: PASS"
+            exit 0
+          fi
+          echo "Compliance gate: BLOCK — $reasons"
+          if [ "$MODE" = "hard" ]; then
+            exit 1
+          fi
+          echo "soft mode — recording only, not failing the check"
+          exit 0
