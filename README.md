@@ -6,7 +6,7 @@ cluster.
 
 - MC registry: `local-inference`
 - Canonical GitHub: [petralabx/local-inference](https://github.com/petralabx/local-inference) (org; promotion target)
-- Dev repo: [taylorvalton/local-inference](https://github.com/taylorvalton/local-inference) (working copy — see AGENTS.md)
+- Dev repo: [taylorvalton/local-inference-dev](https://github.com/taylorvalton/local-inference-dev) (working copy — see AGENTS.md)
 
 ## Contract
 
