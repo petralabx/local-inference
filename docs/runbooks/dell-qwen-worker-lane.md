@@ -2,7 +2,7 @@
 
 Dell tower (`VTA`, Tailscale `100.103.33.54`) runs the **code/structure worker tier** behind LiteLLM.
 
-Repo: [petralabx/local-inference](https://github.com/petralabx/local-inference) (dev: `taylorvalton/local-inference`).
+Repo: [petralabx/local-inference](https://github.com/petralabx/local-inference) (dev: `taylorvalton/local-inference-dev`).
 
 ## Aliases
 
@@ -57,6 +57,29 @@ powershell -ExecutionPolicy Bypass -File scripts/ask_local_worker.ps1 -Model loc
 ```
 
 Qwen models append `/no_think` automatically; thinking blocks are stripped from output.
+
+## Cross-platform one-shot client (Python 3.11+)
+
+```powershell
+# Windows PowerShell
+$env:LOCAL_LITELLM_MASTER_KEY = "sk-local-..."
+python scripts/ask_local_worker.py --model local-primary --prompt "Return strict JSON for this schema: ..."
+
+# Fallback to a specific env file when LOCAL_LITELLM_MASTER_KEY is not exported
+python scripts/ask_local_worker.py --model local-coder --env-file .env.local --prompt "Refactor this function for readability."
+```
+
+```bash
+# Linux / cloud shell (same defaults and aliases)
+export LOCAL_LITELLM_MASTER_KEY="sk-local-..."
+python3 scripts/ask_local_worker.py --model local-glm52 --system "You are a concise release drafter." --prompt "Draft changelog bullets."
+
+# Optional Tailscale userspace outbound HTTP proxy
+python3 scripts/ask_local_worker.py --model local-primary --proxy http://127.0.0.1:1054 --prompt "Explain this traceback."
+```
+
+The standard-library client accepts only HTTP/HTTPS proxy URLs. It does not
+implement SOCKS transport.
 
 See also: `docs/runbooks/cursor-orchestrator-worker.md`
 
