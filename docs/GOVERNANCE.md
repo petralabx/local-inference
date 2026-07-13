@@ -1,17 +1,23 @@
 # Governance pointer
 
-This repository is a **PLX-tracked repo**. Canonical governance lives in
-**PLX Mission Control** (`taylorvalton/PLX_MC`):
+This repository is a **PLX-tracked repo** (`tier: tooling` in
+`PLX_MC/config/tracked-repos-registry.json`).
 
-| Document | Path |
-|----------|------|
-| Governance contract (SSOT) | [config/governance-contract.yaml](https://github.com/taylorvalton/PLX_MC/blob/main/config/governance-contract.yaml) |
-| Collaborator / PR SOP | [docs/COLLABORATOR-SOP.md](https://github.com/taylorvalton/PLX_MC/blob/main/docs/COLLABORATOR-SOP.md) |
-| Repo onboarding | [docs/runbooks/REPO-ONBOARDING.md](https://github.com/taylorvalton/PLX_MC/blob/main/docs/runbooks/REPO-ONBOARDING.md) |
-| Fleet registry | [config/tracked-repos-registry.json](https://github.com/taylorvalton/PLX_MC/blob/main/config/tracked-repos-registry.json) |
+Canonical GitHub: **`petralabx/local-inference`**. Dev working copy:
+**`taylorvalton/local-inference-dev`** (promote by file copy — see `AGENTS.md`).
+Mission Control hub: **`petralabx/PLX_MC`** · cockpit:
+[https://mc.plxcustomer.io](https://mc.plxcustomer.io)
 
-**Do not duplicate** agent rules or MC-Checkout discipline in this repo.
-Repo-specific workflow: see `CONTRIBUTING.md` at the repo root (or path in
-tracked-repos-registry).
+| Document | Canonical location |
+|----------|-------------------|
+| Governance contract (SSOT) | [PLX_MC/config/governance-contract.yaml](https://github.com/petralabx/PLX_MC/blob/main/config/governance-contract.yaml) |
+| Collaborator / PR SOP | [PLX_MC/docs/COLLABORATOR-SOP.md](https://github.com/petralabx/PLX_MC/blob/main/docs/COLLABORATOR-SOP.md) |
+| Agent PR & MC-Checkout | [PLX_MC/docs/AGENT-PR-SOP.md](https://github.com/petralabx/PLX_MC/blob/main/docs/AGENT-PR-SOP.md) |
+| Repo onboarding (fleet) | [PLX_MC/docs/runbooks/REPO-ONBOARDING.md](https://github.com/petralabx/PLX_MC/blob/main/docs/runbooks/REPO-ONBOARDING.md) |
+| Fleet registry | [PLX_MC/config/tracked-repos-registry.json](https://github.com/petralabx/PLX_MC/blob/main/config/tracked-repos-registry.json) |
+
+**Do not duplicate** agent pillars or MC-Checkout discipline in this repo.
+Repo-specific workflow: `CONTRIBUTING.md`. Agent entry: `AGENTS.md`. Claude
+adapter: `CLAUDE.md`.
 
 Integration branch: `main`. Tier: `tooling`.
