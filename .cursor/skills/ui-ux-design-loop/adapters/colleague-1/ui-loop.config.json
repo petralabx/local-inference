@@ -1,0 +1,27 @@
+{
+  "appDir": "REPLACE_ME_COLLEAGUE1_APP",
+  "tokenCheck": {
+    "command": "node",
+    "args": [
+      "REPLACE_ME_COLLEAGUE1_TOKEN_CHECK.mjs"
+    ],
+    "fileGlobs": [
+      "REPLACE_ME_COLLEAGUE1/src/**/*.tsx"
+    ]
+  },
+  "componentMap": [
+    "REPLACE_ME_COLLEAGUE1_COMPONENT"
+  ],
+  "routesGlob": "REPLACE_ME_COLLEAGUE1/e2e/helpers/ui-loop/*.routes.ts",
+  "renderGuard": {
+    "authHeading": "REPLACE_ME_COLLEAGUE1_AUTH_HEADING",
+    "errorHeading": "REPLACE_ME_COLLEAGUE1_ERROR_HEADING"
+  },
+  "a11yAllowlist": "REPLACE_ME_COLLEAGUE1/e2e/ui-a11y-allowlist.json",
+  "viewports": [
+    "chromium"
+  ],
+  "baseUrlEnv": "REPLACE_ME_COLLEAGUE1_BASE_URL_ENV",
+  "authBypassEnv": "REPLACE_ME_COLLEAGUE1_AUTH_BYPASS_ENV",
+  "previewCommand": "REPLACE_ME_COLLEAGUE1_PREVIEW_COMMAND"
+}
