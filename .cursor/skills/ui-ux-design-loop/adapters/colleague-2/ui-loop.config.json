@@ -1,0 +1,28 @@
+{
+  "appDir": "REPLACE_ME_COLLEAGUE2_APP",
+  "tokenCheck": {
+    "command": "python3",
+    "args": [
+      "REPLACE_ME_COLLEAGUE2_TOKEN_CHECK.py"
+    ],
+    "fileGlobs": [
+      "REPLACE_ME_COLLEAGUE2/src/**/*.ts"
+    ]
+  },
+  "componentMap": [
+    "REPLACE_ME_COLLEAGUE2_COMPONENT"
+  ],
+  "routesGlob": "REPLACE_ME_COLLEAGUE2/tests/ui-loop/*.routes.ts",
+  "renderGuard": {
+    "authHeading": "REPLACE_ME_COLLEAGUE2_AUTH_HEADING",
+    "errorHeading": "REPLACE_ME_COLLEAGUE2_ERROR_HEADING"
+  },
+  "a11yAllowlist": "REPLACE_ME_COLLEAGUE2/tests/ui-a11y-allowlist.json",
+  "viewports": [
+    "chromium",
+    "mobile-chrome"
+  ],
+  "baseUrlEnv": "REPLACE_ME_COLLEAGUE2_BASE_URL_ENV",
+  "authBypassEnv": "REPLACE_ME_COLLEAGUE2_AUTH_BYPASS_ENV",
+  "previewCommand": "REPLACE_ME_COLLEAGUE2_PREVIEW_COMMAND"
+}
