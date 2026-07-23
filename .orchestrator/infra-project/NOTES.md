@@ -32,3 +32,12 @@ Also fixed stale Hermes LAN IP in `docs/HERMES_PROVIDER.md`.
 - Live routing health proof + kill-switch replay (post-merge)
 - PLX_MC `config/routing-pilots/local-inference.json` activation status flip
 - MC task checkout/complete for TASK-611..617
+
+## Verification (2026-07-23)
+
+- Unit tests: 8 OK
+- Brand check: clean
+- PR: https://github.com/petralabx/local-inference/pull/9
+- CI run: https://github.com/petralabx/local-inference/actions/runs/29973291110 (success)
+- Compliance: pass as operator PR (no agent checkout required)
+- Routing metadata live: https://github.com/petralabx/local-inference/actions/runs/29973291165 (success; ENABLED=1)
