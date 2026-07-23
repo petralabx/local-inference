@@ -1,0 +1,30 @@
+{
+  "appDir": "web",
+  "tokenCheck": {
+    "command": "node",
+    "args": [
+      ".cursor/skills/ui-ux-design-loop/adapters/_synthetic/scripts/token-check-stub.mjs"
+    ],
+    "fileGlobs": [
+      ".cursor/skills/ui-ux-design-loop/adapters/_synthetic/web/src/**/*.tsx"
+    ]
+  },
+  "componentMap": [
+    "PrimaryButton",
+    "PageShell"
+  ],
+  "routesGlob": ".cursor/skills/ui-ux-design-loop/adapters/_synthetic/web/e2e/helpers/ui-loop/*.routes.ts",
+  "renderGuard": {
+    "authHeading": "Sign in",
+    "errorHeading": "Unexpected error"
+  },
+  "a11yAllowlist": ".cursor/skills/ui-ux-design-loop/adapters/_synthetic/web/e2e/ui-a11y-allowlist.json",
+  "viewports": [
+    "chromium",
+    "tablet",
+    "mobile-chrome"
+  ],
+  "baseUrlEnv": "SYNTHETIC_E2E_BASE_URL",
+  "authBypassEnv": "SYNTHETIC_AUTH_BYPASS",
+  "previewCommand": "node .cursor/skills/ui-ux-design-loop/adapters/_synthetic/scripts/preview-stub.mjs"
+}
