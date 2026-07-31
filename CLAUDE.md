@@ -28,8 +28,11 @@ engineering-root stability).
 - Never commit secrets (`.env.local` stays untracked).
 - Develop in `taylorvalton/local-inference-dev`; promote tracked files to
   `petralabx/local-inference` (unrelated histories — no merge/rebase across remotes).
-- Agent PRs on the tracked canonical repo need `MC-Checkout: dsp_…` (see
-  PLX_MC AGENT-PR-SOP).
+- Agent PRs on the tracked canonical repo need `MC-Checkout: dsp_…` with
+  `meta.actor.repo == petralabx/local-inference` (see
+  `.cursor/rules/mc-compliance-gate.mdc` and PLX_MC AGENT-PR-SOP). Portal/Hub
+  MCP stamps are wrong-scope here — use
+  `bash scripts/mc-checkout-local-inference.sh TASK-NNN`.
 - Day-to-day PR discipline: PLX_MC `COLLABORATOR-SOP.md`. Fleet onboarding /
   tier checklist: PLX_MC `REPO-ONBOARDING.md`.
 

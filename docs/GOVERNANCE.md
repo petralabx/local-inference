@@ -16,8 +16,10 @@ Mission Control hub: **`petralabx/PLX_MC`** · cockpit:
 | Repo onboarding (fleet) | [PLX_MC/docs/runbooks/REPO-ONBOARDING.md](https://github.com/petralabx/PLX_MC/blob/main/docs/runbooks/REPO-ONBOARDING.md) |
 | Fleet registry | [PLX_MC/config/tracked-repos-registry.json](https://github.com/petralabx/PLX_MC/blob/main/config/tracked-repos-registry.json) |
 
-**Do not duplicate** agent pillars or MC-Checkout discipline in this repo.
-Repo-specific workflow: `CONTRIBUTING.md`. Agent entry: `AGENTS.md`. Claude
-adapter: `CLAUDE.md`.
+**Do not duplicate** full agent pillars or the entire MC-Checkout SOP in this
+repo — those stay in PLX_MC. Exception: keep the thin always-applied operational
+guard in `.cursor/rules/mc-compliance-gate.mdc` (repo slug handshake + Portal
+MCP wrong-scope failure mode). Repo-specific workflow: `CONTRIBUTING.md`. Agent
+entry: `AGENTS.md`. Claude adapter: `CLAUDE.md`.
 
 Integration branch: `main`. Tier: `tooling`.
