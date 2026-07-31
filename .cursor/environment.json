@@ -1,0 +1,10 @@
+{
+  "name": "local-inference",
+  "install": "bash scripts/setup_linux_venv.sh",
+  "start": "",
+  "terminals": [],
+  "repositoryDependencies": [
+    "github.com/taylorvalton/local-inference-dev",
+    "github.com/petralabx/PLX_MC"
+  ]
+}
