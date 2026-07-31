@@ -83,7 +83,12 @@ fi
 
 printf '== 2. PR stamps ==\n'
 if [[ -z "$PR_NUM" ]]; then
-  PR_NUM="$(gh pr view --repo "$MC_REPO" --json number --jq '.number' 2>/dev/null || true)"
+  # `gh pr view --repo` ignores local branch context, so resolve by head branch.
+  branch="$(git rev-parse --abbrev-ref HEAD 2>/dev/null || true)"
+  if [[ -n "$branch" && "$branch" != "HEAD" ]]; then
+    PR_NUM="$(gh pr list --repo "$MC_REPO" --head "$branch" --state all \
+      --json number --jq '.[0].number // empty' 2>/dev/null || true)"
+  fi
 fi
 if [[ -z "$PR_NUM" ]]; then
   info "no PR for this branch yet — stamp and gate checks deferred until it exists"
