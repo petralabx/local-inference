@@ -63,13 +63,16 @@ repo. Keep install lean here; put multi-root layout in the dashboard env.
 Hard gate on this repo. Always-applied rule:
 `.cursor/rules/mc-compliance-gate.mdc`.
 
-Before first push: checkout with `MC_REPO=petralabx/local-inference`, confirm
-`meta.actor.repo` matches, stamp the returned `MC-Checkout: dsp_…` line(s),
-then `mc_complete_task` with evidence. Helper:
-
 ```bash
-bash scripts/mc-checkout-local-inference.sh TASK-NNN
+bash scripts/mc-checkout-local-inference.sh TASK-NNN   # scoped stamp
+# ... work, stamp the PR, hand in evidence ...
+bash scripts/mc-pr-preflight.sh --wait                 # must exit 0 before "done"
 ```
+
+`mc-pr-preflight.sh` is the close-out gate: it checks checkout scope,
+stamp/task parity, task evidence, and the real GitHub `compliance` conclusion.
+A successful `mc_complete_task` is **not** proof the gate passed — on PR #11 it
+returned ok 19s before the gate blocked.
 
 `PLX-MC-Portal` / `PLX-MC-Hub` stamps are wrong-scope for this repo and fail CI
 with decision 3 (`checkout handshake required`). Never invent stamps; never

@@ -5,59 +5,57 @@ alwaysApply: true
 
 # MC Compliance Gate — local-inference
 
-This repo is fleet-hard (`petralabx/local-inference`, tier tooling). Agent PRs
-**must** pass the PLX MC Compliance Gate. Do not open or update a PR until the
-sequence below succeeds. Canonical SOP:
+Fleet-hard repo (`petralabx/local-inference`, tier tooling). Agent PRs are
+blocked without a valid checkout and complete evidence. Canonical SOP:
 https://github.com/petralabx/PLX_MC/blob/main/docs/AGENT-PR-SOP.md
 
-## Required sequence (every agent PR)
+## The one non-negotiable step
 
-1. Resolve / create the MC task (`mc_suggest_work` / `mc_create_task`).
-2. Check out with **`MC_REPO=petralabx/local-inference`** (exact full slug).
-3. **Handshake before any push** — reject the stamp unless all are true:
-   - returned `taskId` matches the intended task
-   - `meta.actor.repo == petralabx/local-inference`
-   - PR body uses the returned `prBodyLine` / `MC-Checkout: dsp_…` **verbatim**
-4. Do the work. Report progress on long runs.
-5. Call `mc_complete_task` (or REST `/api/cursor/complete`) with `summary`,
-   `rollback`, `verificationCommands`, and `prUrl` when known — **before**
-   treating the PR as ready for CI.
-6. After PR open/push: confirm the GitHub `compliance` check is **pass**. If it
-   is `block`, fix the stamp/evidence and push again — never edit
-   `.github/workflows/*compliance*`.
+Never report this work as done, ready, or merge-ready until this exits 0:
 
-## Critical: Portal MCP is the wrong scope for this repo
+```bash
+bash scripts/mc-pr-preflight.sh --wait
+```
 
-Team MCP `PLX-MC-Portal` pins `x-mc-repo: petralabx/plx-customer-portal`.
-`PLX-MC-Hub` pins `petralabx/PLX_MC`. A successful Portal/Hub checkout that
-returns a `dsp_*` is **invalid** on this repo's gate and fails as:
+It verifies checkout scope, stamp/task parity, task evidence, and the actual
+GitHub `compliance` conclusion. If you have not run it, you do not know the
+gate passed. Self-test: `bash tests/test_mc_pr_preflight.sh`.
+
+## Two facts that already caused a failure here
+
+1. **Prose alone did not hold.** A rule requiring the `meta.actor.repo`
+   handshake was already active when PR #11 was stamped wrong-scope. Running
+   the preflight is what catches it; reading the rule did not.
+2. **`complete()` returning ok is not gate success.** On PR #11
+   `mc_complete_task` returned `{"ok": true}` at 16:50:17 and the gate
+   **BLOCKED** at 16:50:36. Evidence hand-in and gate verdict are different
+   signals — only check 4 of the preflight is authoritative.
+
+## Sequence
+
+1. Resolve or create the MC task (`mc_suggest_work` / `mc_create_task`).
+2. Check out **scoped to this repo**:
+   `bash scripts/mc-checkout-local-inference.sh TASK-NNN`
+3. Stamp the PR body with the returned `MC-Checkout: dsp_…` **verbatim**, one
+   line per task.
+4. Hand in evidence (`mc_complete_task` / `/api/cursor/complete`) with
+   `summary`, `rollback`, `verificationCommands`, `prUrl`.
+5. Run the preflight above and act on its exit code.
+
+## Wrong-scope trap
+
+Team MCP `PLX-MC-Portal` pins `x-mc-repo: petralabx/plx-customer-portal`;
+`PLX-MC-Hub` pins `petralabx/PLX_MC`. Their checkouts succeed and return a real
+`dsp_*`, but on this repo the gate rejects them:
 
 `agent PR has no checked-out MC task (decision 3: checkout handshake required)`
 
-When `meta.actor.repo` is missing or not `petralabx/local-inference`:
-
-```bash
-# Prefer this helper (hydrates PLX_MC_MCP_API_KEY from AWS when needed)
-bash scripts/mc-checkout-local-inference.sh TASK-NNN
-```
-
-Or REST (same headers the helper uses):
-
-```bash
-curl -fsS -X POST https://mc.plxcustomer.io/api/cursor/checkout \
-  -H "x-api-key: ${PLX_MC_MCP_API_KEY}" \
-  -H "x-mc-operator-email: cos@petrasoap.com" \
-  -H "x-mc-repo: petralabx/local-inference" \
-  -H "x-mc-runtime: cursor-cloud" \
-  -H "content-type: application/json" \
-  --data '{"taskId":"TASK-NNN"}'
-```
-
-Never stamp a Portal- or Hub-scoped `dsp_*` on a `local-inference` PR.
+Always mint the stamp with `x-mc-repo: petralabx/local-inference` (the helper in
+step 2 enforces this and refuses to print a mismatched stamp).
 
 ## Do not
 
-- Invent or reconstruct `MC-Checkout` lines
-- Skip `mc_complete_task` / evidence hand-in
-- Bypass, soften, or edit the compliance workflow to force green
-- Claim the PR is merge-ready while `compliance` is failing
+- Invent, reconstruct, or reuse a stamp from another repo's scope
+- Treat a successful `complete()` as a green gate
+- Bypass, soften, or edit `.github/workflows/*compliance*`
+- Claim done while `compliance` is failing or has not concluded
