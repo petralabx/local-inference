@@ -5,59 +5,26 @@ alwaysApply: true
 
 # MC Compliance Gate — local-inference
 
-This repo is fleet-hard (`petralabx/local-inference`, tier tooling). Agent PRs
-**must** pass the PLX MC Compliance Gate. Do not open or update a PR until the
-sequence below succeeds. Canonical SOP:
+Fleet-hard repo (`petralabx/local-inference`, tier tooling). Canonical SOP:
 https://github.com/petralabx/PLX_MC/blob/main/docs/AGENT-PR-SOP.md
 
-## Required sequence (every agent PR)
-
-1. Resolve / create the MC task (`mc_suggest_work` / `mc_create_task`).
-2. Check out with **`MC_REPO=petralabx/local-inference`** (exact full slug).
-3. **Handshake before any push** — reject the stamp unless all are true:
-   - returned `taskId` matches the intended task
-   - `meta.actor.repo == petralabx/local-inference`
-   - PR body uses the returned `prBodyLine` / `MC-Checkout: dsp_…` **verbatim**
-4. Do the work. Report progress on long runs.
-5. Call `mc_complete_task` (or REST `/api/cursor/complete`) with `summary`,
-   `rollback`, `verificationCommands`, and `prUrl` when known — **before**
-   treating the PR as ready for CI.
-6. After PR open/push: confirm the GitHub `compliance` check is **pass**. If it
-   is `block`, fix the stamp/evidence and push again — never edit
-   `.github/workflows/*compliance*`.
-
-## Critical: Portal MCP is the wrong scope for this repo
-
-Team MCP `PLX-MC-Portal` pins `x-mc-repo: petralabx/plx-customer-portal`.
-`PLX-MC-Hub` pins `petralabx/PLX_MC`. A successful Portal/Hub checkout that
-returns a `dsp_*` is **invalid** on this repo's gate and fails as:
-
-`agent PR has no checked-out MC task (decision 3: checkout handshake required)`
-
-When `meta.actor.repo` is missing or not `petralabx/local-inference`:
+## Non-negotiable close-out
 
 ```bash
-# Prefer this helper (hydrates PLX_MC_MCP_API_KEY from AWS when needed)
-bash scripts/mc-checkout-local-inference.sh TASK-NNN
+# Mint with this repo's exact slug (Portal/Hub stamps are wrong-scope here)
+COMPLIANCE_CAPTURE=1 MC_REPO=petralabx/local-inference \
+  MC_BASE_URL=https://mc.plxcustomer.io MC_ACCOUNTABLE=cos@petrasoap.com \
+  MC_MCP_API_KEY=… MC_TASK_ID=TASK-NNN \
+  node scripts/compliance-checkout.mjs
+
+# After PR open + evidence hand-in — must exit 0 before claiming done
+MC_REPO=petralabx/local-inference MC_MCP_API_KEY=… \
+  node scripts/compliance-pr-verify.mjs --wait
 ```
 
-Or REST (same headers the helper uses):
+`mc_complete_task` returning ok is **not** gate success (local-inference#11).
+Only GitHub `compliance` SUCCESS / verify exit 0 is.
 
-```bash
-curl -fsS -X POST https://mc.plxcustomer.io/api/cursor/checkout \
-  -H "x-api-key: ${PLX_MC_MCP_API_KEY}" \
-  -H "x-mc-operator-email: cos@petrasoap.com" \
-  -H "x-mc-repo: petralabx/local-inference" \
-  -H "x-mc-runtime: cursor-cloud" \
-  -H "content-type: application/json" \
-  --data '{"taskId":"TASK-NNN"}'
-```
-
-Never stamp a Portal- or Hub-scoped `dsp_*` on a `local-inference` PR.
-
-## Do not
-
-- Invent or reconstruct `MC-Checkout` lines
-- Skip `mc_complete_task` / evidence hand-in
-- Bypass, soften, or edit the compliance workflow to force green
-- Claim the PR is merge-ready while `compliance` is failing
+Prefer `bash scripts/mc-checkout-local-inference.sh TASK-NNN` when the MCP key
+is hydrated from AWS. Never invent stamps; never edit
+`.github/workflows/*compliance*`.
