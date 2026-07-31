@@ -24,3 +24,36 @@ Two remotes carry this codebase with unrelated git histories:
 - Do not merge or rebase across the two remotes; they have unrelated roots.
 - Secrets (`.env.local`) stay untracked in both repos.
 - `.orchestrator/` evidence is promoted intentionally, not by default.
+
+## Cursor Cloud Agents
+
+Committed config: `.cursor/environment.json`. On Cloud Agent start it runs
+`scripts/setup_linux_venv.sh` (creates `.venv/`, installs `requirements.txt`).
+
+### Session facts
+
+- A running JIT agent (`environment=null`) **cannot** be re-attached to a saved
+  environment. Start a **new** agent after this config lands on the default
+  branch (or launch via API with `env.name`).
+- Cloud VMs are Linux. Use `.venv/bin/...`, never Dell Windows `.venv/Scripts/`.
+- Do not start Dell/DGX GPU backends in the cloud VM. Call the Tailscale proxy
+  at `http://100.103.33.54:4000/v1` via the request-scoped userspace proxy
+  `http://127.0.0.1:1054` — never set global `HTTP(S)_PROXY` / `ALL_PROXY`.
+- Secrets (`LOCAL_LITELLM_MASTER_KEY`) belong in the dashboard environment
+  Secrets tab, not in git.
+
+### Multi-repo workspace (dashboard)
+
+`repositoryDependencies` only expands GitHub token scope; it does **not** clone
+siblings. For automatic sibling checkouts (dev + canonical + PLX_MC):
+
+1. Open [Cloud Agents → Environments](https://cursor.com/dashboard/cloud-agents#environments).
+2. Create / edit an environment and select
+   `petralabx/local-inference`, `taylorvalton/local-inference-dev`, and any
+   other needed repos.
+3. Save a snapshot after agent-driven setup if you want faster boots.
+4. Start new agents against that repo group (UI) or
+   `POST /v1/agents` with `env: { "type": "cloud", "name": "<exact name>" }`.
+
+Committed `.cursor/environment.json` outranks personal/team saved envs for this
+repo. Keep install lean here; put multi-root layout in the dashboard env.
