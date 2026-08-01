@@ -24,16 +24,28 @@ else
 fi
 
 printf '\n-- python/venv --\n'
-python --version 2>&1 || true
+(command -v python >/dev/null 2>&1 && python --version) || true
+(command -v python3 >/dev/null 2>&1 && python3 --version) || true
 if [ -x .venv/Scripts/python.exe ]; then
   .venv/Scripts/python.exe --version
-  .venv/Scripts/python.exe -m pip show litellm >/dev/null 2>&1 && printf 'LiteLLM installed in .venv\n' || printf 'LiteLLM not installed in .venv\n'
+  .venv/Scripts/python.exe -m pip show litellm >/dev/null 2>&1 && printf 'LiteLLM installed in Windows .venv\n' || printf 'LiteLLM not installed in Windows .venv\n'
+elif [ -x .venv/bin/python ]; then
+  .venv/bin/python --version
+  .venv/bin/python -m pip show litellm >/dev/null 2>&1 && printf 'LiteLLM installed in Linux .venv\n' || printf 'LiteLLM not installed in Linux .venv\n'
 else
-  printf '.venv not created yet\n'
+  printf '.venv not created yet (Windows: .venv/Scripts; Linux/Cloud: bash scripts/setup_linux_venv.sh)\n'
 fi
 
 printf '\n-- ports --\n'
-python - <<'PY'
+if command -v python3 >/dev/null 2>&1; then
+  PY_CMD=python3
+elif command -v python >/dev/null 2>&1; then
+  PY_CMD=python
+else
+  PY_CMD=
+fi
+if [ -n "$PY_CMD" ]; then
+  "$PY_CMD" - <<'PY'
 import socket
 for port in [4000,8000,8001]:
     s=socket.socket(); s.settimeout(.5)
@@ -44,3 +56,6 @@ for port in [4000,8000,8001]:
     finally:
         s.close()
 PY
+else
+  printf 'MISSING: python/python3 for port probe\n'
+fi
