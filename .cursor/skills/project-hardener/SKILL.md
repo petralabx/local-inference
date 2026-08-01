@@ -1,6 +1,13 @@
 ---
 name: project-hardener
-description: Drive an integrated project branch to near-perfect quality with a bounded convergence loop: detect failures (full suite, E2E, lint, typecheck), triage findings, run adversarial fixer and auditor passes, and prove zero regressions versus a pre-harden baseline. Use when the user says "harden this", "drive to near-perfect", "fix bugs and tighten before merge", "post-build convergence", or asks for final quality hardening after implementation.
+description: >-
+  Drive an integrated project branch to near-perfect quality with a bounded
+  convergence loop: detect failures (full suite, E2E, lint, typecheck), triage
+  findings, run adversarial fixer and auditor passes, and prove zero
+  regressions versus a pre-harden baseline. Use when the user says "harden
+  this", "drive to near-perfect", "fix bugs and tighten before merge",
+  "post-build convergence", or asks for final quality hardening after
+  implementation.
 ---
 
 # Project Hardener

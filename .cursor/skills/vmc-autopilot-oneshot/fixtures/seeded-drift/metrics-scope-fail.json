@@ -1,0 +1,62 @@
+{
+  "schema_version": "autopilot.metrics.v1",
+  "phase": "A",
+  "mode": "hybrid",
+  "baseline_ref": "artifacts/autopilot/2026-04-24-baseline/metrics.json",
+  "gate_result": "fail",
+  "metrics": {
+    "scope_drift_commit_rate": 1,
+    "replan_rate": 1,
+    "plan_hash_repeat_count": 0,
+    "max_required_evidence_age_seconds": 0,
+    "lane_terminal_state_coverage": "not_applicable",
+    "unresolved_cross_lane_conflicts": 0,
+    "orchestrator_single_writer_violations": 0,
+    "phase_exit_gate_pass_rate": 0,
+    "evidence_bundle_completeness": 1,
+    "session_resume_success_rate": 1,
+    "model_drift_z_score": "not_applicable"
+  },
+  "detectors": [
+    {
+      "detector": "detect_scope_drift",
+      "status": "fail",
+      "metric_key": "scope_drift_commit_rate",
+      "metric_value": 1,
+      "evidence_ref": "artifacts/autopilot/2026-04-24-a-seeded-scope-drift/metrics.json",
+      "decision": "replan"
+    },
+    {
+      "detector": "detect_plan_drift",
+      "status": "pass",
+      "metric_key": "plan_hash_repeat_count",
+      "metric_value": 0,
+      "evidence_ref": "artifacts/autopilot/2026-04-24-a-seeded-scope-drift/metrics.json",
+      "decision": "continue"
+    },
+    {
+      "detector": "detect_evidence_drift",
+      "status": "pass",
+      "metric_key": "max_required_evidence_age_seconds",
+      "metric_value": 0,
+      "evidence_ref": "artifacts/autopilot/2026-04-24-a-seeded-scope-drift/metrics.json",
+      "decision": "continue"
+    },
+    {
+      "detector": "detect_context_drift",
+      "status": "pass",
+      "metric_key": "session_resume_success_rate",
+      "metric_value": 1,
+      "evidence_ref": "artifacts/autopilot/2026-04-24-a-seeded-scope-drift/metrics.json",
+      "decision": "continue"
+    },
+    {
+      "detector": "detect_model_drift",
+      "status": "not_applicable",
+      "metric_key": "model_drift_z_score",
+      "metric_value": "not_applicable",
+      "evidence_ref": "artifacts/autopilot/2026-04-24-a-seeded-scope-drift/metrics.json",
+      "decision": "continue"
+    }
+  ]
+}

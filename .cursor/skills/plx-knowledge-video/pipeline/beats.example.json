@@ -1,0 +1,32 @@
+{
+  "voice": "EXAVITQu4vr4xnSDxMaL",
+  "model": "eleven_multilingual_v2",
+  "beats": [
+    {
+      "slug": "01-map",
+      "url": "/mrp/sop-flows",
+      "clickText": "Procure-to-Pay",
+      "focusText": "Procure-to-Pay",
+      "narration": "Procure to Pay at PLX is one controlled, auditable chain from request to payment. This is the process map: requisition, purchase order, receipt, vendor invoice, and payment, with Business Central as the finance system of record."
+    },
+    {
+      "slug": "02-requisition",
+      "url": "/mrp/generate-po",
+      "focusText": "Needs approval",
+      "narration": "It begins with a requisition for raw material from an approved supplier. Approval is a separate step by design, so the person who requests is not the person who approves. Only an approved requisition becomes a purchase order, the authorized commitment to the vendor."
+    },
+    {
+      "slug": "03-paid",
+      "url": "/mrp/purchase-orders/cms6u5q3j000204l26eesxrka?warehouseId=cloc_wh_sage_11",
+      "scrollTo": "BC AP Invoicing",
+      "focusText": "Remaining",
+      "narration": "The goods are received against that order, the first leg of the three way match. The vendor invoice is posted in Business Central against the same purchase order, so it can never exceed what was ordered and received. Here, the purchase order is complete and paid: ten of ten received, the invoice settled in full, remaining zero."
+    },
+    {
+      "slug": "04-payments",
+      "url": "/mrp/ap-payments",
+      "focusText": "Add to BC payment journal",
+      "narration": "Payments are staged and posted through Business Central, and the portal mirrors the live invoice and payment status. One controlled chain, fully auditable, from request to settlement, with finance and leadership seeing the same system of record."
+    }
+  ]
+}

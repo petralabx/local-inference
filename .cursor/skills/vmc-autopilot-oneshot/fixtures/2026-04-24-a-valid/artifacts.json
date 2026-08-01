@@ -1,0 +1,34 @@
+{
+  "schema_version": "autopilot.artifacts.v1",
+  "bundle": "artifacts/autopilot/2026-04-24-a-valid",
+  "files": [
+    {
+      "path": "REPORT.md",
+      "purpose": "human summary and metric deltas"
+    },
+    {
+      "path": "artifacts.json",
+      "purpose": "bundle index"
+    },
+    {
+      "path": "commands.log",
+      "purpose": "command evidence"
+    },
+    {
+      "path": "mcp-evidence.json",
+      "purpose": "MCP schema-first evidence"
+    },
+    {
+      "path": "metrics.json",
+      "purpose": "numeric gate results"
+    },
+    {
+      "path": "ledger-snapshot.jsonl",
+      "purpose": "resume and debug ledger records"
+    },
+    {
+      "path": "risks.md",
+      "purpose": "residual risk and rollback notes"
+    }
+  ]
+}
