@@ -116,6 +116,63 @@ The description is **critical** for skill discovery. The agent uses it to decide
    - WHAT: What the skill does (specific capabilities)
    - WHEN: When the agent should use it (trigger scenarios)
 
+### YAML pitfalls that silently empty the description
+
+The frontmatter is YAML, so an unquoted `": "` anywhere in a plain scalar makes
+the parser read the value as a nested mapping and the whole block fails to load —
+the picker then shows the skill with **no description at all**:
+
+```yaml
+# Breaks: the ": " after "loop" starts a nested mapping
+description: Drive quality with a bounded loop: detect, triage, fix.
+
+# Works: fold it into a block scalar
+description: >-
+  Drive quality with a bounded loop: detect, triage, fix.
+
+# Also works: quote the whole value
+description: "Drive quality with a bounded loop: detect, triage, fix."
+```
+
+Whatever the repo, confirm the frontmatter still parses as YAML after editing a
+description. In `petralabx/skills`, `python scripts/validate-manifest.py` checks
+every skill and fails on exactly this mistake.
+
+### In petralabx/skills, the description lives in two places
+
+`petralabx/skills` also catalogues each skill in `manifest.json`, and the two
+copies are read by different consumers:
+
+| Location | Read by |
+|----------|---------|
+| `SKILL.md` frontmatter | the Cursor / Claude agent picker |
+| `manifest.json` entry | the PLX MC skills directory (`mc_list_skills`) |
+
+They must be **byte-identical**, and CI enforces it. When you add or edit a
+skill, update both — and copy the **folded** text into the JSON, never the block
+scalar marker itself. Given this frontmatter:
+
+```yaml
+description: >-
+  Keep a PR merge-ready by triaging comments.
+```
+
+the correct manifest entry is the folded string:
+
+```json
+"description": "Keep a PR merge-ready by triaging comments."
+```
+
+and this is the mistake to avoid:
+
+```json
+"description": ">-"
+```
+
+That last form is a real defect that once affected seven skills. `canvas` shipped
+with a two-character description in place of 797 characters of guidance, so
+agents had no idea when to use it.
+
 ### Description Examples
 
 ```yaml

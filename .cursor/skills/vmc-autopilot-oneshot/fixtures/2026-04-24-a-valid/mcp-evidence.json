@@ -1,0 +1,13 @@
+{
+  "schema_version": "autopilot.mcp-evidence.v1",
+  "calls": [
+    {
+      "tool": "vmc_get_context",
+      "descriptor_read": true,
+      "ts": "2026-04-24T20:26:00-04:00",
+      "request_ref": "fixture/request.json",
+      "response_ref": "fixture/response.json",
+      "outcome": "pass"
+    }
+  ]
+}

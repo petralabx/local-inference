@@ -5,7 +5,8 @@ description: >-
   pitch microsite for a brand (the PAUME pattern) using the typed microsite
   engine. Use when asked to build a capabilities deck, an innovation /
   diversification pitch, a multi-concept product proposal microsite, or "a
-  PAUME-style microsite" for a customer, and to publish it to staging.
+  PAUME-style microsite" for a customer, publish it to staging, and export/email
+  a print-clean PDF.
 ---
 
 # Capabilities Deck
