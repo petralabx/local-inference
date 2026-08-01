@@ -88,7 +88,9 @@ def validate_mcp(path: Path) -> None:
 
 
 def validate_ledger_snapshot(path: Path) -> None:
-    lines = [line for line in path.read_text(encoding="utf-8").splitlines() if line.strip()]
+    lines = [
+        line for line in path.read_text(encoding="utf-8").splitlines() if line.strip()
+    ]
     if not lines:
         fail("ledger-snapshot.jsonl must contain at least one record")
     for idx, line in enumerate(lines, start=1):

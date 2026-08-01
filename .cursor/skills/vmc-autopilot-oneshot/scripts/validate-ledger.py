@@ -80,7 +80,11 @@ def main() -> None:
     latest_by_phase: dict[str, str] = {}
     saw_entry = False
     previous_ts: datetime | None = None
-    lines = [line for line in args.ledger.read_text(encoding="utf-8").splitlines() if line.strip()]
+    lines = [
+        line
+        for line in args.ledger.read_text(encoding="utf-8").splitlines()
+        if line.strip()
+    ]
     if not lines:
         fail("ledger must contain at least one record")
 
