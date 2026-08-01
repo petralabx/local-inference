@@ -1,0 +1,35 @@
+/* report-export — reusable print stylesheet for Markdown→HTML→PDF reports.
+   Flat, professional, print-friendly. No gradients/shadows. */
+:root{
+  --ink:#1f2933; --muted:#52606d; --faint:#7b8794; --line:#d2d9e0;
+  --accent:#0f766e; --accent-soft:#e6f2f0; --band:#0b3b39;
+  --good:#0f766e; --warn:#b45309; --bad:#b91c1c;
+}
+*{ box-sizing:border-box; }
+html,body{ margin:0; padding:0; background:#fff; }
+body{
+  font-family:"Segoe UI",-apple-system,Helvetica,Arial,sans-serif;
+  color:var(--ink); font-size:13px; line-height:1.55;
+  max-width:920px; margin:0 auto; padding:28px 34px 60px;
+}
+h1{ font-size:24px; margin:4px 0 6px; border-bottom:3px solid var(--accent); padding-bottom:10px; }
+h2{ font-size:16.5px; margin:28px 0 8px; color:var(--band); border-bottom:1px solid var(--line); padding-bottom:5px; }
+h3{ font-size:13.5px; margin:18px 0 6px; }
+p{ margin:7px 0; }
+a{ color:var(--accent); }
+small,.small{ font-size:11px; color:var(--faint); }
+ul,ol{ margin:6px 0 6px 20px; padding:0; } li{ margin:3px 0; }
+code{ font-family:"Cascadia Code",Consolas,monospace; font-size:.92em; background:#f4f6f8; padding:1px 4px; border-radius:3px; }
+pre{ background:#f4f6f8; border:1px solid var(--line); border-radius:6px; padding:10px 12px; overflow:auto; }
+blockquote{ margin:10px 0; padding:8px 14px; border-left:4px solid var(--accent); background:var(--accent-soft); border-radius:0 6px 6px 0; color:var(--muted); }
+table{ border-collapse:collapse; width:100%; margin:10px 0; font-size:12px; }
+th,td{ border:1px solid var(--line); padding:6px 9px; text-align:left; vertical-align:top; }
+th{ background:#f4f6f8; font-weight:600; color:var(--band); }
+tbody tr:nth-child(even){ background:#fafbfc; }
+hr{ border:none; border-top:1px solid var(--line); margin:22px 0; }
+@media print{
+  body{ padding:0; max-width:none; }
+  h2{ page-break-after:avoid; }
+  table,tr,pre,blockquote{ page-break-inside:avoid; }
+}
+@page{ size:Letter; margin:16mm 15mm; }
