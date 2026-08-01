@@ -1,0 +1,9 @@
+{
+  "schema_version": "plx-mc-routing-local/v1",
+  "repo": "petralabx/local-inference",
+  "policy_version": "routing.v1",
+  "fuzzy_auto_link_enabled": false,
+  "default_bucket": "BKT-INFRA",
+  "path_rules": [],
+  "note": "Path rules are non-authoritative and are not consumed by the current central runtime."
+}

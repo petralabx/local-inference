@@ -1,0 +1,34 @@
+{
+  "schema_version": "plx-mc-routing-manifest/v1",
+  "workflow": {
+    "path": ".github/workflows/mc-routing-metadata.yml",
+    "mode": "metadata-only",
+    "constraints": [
+      "no_actions_checkout",
+      "no_pr_code_execution",
+      "no_pr_dependency_install",
+      "no_pr_controlled_cache",
+      "oidc_only"
+    ]
+  },
+  "proposal": {
+    "endpoint": "/api/routing/propose",
+    "auth": "github-actions-oidc"
+  },
+  "local_path_manifest": {
+    "path": ".plx/mc-routing.json",
+    "schema_version": "plx-mc-routing-local/v1"
+  },
+  "rollout": {
+    "authoritative": false,
+    "authority": "central-pilot-descriptor",
+    "descriptor_reference": "config/routing-pilots/local-inference.json"
+  },
+  "kill_switches": {
+    "authoritative": false,
+    "authority": "central-runtime-and-repository-configuration"
+  },
+  "deferred": {
+    "github_app_checks": "checks:write and check_run.requested_action require a new approved spec"
+  }
+}
