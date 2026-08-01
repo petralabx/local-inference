@@ -14,6 +14,15 @@ Mapped to the seven backlog follow-ups by sequential hardening gaps observed in
 `petralabx/local-inference` against tooling-tier / routing-activation requirements.
 Re-read MC task titles when MCP is available and adjust if titles differ.
 
+> **Reconciled 2026-08-01 (TASK-894): the mapping below is wrong.** With MC
+> reachable, TASK-611..617 read as MCP-platform work — protocol smoke tests,
+> Windows MCP CI on Node LTS/current, hardcoded MCP checkout paths, the shared
+> staging-secrets loader, redacted MCP startup logs and timeouts, scheduled MCP
+> health probes, and PLX_MC dependency-audit triage. None of them describe the
+> seven deliverables in this table. **Do not complete TASK-611..617 with PR #9
+> as evidence.** They stay in backlog; the work PR #9 actually shipped is
+> recorded under its own tasks.
+
 | Gap | Deliverable |
 |-----|-------------|
 | 1 | `.github/workflows/mc-routing-metadata.yml` (scaffold --routing-only) |
