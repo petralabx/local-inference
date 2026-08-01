@@ -25,6 +25,17 @@ MC_REPO=petralabx/local-inference MC_MCP_API_KEY=… \
 `mc_complete_task` returning ok is **not** gate success (local-inference#11).
 Only GitHub `compliance` SUCCESS / verify exit 0 is.
 
+## Order: complete only after the last push
+
+Completing a task closes its checkout, so the stamp stops resolving and any
+later push re-runs the gate into `decision 3: checkout handshake required`
+(local-inference#13). Keep the checkout open until the branch is final:
+
+    checkout -> PR -> gate green -> merge -> complete
+
+If a push is unavoidable after completing, mint a fresh checkout for the same
+task and replace the stamp line in the PR body before the gate re-runs.
+
 Prefer `bash scripts/mc-checkout-local-inference.sh TASK-NNN` when the MCP key
 is hydrated from AWS. Never invent stamps; never edit
 `.github/workflows/*compliance*`.
