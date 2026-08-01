@@ -61,16 +61,16 @@ repo. Keep install lean here; put multi-root layout in the dashboard env.
 ## MC Compliance Gate (agent PRs)
 
 Hard gate on this repo. Always-applied rule:
-`.cursor/rules/mc-compliance-gate.mdc`.
-
-Before first push: checkout with `MC_REPO=petralabx/local-inference`, confirm
-`meta.actor.repo` matches, stamp the returned `MC-Checkout: dsp_…` line(s),
-then `mc_complete_task` with evidence. Helper:
+`.cursor/rules/mc-compliance-gate.mdc`. Fleet SSOT:
+`petralabx/PLX_MC` (`scripts/compliance-pr-verify.mjs`, drift-checked here).
 
 ```bash
-bash scripts/mc-checkout-local-inference.sh TASK-NNN
+bash scripts/mc-checkout-local-inference.sh TASK-NNN   # scoped stamp
+# ... work, stamp the PR, hand in evidence via mc_complete_task ...
+MC_REPO=petralabx/local-inference node scripts/compliance-pr-verify.mjs --wait
 ```
 
-`PLX-MC-Portal` / `PLX-MC-Hub` stamps are wrong-scope for this repo and fail CI
-with decision 3 (`checkout handshake required`). Never invent stamps; never
-edit `.github/workflows/*compliance*`.
+`mc_complete_task` returning ok is **not** gate success (PR #11). Only GitHub
+`compliance` SUCCESS / verify exit 0 is. Portal/Hub MCP stamps are wrong-scope
+here (decision 3). Never invent stamps; never edit
+`.github/workflows/*compliance*`.
