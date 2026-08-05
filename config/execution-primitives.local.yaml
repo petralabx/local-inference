@@ -2,7 +2,7 @@
 # schema_version: execution-primitives.local.v1
 
 schema_version: execution-primitives.local.v1
-repo: taylorvalton/local-inference-dev
+repo: petralabx/local-inference
 control_plane_host: dell-vta
 
 client_contract:

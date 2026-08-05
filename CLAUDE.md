@@ -26,8 +26,11 @@ engineering-root stability).
 
 - Prefer the Tailscale proxy URL for cross-machine clients.
 - Never commit secrets (`.env.local` stays untracked).
-- Develop in `taylorvalton/local-inference-dev`; promote tracked files to
-  `petralabx/local-inference` (unrelated histories — no merge/rebase across remotes).
+- Develop on feature branches in `petralabx/local-inference`; never push
+  directly to `main`.
+- Treat `taylorvalton/local-inference-dev` as read-only legacy history. Audit
+  and copy any unique tracked files through a normal canonical PR; never merge
+  or rebase the unrelated histories.
 - Agent PRs on the tracked canonical repo need `MC-Checkout: dsp_…` with
   `meta.actor.repo == petralabx/local-inference` (see
   `.cursor/rules/mc-compliance-gate.mdc` and PLX_MC AGENT-PR-SOP). Portal/Hub

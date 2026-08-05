@@ -5,8 +5,11 @@ control plane (LiteLLM proxy + vLLM backend) and the two-node DGX Spark GLM
 cluster.
 
 - MC registry: `local-inference`
-- Canonical GitHub: [petralabx/local-inference](https://github.com/petralabx/local-inference) (org; promotion target)
-- Dev repo: [taylorvalton/local-inference-dev](https://github.com/taylorvalton/local-inference-dev) (working copy — see AGENTS.md)
+- Canonical and active development repository:
+  [petralabx/local-inference](https://github.com/petralabx/local-inference)
+- The former `taylorvalton/local-inference-dev` repository is legacy; see
+  `AGENTS.md` and `docs/runbooks/local-agent-governed-workflow.md` before
+  archiving it.
 
 ## Contract
 

@@ -3,8 +3,10 @@
 This repository is a **PLX-tracked repo** (`tier: tooling` in
 `PLX_MC/config/tracked-repos-registry.json`).
 
-Canonical GitHub: **`petralabx/local-inference`**. Dev working copy:
-**`taylorvalton/local-inference-dev`** (promote by file copy — see `AGENTS.md`).
+Canonical GitHub and active development repository:
+**`petralabx/local-inference`**. The former
+**`taylorvalton/local-inference-dev`** repository is legacy and receives no new
+work; see `AGENTS.md` for the audited file-copy retirement rule.
 Mission Control hub: **`petralabx/PLX_MC`** · cockpit:
 [https://mc.plxcustomer.io](https://mc.plxcustomer.io)
 
