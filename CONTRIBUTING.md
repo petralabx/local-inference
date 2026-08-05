@@ -42,6 +42,7 @@ Owner: PLX Repo Maintainers
 | `chore/<area>-<slug>` | Tooling, deps |
 | `docs/<area>-<slug>` | Documentation |
 | `ci/<area>-<slug>` | GitHub Actions |
+| `cursor/<descriptive-name>` | Governed agent work (required by the local push wrapper) |
 
 ---
 
@@ -94,6 +95,9 @@ roots to preserve: `scripts/`, `litellm/`, `docs/`, `.cursor/` (see `AGENTS.md`)
 Repo secrets: `PLX_MC_BASE_URL`, `COMPLIANCE_CI_TOKEN`.  
 Repo variable: `COMPLIANCE_MODE` (`soft` → `hard` when ready).  
 Enable branch protection on `main` — require PR + checks.
+
+Local Hermes/Claude setup and the verified direct-development path:
+[`docs/runbooks/local-agent-governed-workflow.md`](docs/runbooks/local-agent-governed-workflow.md).
 
 Control-plane boundaries (auth, kill switches, health, fallback): see
 [`docs/runbooks/control-plane-boundaries.md`](docs/runbooks/control-plane-boundaries.md).

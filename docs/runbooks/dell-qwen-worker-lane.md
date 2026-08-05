@@ -2,7 +2,7 @@
 
 Dell tower (`VTA`, Tailscale `100.103.33.54`) runs the **code/structure worker tier** behind LiteLLM.
 
-Repo: [petralabx/local-inference](https://github.com/petralabx/local-inference) (dev: `taylorvalton/local-inference-dev`).
+Repository: [petralabx/local-inference](https://github.com/petralabx/local-inference).
 
 ## Aliases
 

@@ -4,7 +4,6 @@
   "start": "",
   "terminals": [],
   "repositoryDependencies": [
-    "github.com/taylorvalton/local-inference-dev",
     "github.com/petralabx/PLX_MC"
   ]
 }

@@ -66,5 +66,9 @@ PowerShell operators: `scripts/health_check_local_inference.ps1`.
 
 - No vendor API keys in this repo — local proxy master key only (`.env.local`).
 - Do not commit `.env*`, secrets, or live master keys.
-- Orchestrator evidence under `.orchestrator/` is promoted intentionally, not by default.
-- Develop in `taylorvalton/local-inference-dev`; promote tracked files to this canonical repo by copy (unrelated histories).
+- Orchestrator evidence under `.orchestrator/` is committed intentionally, not by default.
+- Develop on feature branches in `petralabx/local-inference`; direct pushes to
+  `main` remain prohibited.
+- Treat `taylorvalton/local-inference-dev` as read-only legacy history. Audit
+  before archival and copy approved unique files through canonical PRs; never
+  merge or rebase the unrelated histories.

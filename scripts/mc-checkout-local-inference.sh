@@ -1,20 +1,61 @@
 #!/usr/bin/env bash
-# Scoped MC checkout for petralabx/local-inference Cloud Agents.
+# Scoped MC identity check and checkout for petralabx/local-inference agents.
 # Rejects stamps unless meta.actor.repo matches this repo (decision-3 guard).
 set -euo pipefail
 
-TASK_ID="${1:-}"
-if [[ -z "$TASK_ID" ]]; then
-  printf 'usage: %s TASK-NNN\n' "$(basename "$0")" >&2
+MODE="checkout"
+TASK_ID=""
+case "${1:-}" in
+  --self-check)
+    MODE="self-check"
+    ;;
+  TASK-[0-9]*)
+    TASK_ID="$1"
+    ;;
+  *)
+    printf 'usage: %s --self-check | TASK-NNN\n' "$(basename "$0")" >&2
+    exit 2
+    ;;
+esac
+if [[ $# -ne 1 || ( "$MODE" == "checkout" && ! "$TASK_ID" =~ ^TASK-[0-9]+$ ) ]]; then
+  printf 'usage: %s --self-check | TASK-NNN\n' "$(basename "$0")" >&2
   exit 2
 fi
 
-MC_BASE_URL="${MC_BASE_URL:-https://mc.plxcustomer.io}"
-MC_REPO="${MC_REPO:-petralabx/local-inference}"
-MC_OPERATOR_EMAIL="${MC_OPERATOR_EMAIL:-cos@petrasoap.com}"
+EXPECTED_BASE_URL="https://mc.plxcustomer.io"
+EXPECTED_REPO="petralabx/local-inference"
+EXPECTED_OPERATOR="cos@petrasoap.com"
+MC_BASE_URL="${MC_BASE_URL:-$EXPECTED_BASE_URL}"
+MC_BASE_URL="${MC_BASE_URL%/}"
+MC_REPO="${MC_REPO:-$EXPECTED_REPO}"
+MC_OPERATOR_EMAIL="${MC_OPERATOR_EMAIL:-$EXPECTED_OPERATOR}"
 MC_RUNTIME="${MC_RUNTIME:-cursor-cloud}"
 
-if [[ -z "${PLX_MC_MCP_API_KEY:-}" && -z "${MC_MCP_API_KEY:-}" ]]; then
+if [[ "$MC_BASE_URL" != "$EXPECTED_BASE_URL" ]]; then
+  printf 'refusing MC request: MC_BASE_URL must be %s\n' "$EXPECTED_BASE_URL" >&2
+  exit 1
+fi
+
+if [[ "$MC_REPO" != "$EXPECTED_REPO" || "$MC_OPERATOR_EMAIL" != "$EXPECTED_OPERATOR" ]]; then
+  printf 'refusing MC request: identity must be repo=%s operator=%s\n' \
+    "$EXPECTED_REPO" "$EXPECTED_OPERATOR" >&2
+  exit 1
+fi
+
+case "$MC_RUNTIME" in
+  local)
+    EXPECTED_SERVICE_PRINCIPAL="sp_mcp_claude_code"
+    ;;
+  cursor-cloud)
+    EXPECTED_SERVICE_PRINCIPAL="sp_mcp_cursor"
+    ;;
+  *)
+    printf 'refusing MC request: MC_RUNTIME must be local or cursor-cloud\n' >&2
+    exit 1
+    ;;
+esac
+
+if [[ -z "${PLX_MC_MCP_API_KEY:-}" && -z "${MC_MCP_API_KEY:-}" && "$MC_RUNTIME" == "cursor-cloud" ]]; then
   if command -v python3 >/dev/null 2>&1; then
     # shellcheck disable=SC1091
     KEY_OUT="$(
@@ -40,32 +81,75 @@ fi
 
 API_KEY="${PLX_MC_MCP_API_KEY:-${MC_MCP_API_KEY:-}}"
 if [[ -z "$API_KEY" ]]; then
-  printf 'MISSING: set PLX_MC_MCP_API_KEY (or hydrate from prod/ec2-secrets)\n' >&2
+  if [[ "$MC_RUNTIME" == "local" ]]; then
+    printf 'MISSING: set PLX_MC_MCP_API_KEY in the local agent environment\n' >&2
+  else
+    printf 'MISSING: set PLX_MC_MCP_API_KEY (or hydrate from prod/ec2-secrets)\n' >&2
+  fi
   exit 1
 fi
 
-HDR=(
-  -H "x-api-key: ${API_KEY}"
-  -H "x-mc-operator-email: ${MC_OPERATOR_EMAIL}"
-  -H "x-mc-repo: ${MC_REPO}"
-  -H "x-mc-runtime: ${MC_RUNTIME}"
-  -H "content-type: application/json"
-)
+mc_request() {
+  local method="$1"
+  local path="$2"
+  local data="${3:-}"
+  local args=(-fsS -H @- "${MC_BASE_URL}${path}")
+  if [[ "$method" == "POST" ]]; then
+    args=(-fsS -X POST -H @- --data "$data" "${MC_BASE_URL}${path}")
+  fi
+  printf 'x-api-key: %s\nx-mc-operator-email: %s\nx-mc-repo: %s\nx-mc-runtime: %s\ncontent-type: application/json\n' \
+    "$API_KEY" "$MC_OPERATOR_EMAIL" "$MC_REPO" "$MC_RUNTIME" |
+    curl "${args[@]}"
+}
 
-self="$(curl -fsS "${HDR[@]}" "${MC_BASE_URL%/}/api/cursor/self-check")"
-echo "$self" | jq -e --arg repo "$MC_REPO" \
-  '.data.ok == true and .meta.actor.repo == $repo' >/dev/null \
+self="$(mc_request GET /api/cursor/self-check)"
+echo "$self" | jq -e \
+  --arg repo "$MC_REPO" \
+  --arg operator "$MC_OPERATOR_EMAIL" \
+  --arg runtime "$MC_RUNTIME" \
+  --arg principal "$EXPECTED_SERVICE_PRINCIPAL" \
+  '.data.ok == true
+    and .meta.actor.repo == $repo
+    and .meta.actor.operatorEmail == $operator
+    and .meta.actor.runtime == $runtime
+    and .meta.actor.servicePrincipalId == $principal' >/dev/null \
   || {
-    printf 'self-check actor.repo mismatch; want %s got %s\n' \
-      "$MC_REPO" "$(echo "$self" | jq -r '.meta.actor.repo // empty')" >&2
+    printf 'self-check identity mismatch:\n%s\n' \
+      "$(echo "$self" | jq '{
+        actorRepo: .meta.actor.repo,
+        operatorEmail: .meta.actor.operatorEmail,
+        runtime: .meta.actor.runtime,
+        servicePrincipalId: .meta.actor.servicePrincipalId
+      }')" >&2
     exit 1
   }
 
-checkout="$(curl -fsS -X POST "${HDR[@]}" "${MC_BASE_URL%/}/api/cursor/checkout" \
-  --data "$(jq -n --arg id "$TASK_ID" '{taskId:$id}')")"
+if [[ "$MODE" == "self-check" ]]; then
+  echo "$self" | jq '{
+    ok: .data.ok,
+    actorRepo: .meta.actor.repo,
+    operatorEmail: .meta.actor.operatorEmail,
+    runtime: .meta.actor.runtime,
+    servicePrincipalId: .meta.actor.servicePrincipalId
+  }'
+  exit 0
+fi
 
-echo "$checkout" | jq -e --arg repo "$MC_REPO" --arg tid "$TASK_ID" \
-  '.data.taskId == $tid and .meta.actor.repo == $repo and (.data.checkoutId|type=="string") and (.data.checkoutId|startswith("dsp_"))' \
+checkout="$(mc_request POST /api/cursor/checkout "$(jq -n --arg id "$TASK_ID" '{taskId:$id}')")"
+
+echo "$checkout" | jq -e \
+  --arg repo "$MC_REPO" \
+  --arg tid "$TASK_ID" \
+  --arg operator "$MC_OPERATOR_EMAIL" \
+  --arg runtime "$MC_RUNTIME" \
+  --arg principal "$EXPECTED_SERVICE_PRINCIPAL" \
+  '.data.taskId == $tid
+    and .meta.actor.repo == $repo
+    and .meta.actor.operatorEmail == $operator
+    and .meta.actor.runtime == $runtime
+    and .meta.actor.servicePrincipalId == $principal
+    and (.data.checkoutId|type=="string")
+    and (.data.checkoutId|startswith("dsp_"))' \
   >/dev/null \
   || {
     printf 'checkout handshake failed:\n%s\n' "$(echo "$checkout" | jq '{taskId:.data.taskId, checkoutId:.data.checkoutId, actorRepo:.meta.actor.repo}')" >&2

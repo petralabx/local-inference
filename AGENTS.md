@@ -2,28 +2,23 @@
 
 Platform repo under PLX MC governance. Link work to MC tasks (`MC-Checkout`).
 
-## Repo Topology (dev -> promote)
+## Repository Topology
 
-Two remotes carry this codebase with unrelated git histories:
+[petralabx/local-inference](https://github.com/petralabx/local-inference) is the
+only active development repository and the MC-registered source of truth.
 
-- Dev / working repo: `taylorvalton/local-inference-dev` — day-to-day changes land here first.
-- Canonical / PLX org repo: [petralabx/local-inference](https://github.com/petralabx/local-inference) —
-  the MC-registered source of truth. Receives promotion PRs from the dev repo.
+1. Create a feature branch in this repository.
+2. Develop and verify the change on that branch.
+3. Open a pull request to `main`; never push directly to `main`.
+4. Merge only after repository checks and MC compliance pass.
 
-### Promotion workflow
+The former `taylorvalton/local-inference-dev` repository is legacy and must not
+receive new work. Preserve its history until its tracked files, open pull
+requests, and non-default branches have been audited. Copy any approved unique
+files through a normal PR here; never merge or rebase the unrelated histories.
 
-1. Develop and merge changes on `taylorvalton/local-inference-dev` `main`.
-2. When stable, copy the changed tracked files into the PLX checkout
-   (histories are unrelated — promote by file copy, not by merging branches).
-3. Open a `feat/promote-*` PR on `petralabx/local-inference`, referencing the
-   dev-repo commits it promotes.
-4. After merge, verify both repos' `main` trees match for the promoted paths.
-
-### Rules
-
-- Do not merge or rebase across the two remotes; they have unrelated roots.
-- Secrets (`.env.local`) stay untracked in both repos.
-- `.orchestrator/` evidence is promoted intentionally, not by default.
+Secrets (`.env.local`) stay untracked. `.orchestrator/` evidence is committed
+only when an approved delivery contract requires it.
 
 ## Cursor Cloud Agents
 
@@ -45,12 +40,11 @@ Committed config: `.cursor/environment.json`. On Cloud Agent start it runs
 ### Multi-repo workspace (dashboard)
 
 `repositoryDependencies` only expands GitHub token scope; it does **not** clone
-siblings. For automatic sibling checkouts (dev + canonical + PLX_MC):
+siblings. For a workspace that also needs Mission Control source:
 
 1. Open [Cloud Agents → Environments](https://cursor.com/dashboard/cloud-agents#environments).
-2. Create / edit an environment and select
-   `petralabx/local-inference`, `taylorvalton/local-inference-dev`, and any
-   other needed repos.
+2. Create / edit an environment and select `petralabx/local-inference`,
+   `petralabx/PLX_MC`, and any other needed repos.
 3. Save a snapshot after agent-driven setup if you want faster boots.
 4. Start new agents against that repo group (UI) or
    `POST /v1/agents` with `env: { "type": "cloud", "name": "<exact name>" }`.
