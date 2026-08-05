@@ -11,22 +11,17 @@ model_list:
       api_key: sk-local
   - model_name: local-coder
     litellm_params:
-      model: openai/Qwen/Qwen3-Coder-30B-A3B-Instruct-FP8
-      api_base: http://127.0.0.1:8000/v1
-      api_key: sk-local
-  - model_name: local-dgx-smoke
-    litellm_params:
-      model: openai/smoke-qwen2.5-0.5b-rpc
-      api_base: http://100.111.220.1:18081/v1
-      api_key: local-inference
-  - model_name: local-glm52
-    litellm_params:
-      model: openai/local-glm52-ud-iq1m
+      model: openai/local-coder            # uncensored Ornith-35B executor (Spark A)
       api_base: http://100.111.220.1:18082/v1
       api_key: local-inference
-  # local-glm52-experimental is intentionally absent on the Dell stack.
-  # Do not route GLM through the tower vLLM lane — add this alias only after
-  # the 2-node DGX cutover (see litellm/config.dgx.example.yaml).
+  - model_name: local-driver
+    litellm_params:
+      model: openai/local-driver           # uncensored Qwen3.6-35B-A3B driver (Spark B)
+      api_base: http://100.92.253.61:18090/v1
+      api_key: local-inference
+  # Retired 2026-08-01: local-glm52 (meshed GLM-5.2, too slow at 7 tok/s) and
+  # local-dgx-smoke (dead). Both Sparks now run independent MoE lanes:
+  # Spark A :18082 = local-coder (Ornith), Spark B :18090 = local-driver (Qwen3.6-A3B).
 
 litellm_settings:
   drop_params: true
