@@ -1,0 +1,16 @@
+.discovery/buzz-collab-workspace/candidates/sha256:b256d09884cfd7ecf3451b01e414190c6212652d504af5a92c727c9545a6643e/CANDIDATE.md
+invalid/name<.txt
+invalid/name>.txt
+invalid/name".txt
+invalid/name\part.txt
+invalid/name|.txt
+invalid/name?.txt
+invalid/name*.txt
+invalid/trailing-space /file.txt
+invalid/trailing-dot.
+invalid/CON
+invalid/prn.txt
+invalid/AUX
+invalid/NUL.json
+invalid/COM1
+invalid/LPT9.log
