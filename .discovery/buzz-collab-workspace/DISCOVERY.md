@@ -1,10 +1,10 @@
 ---
 slug: buzz-collab-workspace
 created: 2026-08-06T08:55:00Z
-updated: 2026-08-06T09:33:00Z
+updated: 2026-08-06T09:40:00Z
 status: interviewing
 mode: research+plan+execute
-lens_cursor: L6
+lens_cursor: L7
 ---
 
 # Discovery — Buzz Collaboration Workspace (humans + agents)
@@ -27,8 +27,8 @@ members with their own identities and a single audit trail.
 | L3 | Current reality | yes | prefilled | 2026-08-06T08:55:00Z |
 | L4 | Constraints | yes | answered | 2026-08-06T09:26:00Z |
 | L5 | Blast radius | yes | answered | 2026-08-06T09:33:00Z |
-| L6 | Success evidence | yes | asked | — |
-| L7 | Non-goals | yes | open | — |
+| L6 | Success evidence | yes | answered | 2026-08-06T09:40:00Z |
+| L7 | Non-goals | yes | asked | — |
 | L8 | Stakeholders | yes | open | — |
 | L9 | Alternatives | no | open | — |
 | L10 | Timing | no | open | — |
@@ -131,6 +131,25 @@ tools may run*. For the pilot:
 Risk framing recorded for the cohort: shared trigger surface + headless
 auto-allow on some ACP bridges — mitigated by allowlist, not by assuming only
 Vince will ever prompt the agent.
+
+### L6 — Success evidence
+
+**Pilot is a success (and the EC2 relay is kept) when both hold:**
+
+1. **Room works** — within the pilot window all three (Vince, Ricardo, Stephen)
+   are in Buzz daily-ish; Hermes + Cursor can be @mentioned and respond; at least
+   one real plx-customer-portal thread received cross-human/agent feedback
+   *before* a long dev/agent run.
+2. **A real project is completed using Buzz** — an actual portal-related piece of
+   work is carried through to done with Buzz as the collaboration room (MC still
+   the PM SoR), not just chatter.
+
+**Verdict authority:** signed jointly by **Vince and Ricardo** (both required).
+Stephen participates in the pilot but is not a required signer.
+
+**How it is verified:** the completed project's thread(s) in Buzz + its MC task
+closure + a short written note of the "feedback before a long run" moment. Kept
+in the pilot evidence bundle.
 
 ### L3 — Current reality
 
@@ -253,11 +272,14 @@ Read at Stage 0 / L1:
 - 2026-08-06 — L5 locked to fence #2 (scoped agent tools): allowlisted
   repos/paths only; no prod; no staging RDS creds in Buzz agent env. Rationale:
   keeps shared @mention trigger surface without full teammate network parity.
+- 2026-08-06 — L6 locked: success = room works (#1) AND a real portal project
+  completed via Buzz; verdict signed jointly by Vince + Ricardo (Stephen
+  participates, not a required signer). Rationale: Vince's explicit criteria.
 
 ## Handoff
 
 Not yet handed off. Discovery is at Stage 1 (adaptive interview), `lens_cursor:
-L6` (Success evidence). Target mode is provisional (`research+plan+execute`)
-pending the Stage 3 human decision; the Stage 4 collaborative review gate and,
-for execute mode, the separate `project-orchestrator` Stage 2 execution
+L7` (Non-Goals). Target mode is provisional (`research+plan+execute`) pending
+the Stage 3 human decision; the Stage 4 collaborative review gate and, for
+execute mode, the separate `project-orchestrator` Stage 2 execution
 authorization are both still outstanding. No candidate digest exists yet.
