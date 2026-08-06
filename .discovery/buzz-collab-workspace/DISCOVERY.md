@@ -1,10 +1,10 @@
 ---
 slug: buzz-collab-workspace
 created: 2026-08-06T08:55:00Z
-updated: 2026-08-06T09:10:00Z
+updated: 2026-08-06T09:15:00Z
 status: interviewing
 mode: research+plan+execute
-lens_cursor: L4
+lens_cursor: L2
 ---
 
 # Discovery — Buzz Collaboration Workspace (humans + agents)
@@ -23,9 +23,9 @@ members with their own identities and a single audit trail.
 | Lens | Name | Blocking | Status | Answered |
 |------|------|----------|--------|----------|
 | L1 | Outcome | yes | answered | 2026-08-06T09:10:00Z |
-| L2 | Users and jobs | yes | open | — |
+| L2 | Users and jobs | yes | asked | — |
 | L3 | Current reality | yes | prefilled | 2026-08-06T08:55:00Z |
-| L4 | Constraints | yes | asked | — |
+| L4 | Constraints | yes | answered | 2026-08-06T09:15:00Z |
 | L5 | Blast radius | yes | open | — |
 | L6 | Success evidence | yes | open | — |
 | L7 | Non-goals | yes | open | — |
@@ -68,6 +68,28 @@ local is catalog-supported. Cursor Cloud + Portal swarm/COS Seal require
 adapters. That adapter work is the real scope driver for "team-wide substrate"
 vs "Hermes-first pilot that grows."
 
+### L4 — Constraints
+
+**Hosting (locked):**
+- **Pilot:** Dell / existing Hermes-bridge Tailscale host — reuse the machine that
+  already runs Hermes; Buzz relay + agent bridges share that Tailscale identity.
+- **Steady-state host (if pilot graduates):** dedicated EC2 (or equivalent) + Compose on
+  the Tailscale net — clean ops boundary, not co-located with portal Vercel/RDS.
+
+**Already binding from L1:**
+- Self-hosted only (Block buzz.xyz out).
+- Must support Hermes + Cursor as first-class participants; Portal Agent Registry
+  / COS Seal are in-scope for the substrate vision but are adapter work, not
+  day-one config.
+
+**Still open (carried as assumptions, not blockers for this lens):**
+- Exact COS Seal artifact/workflow path — not found in-repo; Vince to name later
+  or waive into Non-Goals (L7).
+- Whether Buzz's *own* Postgres/Redis/MinIO on the Dell for pilot is acceptable
+  (local Docker Compose) vs. pointing at any existing non-portal store — default
+  assumption: **dedicated local Compose volumes on the Dell for pilot**, migrate
+  to dedicated volumes on EC2 for steady-state. Do not reuse portal staging RDS.
+
 ### L3 — Current reality
 
 Prefilled from the workspace repos and MC context at Stage 0; correct anything
@@ -101,15 +123,14 @@ signed event in one log — humans and agents alike, each with their own keypair
 
 ## Assumptions
 
-- Buzz is genuinely self-hostable on infra PLX already understands (Docker +
-  Postgres + Redis + S3/MinIO; Compose VPS / Tailscale host / Railway). Owner:
-  Vince. Confirmed intent (self-hosted) at L1; placement still open at L4.
+- Pilot Buzz stack runs as dedicated Docker Compose on the Dell/Hermes-bridge
+  host (own Postgres/Redis/MinIO volumes), not on portal staging RDS. Owner:
+  Vince. Default unless overridden.
 - "COS Seal" names a concrete Portal/swarm workflow Vince wants wired into Buzz.
-  Exact artifact path/owner unknown in-repo as of L1. Owner: Vince. Confirm at
-  L4 or L7.
-- Co-locating Buzz on portal *staging RDS* or *Vercel* is **not** viable (see
-  Decision Log). Adjacent Tailscale-reachable infra is the realistic shape.
-  Owner: Vince. Confirm at L4.
+  Exact artifact path/owner still unknown in-repo after L4. Owner: Vince. Resolve
+  at L7 (Non-Goals) — include as adapter target or explicitly exclude from v1.
+- Steady-state EC2 sizing / region / who operates it is deferred until pilot
+  graduation criteria (L6) are set. Owner: Vince.
 
 ## Non-Goals
 
@@ -165,20 +186,19 @@ Read at Stage 0 / L1:
   Cloud + Portal swarm/COS Seal require adapters. Rationale: evidence from Buzz
   ACP README + Hermes Buzz docs + Portal topology; do not promise native Portal
   swarm membership without a bridge.
-- 2026-08-06 — Rejected (pending L4 confirmation) "put Buzz on the same servers
-  as portal staging code and DBs" as the literal placement. Portal *code* runs on
-  Vercel (stateless); staging *DBs* are RDS (`plx-postgres-staging` /
-  `plx-postgres-uat`). Buzz needs a long-running Docker stack (relay + Postgres +
-  Redis + object store) and must not share the portal staging Postgres (blast
-  radius, schema collision, resource contention). Adjacent Tailscale-reachable
-  host (Dell / existing Hermes-bridge host / dedicated EC2+Compose) is the
-  realistic shape. Rationale: Truth Before Action — correct the topology before
-  planning.
+- 2026-08-06 — Rejected "put Buzz on the same servers as portal staging code and
+  DBs" as the literal placement. Portal *code* runs on Vercel (stateless);
+  staging *DBs* are RDS. Buzz needs a long-running Docker stack and must not
+  share portal staging Postgres. Rationale: Truth Before Action.
+- 2026-08-06 — L4 locked hosting path: **pilot = Dell/Hermes-bridge Tailscale
+  host**; **steady-state = dedicated EC2 + Compose** if the pilot graduates.
+  Rationale: Vince forced choice; matches existing Hermes topology for pilot
+  speed and clean ops boundary for prod.
 
 ## Handoff
 
 Not yet handed off. Discovery is at Stage 1 (adaptive interview), `lens_cursor:
-L4` (Constraints). Target mode is provisional (`research+plan+execute`) pending
-the Stage 3 human decision; the Stage 4 collaborative review gate and, for
-execute mode, the separate `project-orchestrator` Stage 2 execution
+L2` (Users and jobs). Target mode is provisional (`research+plan+execute`)
+pending the Stage 3 human decision; the Stage 4 collaborative review gate and,
+for execute mode, the separate `project-orchestrator` Stage 2 execution
 authorization are both still outstanding. No candidate digest exists yet.
