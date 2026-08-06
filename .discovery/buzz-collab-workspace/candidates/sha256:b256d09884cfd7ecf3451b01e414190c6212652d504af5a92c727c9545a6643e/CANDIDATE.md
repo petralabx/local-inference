@@ -352,11 +352,8 @@ Read at Stage 0 / L1:
 
 ## Handoff
 
-In review (Stage 4). Binding mode: **research+plan**. Frozen candidate:
-`sha256:b256d09884cfd7ecf3451b01e414190c6212652d504af5a92c727c9545a6643e`
-(`.discovery/buzz-collab-workspace/candidates/sha256:b256d09884cfd7ecf3451b01e414190c6212652d504af5a92c727c9545a6643e/CANDIDATE.md`).
-Review round: `.discovery/buzz-collab-workspace/review/round-1.md` (open).
-On approval, hand off to `project-researcher` then `project-orchestrator`
-Stages 1–2 (spec approval gate only — **no execution**). Satisfied required
-approvers will be recorded when the review gate closes. Execution authorization
-is **not** in scope for this mode.
+In review (Stage 4). Binding mode: **research+plan**. On approval, hand off to
+`project-researcher` then `project-orchestrator` Stages 1–2 (spec approval gate
+only — **no execution**). Candidate digest and satisfied required approvers will
+be recorded here when the review gate closes. Execution authorization is
+**not** in scope for this mode.
