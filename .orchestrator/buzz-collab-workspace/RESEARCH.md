@@ -152,7 +152,7 @@ Buzz members, LangGraph swarm migration, MC replacement.
 ## Sources
 
 - Approved discovery candidate
-  `.discovery/buzz-collab-workspace/candidates/sha256:b256d098…/CANDIDATE.md`
+  `.discovery/buzz-collab-workspace/candidates/sha256-b256d098…/CANDIDATE.md`
 - Round-1 approval
   `.discovery/buzz-collab-workspace/review/round-1.md`
 - https://github.com/block/buzz (README, ARCHITECTURE, `deploy/compose/README.md`)
