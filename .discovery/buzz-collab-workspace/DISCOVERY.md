@@ -1,10 +1,10 @@
 ---
 slug: buzz-collab-workspace
 created: 2026-08-06T08:55:00Z
-updated: 2026-08-06T09:15:00Z
+updated: 2026-08-06T09:20:00Z
 status: interviewing
 mode: research+plan+execute
-lens_cursor: L2
+lens_cursor: L4
 ---
 
 # Discovery — Buzz Collaboration Workspace (humans + agents)
@@ -23,9 +23,9 @@ members with their own identities and a single audit trail.
 | Lens | Name | Blocking | Status | Answered |
 |------|------|----------|--------|----------|
 | L1 | Outcome | yes | answered | 2026-08-06T09:10:00Z |
-| L2 | Users and jobs | yes | asked | — |
+| L2 | Users and jobs | yes | answered | 2026-08-06T09:20:00Z |
 | L3 | Current reality | yes | prefilled | 2026-08-06T08:55:00Z |
-| L4 | Constraints | yes | answered | 2026-08-06T09:15:00Z |
+| L4 | Constraints | yes | asked | — |
 | L5 | Blast radius | yes | open | — |
 | L6 | Success evidence | yes | open | — |
 | L7 | Non-goals | yes | open | — |
@@ -68,27 +68,56 @@ local is catalog-supported. Cursor Cloud + Portal swarm/COS Seal require
 adapters. That adapter work is the real scope driver for "team-wide substrate"
 vs "Hermes-first pilot that grows."
 
+### L2 — Users and jobs
+
+**Pilot cohort (locked):** Vince + Ricardo + Stephen (option 2). Each brings their
+primary agent into the room so cross-human and cross-agent feedback is real —
+not a solo spike.
+
+**Job to be done:** before a long portal-related agent/dev run starts, the three
+humans (and their agents) can review intent, constraints, and risks in a shared
+Buzz channel and give immediate feedback.
+
+**Pilot orbit (locked):** work is **plx-customer-portal**-centric, with **Mission
+Control** as the project-management SoR (tasks, checkout, compliance). Buzz is
+the collaboration room around that work — it does not replace MC.
+
+**Access requirement (new, surfaced mid-L2):** Ricardo and Stephen must be able
+to reach the Buzz relay from their own machines. A Dell-only LAN relay does not
+meet this. See L4 reopen below.
+
 ### L4 — Constraints
 
-**Hosting (locked):**
-- **Pilot:** Dell / existing Hermes-bridge Tailscale host — reuse the machine that
-  already runs Hermes; Buzz relay + agent bridges share that Tailscale identity.
-- **Steady-state host (if pilot graduates):** dedicated EC2 (or equivalent) + Compose on
-  the Tailscale net — clean ops boundary, not co-located with portal Vercel/RDS.
+**Hosting — REOPENED after L2 access requirement.**
 
-**Already binding from L1:**
+Prior lock (2026-08-06T09:15Z) was: pilot = Dell/Hermes-bridge; steady-state =
+dedicated EC2 + Compose. That assumed Vince-reachable pilot infra. With Ricardo
++ Stephen in the pilot cohort, the relay must be reachable to all three.
+
+**How Dell access actually works:**
+- Buzz clients talk to a relay URL (`ws(s)://…`).
+- If the relay is on the Dell Tailscale IP, **colleagues can reach it only if
+  they are on the same Tailscale tailnet** (or you put a public TLS hostname in
+  front of it). LAN IP alone is not enough off-site.
+- Even with Tailscale: Dell asleep / offline / reboot = Buzz down for everyone.
+- Staging portal on Vercel still cannot "host" Buzz; the Hermes bridge already
+  depends on Tailscale for the same reason.
+
+**Still binding:**
 - Self-hosted only (Block buzz.xyz out).
-- Must support Hermes + Cursor as first-class participants; Portal Agent Registry
-  / COS Seal are in-scope for the substrate vision but are adapter work, not
-  day-one config.
+- Dedicated Buzz volumes (own Postgres/Redis/object store) — never portal staging
+  RDS.
+- Hermes + Cursor first-class; Portal Agent Registry / COS Seal = adapter work.
+- Pilot orbit = portal + MC (from L2).
 
-**Still open (carried as assumptions, not blockers for this lens):**
-- Exact COS Seal artifact/workflow path — not found in-repo; Vince to name later
-  or waive into Non-Goals (L7).
-- Whether Buzz's *own* Postgres/Redis/MinIO on the Dell for pilot is acceptable
-  (local Docker Compose) vs. pointing at any existing non-portal store — default
-  assumption: **dedicated local Compose volumes on the Dell for pilot**, migrate
-  to dedicated volumes on EC2 for steady-state. Do not reuse portal staging RDS.
+**Pilot host — choose again (forced):**
+1. Keep Dell pilot **only if** Ricardo + Stephen are already on the PLX Tailscale
+   tailnet (or will be before pilot day) — accept Dell uptime as pilot SLA.
+2. Move **pilot** to dedicated EC2 + Compose now (same shape as steady-state) —
+   colleagues reach a stable Tailscale/public hostname; Dell stays agent worker,
+   not the relay.
+3. Railway (or similar) one-click self-owned relay for pilot — fastest remote
+   reachability; migrate to EC2 later.
 
 ### L3 — Current reality
 
@@ -123,12 +152,15 @@ signed event in one log — humans and agents alike, each with their own keypair
 
 ## Assumptions
 
-- Pilot Buzz stack runs as dedicated Docker Compose on the Dell/Hermes-bridge
-  host (own Postgres/Redis/MinIO volumes), not on portal staging RDS. Owner:
-  Vince. Default unless overridden.
+- Pilot host placement is **reopened**: Ricardo + Stephen must reach the relay.
+  Dell works only with shared Tailscale (or public TLS) and accepts Dell uptime
+  as pilot SLA; otherwise pilot moves to EC2 or Railway. Owner: Vince. Resolve
+  before L4 can re-lock.
+- Dedicated Buzz volumes (own Postgres/Redis/object store) on whatever host wins
+  — never portal staging RDS. Owner: Vince.
 - "COS Seal" names a concrete Portal/swarm workflow Vince wants wired into Buzz.
-  Exact artifact path/owner still unknown in-repo after L4. Owner: Vince. Resolve
-  at L7 (Non-Goals) — include as adapter target or explicitly exclude from v1.
+  Exact artifact path/owner still unknown in-repo. Owner: Vince. Resolve at L7
+  (Non-Goals) — include as adapter target or explicitly exclude from v1.
 - Steady-state EC2 sizing / region / who operates it is deferred until pilot
   graduation criteria (L6) are set. Owner: Vince.
 
@@ -198,7 +230,8 @@ Read at Stage 0 / L1:
 ## Handoff
 
 Not yet handed off. Discovery is at Stage 1 (adaptive interview), `lens_cursor:
-L2` (Users and jobs). Target mode is provisional (`research+plan+execute`)
-pending the Stage 3 human decision; the Stage 4 collaborative review gate and,
-for execute mode, the separate `project-orchestrator` Stage 2 execution
-authorization are both still outstanding. No candidate digest exists yet.
+L4` (Constraints — **reopened** for pilot-host reachability after L2). Target
+mode is provisional (`research+plan+execute`) pending the Stage 3 human
+decision; the Stage 4 collaborative review gate and, for execute mode, the
+separate `project-orchestrator` Stage 2 execution authorization are both still
+outstanding. No candidate digest exists yet.
