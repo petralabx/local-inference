@@ -1,13 +1,26 @@
 ---
 project: buzz-collab-workspace
 created: 2026-08-06T10:22:02Z
-status: draft
-approved_by:
-approved_at:
+updated: 2026-08-06T13:17:00Z
+status: approved
+approved_by: Vince Alton
+approved_at: 2026-08-06T13:17:00Z
 discovery_candidate: sha256:b256d09884cfd7ecf3451b01e414190c6212652d504af5a92c727c9545a6643e
 research: .orchestrator/buzz-collab-workspace/RESEARCH.md
 mode: research+plan
 execution_authorized: false
+pilot_host:
+  provider: aws-ec2
+  region: us-east-1
+  instance_id: i-03b18532cda3c6be6
+  instance_name: lattice-prod
+  instance_type: t3a.large
+  ami: ubuntu-noble-24.04-amd64
+  sizing_verdict: adequate-for-pilot
+  notes: >-
+    2 vCPU / 8 GiB meets upstream guidance (≥2 vCPU / ≥4 GiB). Co-tenant with
+    existing Lattice workloads — confirm free RAM/disk and Docker Compose ≥2.24.4
+    before install. Prefer Tailscale wss over public IPv4 for the pilot cohort.
 model_plan:
   planner:
   builder:
@@ -30,13 +43,18 @@ collaborate on **plx-customer-portal** work while **Mission Control** remains th
 PM/task source of truth. This SPEC is the contract for *what to build*; under
 mode `research+plan`, **approving this SPEC does not authorize execution**.
 
+**Pilot host (locked 2026-08-06):** reuse existing EC2 `i-03b18532cda3c6be6`
+(`lattice-prod`, `t3a.large`, Ubuntu 24.04, `us-east-1`). Sizing is adequate for
+a 3-person Buzz stack (relay + Postgres + Redis + MinIO). Co-tenancy with
+Lattice must be checked at execute time (free memory/disk, port conflicts).
+
 ## Success Criteria
 
-- [ ] SPEC validates (`spec-validate.sh` exit 0) and is human-approved
+- [x] SPEC validates (`spec-validate.sh` exit 0) and is human-approved
       (`status: approved` + `approved_by` / `approved_at`).
-- [ ] Runbooks cover: EC2+Compose+Tailscale stand-up, key/secret handling, human
-      onboarding (3), Hermes + Cursor agent membership under the L5 fence, and a
-      pilot channel orbiting a named portal MC task.
+- [ ] Runbooks cover: EC2+Compose+Tailscale stand-up **on the locked host**,
+      key/secret handling, human onboarding (3), Hermes + Cursor agent membership
+      under the L5 fence, and a pilot channel orbiting a named portal MC task.
 - [ ] L5 fence is explicit in policy: allowlisted portal paths only; no
       live/customer systems; no staging RDS credentials in Buzz agent env.
 - [ ] COS Seal / Portal Agent Registry bridge is documented as **out of v1** and
@@ -51,7 +69,8 @@ mode `research+plan`, **approving this SPEC does not authorize execution**.
 
 - In:
   - Docs/runbooks and orchestrator artifacts in `petralabx/local-inference`
-  - Pilot topology: EC2 + `block/buzz` `deploy/compose/` + Tailscale `wss`
+  - Pilot topology: **existing** EC2 `i-03b18532cda3c6be6` + `block/buzz`
+    `deploy/compose/` + Tailscale `wss` (no new instance required for pilot)
   - Human cohort: Vince, Ricardo, Stephen
   - Agents in v1: Hermes + local Cursor ACP (scoped tools)
   - Pilot orbit: plx-customer-portal + Mission Control as PM SoR
@@ -63,21 +82,25 @@ mode `research+plan`, **approving this SPEC does not authorize execution**.
   - Company-wide Slack/email/GitHub cutover
   - Co-locating Buzz volumes with portal staging RDS / Vercel
   - Dell-as-relay (Dell remains agent worker only)
-  - Executing AWS/EC2 provisioning or agent live cutover until
+  - Provisioning a *new* EC2 for the pilot (reuse locked host unless co-tenancy
+    fails the preflight)
+  - Executing Docker install / agent live cutover until
     `execution_authorized: true`
 
 ## Phases
 
 ### P1 — EC2 Compose Tailscale runbook
-- deliverables: Operator runbook for provisioning a dedicated EC2 (or equivalent)
-  host on the PLX Tailscale net, installing Docker Compose ≥ 2.24.4, deploying
-  Buzz via upstream `deploy/compose/` (`./run.sh`), choosing `wss` via Tailscale
-  HTTPS (`*.ts.net`) or PLX DNS + Caddy, pinning `ghcr.io/block/buzz` image tag,
-  liveness check, backup-hint checklist. Dell explicitly out of scope as relay.
+- deliverables: Operator runbook targeting locked host `i-03b18532cda3c6be6`
+  (`lattice-prod`, `t3a.large`): co-tenancy preflight (free RAM ≥4 GiB preferred,
+  free disk ≥20 GiB, Docker Compose ≥ 2.24.4, port map vs Lattice), deploy Buzz
+  via upstream `deploy/compose/` (`./run.sh`), Tailscale join + `wss` (prefer
+  `*.ts.net` / `tailscale serve` over raw public IPv4), pin `ghcr.io/block/buzz`
+  image tag, liveness check, backup-hint checklist. Dell explicitly out of scope
+  as relay. If preflight fails, document abort → dedicated instance path.
 - depends_on: []
 - owns: ["docs/runbooks/buzz-collab-workspace/**", ".orchestrator/buzz-collab-workspace/P1/**"]
 - forbidden: ["litellm/**", ".github/workflows/**"]
-- acceptance: `test -f docs/runbooks/buzz-collab-workspace/EC2-COMPOSE-TAILSCALE.md && rg -q "deploy/compose" docs/runbooks/buzz-collab-workspace/EC2-COMPOSE-TAILSCALE.md && rg -q "Tailscale" docs/runbooks/buzz-collab-workspace/EC2-COMPOSE-TAILSCALE.md`
+- acceptance: `test -f docs/runbooks/buzz-collab-workspace/EC2-COMPOSE-TAILSCALE.md && rg -q "i-03b18532cda3c6be6" docs/runbooks/buzz-collab-workspace/EC2-COMPOSE-TAILSCALE.md && rg -q "deploy/compose" docs/runbooks/buzz-collab-workspace/EC2-COMPOSE-TAILSCALE.md && rg -q "Tailscale" docs/runbooks/buzz-collab-workspace/EC2-COMPOSE-TAILSCALE.md`
 - role: builder
 - competitive: false
 
@@ -133,15 +156,17 @@ mode `research+plan`, **approving this SPEC does not authorize execution**.
 ## Risks & Rollback
 
 - EC2/Tailscale misconfig leaves colleagues unable to connect → P1 acceptance
-  requires reachability checklist; rollback = stop Compose / terminate instance;
+  requires reachability checklist; rollback = stop Compose stack on the host;
   no portal data touched.
+- **Co-tenancy with Lattice on `lattice-prod`** → Buzz stack contends for RAM/
+  CPU/ports/disk → P1 preflight aborts to a dedicated instance if headroom fails;
+  rollback = `./run.sh stop` / remove Buzz compose project only.
 - Agent headless auto-allow expands blast radius → P2/P4 encode L5 allowlist and
   forbid staging RDS / live-customer creds; rollback = remove agent memberships /
   revoke keys.
 - Image `main` drift → P1 pins sha/tag; rollback = redeploy prior pin.
-- Proxy discovery approvals (Ricardo/Stephen via Vince) weaken review confidence
-  → SPEC approval still requires Vince (and preferably Ricardo) to sign the SPEC
-  itself; do not treat discovery proxy as SPEC approval.
+- Public IPv4 exposure without Tailscale/`wss` hygiene → prefer Tailscale path in
+  P1; do not rely on open `ws://` to the public address for the cohort.
 - Accidental execution under `research+plan` → `execution_authorized: false` is
   mandatory until a separate written authorization; phases produce docs only
   until that gate flips.
