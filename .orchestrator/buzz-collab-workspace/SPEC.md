@@ -1,7 +1,7 @@
 ---
 project: buzz-collab-workspace
 created: 2026-08-06T10:22:02Z
-updated: 2026-08-06T13:17:00Z
+updated: 2026-08-06T13:29:00Z
 status: approved
 approved_by: Vince Alton
 approved_at: 2026-08-06T13:17:00Z
@@ -22,10 +22,14 @@ pilot_host:
     existing Lattice workloads — confirm free RAM/disk and Docker Compose ≥2.24.4
     before install. Prefer Tailscale wss over public IPv4 for the pilot cohort.
 model_plan:
-  planner:
-  builder:
-  mechanical:
-  critic:
+  planner: claude-opus-5-thinking-high
+  builder: gpt-5.6-sol-xhigh
+  mechanical: composer-2.5-fast
+  critic: cursor-grok-4.5-high
+  notes: >-
+    Vince-confirmed 2026-08-06. Critic requested as Grok 4.5 extra-high; catalog
+    has no cursor-grok-4.5-xhigh — frozen to highest available Grok
+    (cursor-grok-4.5-high).
 budget:
   max_parallel_phases: 2
   max_attempts_per_phase: 3
