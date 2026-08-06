@@ -1,10 +1,10 @@
 ---
 slug: buzz-collab-workspace
 created: 2026-08-06T08:55:00Z
-updated: 2026-08-06T09:49:00Z
-status: interviewing
+updated: 2026-08-06T09:51:00Z
+status: ready-for-review
 mode: research+plan+execute
-lens_cursor: L8
+lens_cursor: done
 ---
 
 # Discovery — Buzz Collaboration Workspace (humans + agents)
@@ -29,11 +29,11 @@ members with their own identities and a single audit trail.
 | L5 | Blast radius | yes | answered | 2026-08-06T09:33:00Z |
 | L6 | Success evidence | yes | answered | 2026-08-06T09:40:00Z |
 | L7 | Non-goals | yes | answered | 2026-08-06T09:49:00Z |
-| L8 | Stakeholders | yes | asked | — |
-| L9 | Alternatives | no | open | — |
-| L10 | Timing | no | open | — |
-| L11 | Operations | no | open | — |
-| L12 | Taste | no | open | — |
+| L8 | Stakeholders | yes | answered | 2026-08-06T09:51:00Z |
+| L9 | Alternatives | no | waived | — |
+| L10 | Timing | no | waived | — |
+| L11 | Operations | no | waived | — |
+| L12 | Taste | no | waived | — |
 
 ## Answers
 
@@ -131,6 +131,16 @@ tools may run*. For the pilot:
 Risk framing recorded for the cohort: shared trigger surface + headless
 auto-allow on some ACP bridges — mitigated by allowlist, not by assuming only
 Vince will ever prompt the agent.
+
+### L8 — Stakeholders
+
+| Person | Role | Owns |
+|---|---|---|
+| Vince | required approver | Outcome, hosting, blast radius, mode, go/no-go to stand up EC2; **infra owner** (EC2, Tailscale, Compose, backups) |
+| Ricardo | required approver | Pilot success verdict (joint with Vince); portal-project fitness |
+| Stephen | consulted | Pilot participation / usability; cannot alone block |
+
+No additional required approvers for discovery/pilot stand-up.
 
 ### L7 — Non-Goals
 
@@ -322,11 +332,24 @@ Read at Stage 0 / L1:
   after pilot** (#1 named adapter), not v1. Also out: MC replacement, LangGraph
   swarm migration, company-wide chat migration, live/customer access, Cursor
   Cloud as Buzz members for v1. Rationale: Vince confirmed follow-on framing.
+- 2026-08-06 — L8 locked: Vince = required approver + infra owner; Ricardo =
+  required approver (joint success verdict); Stephen = consulted. Rationale:
+  Vince confirmed.
+- 2026-08-06 — Waived non-blocking L9–L12 (Alternatives, Timing, Operations,
+  Taste): they no longer change the recommendation given L1–L8. Alternatives =
+  Buzz vs status quo (not vs another product bake-off this round). Timing =
+  stand up after Stage 3/4 gates. Operations = Vince owns infra (from L8).
+  Taste = N/A for an infra collab substrate. Rationale: early exit on
+  non-blocking lenses; interview converged.
+- 2026-08-06 — Stage 2 convergence: all blocking lenses answered; status →
+  `ready-for-review`; `lens_cursor: done`. Awaiting Stage 3 mode + authority
+  confirmation (authorities proposed from L8).
 
 ## Handoff
 
-Not yet handed off. Discovery is at Stage 1 (adaptive interview), `lens_cursor:
-L8` (Stakeholders). Target mode is provisional (`research+plan+execute`) pending
-the Stage 3 human decision; the Stage 4 collaborative review gate and, for
-execute mode, the separate `project-orchestrator` Stage 2 execution
-authorization are both still outstanding. No candidate digest exists yet.
+Not yet handed off. Discovery converged (Stage 2): `status: ready-for-review`,
+`lens_cursor: done`. Awaiting **Stage 3** — human picks binding mode
+(`research` / `research+plan` / `research+plan+execute`) and confirms review
+authorities (proposed from L8). Stage 4 collaborative review gate and, for
+execute mode, `project-orchestrator` Stage 2 execution authorization remain
+outstanding. No candidate digest exists yet.
