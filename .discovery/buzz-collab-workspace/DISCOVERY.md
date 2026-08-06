@@ -1,10 +1,10 @@
 ---
 slug: buzz-collab-workspace
 created: 2026-08-06T08:55:00Z
-updated: 2026-08-06T08:55:00Z
+updated: 2026-08-06T09:10:00Z
 status: interviewing
 mode: research+plan+execute
-lens_cursor: L1
+lens_cursor: L4
 ---
 
 # Discovery — Buzz Collaboration Workspace (humans + agents)
@@ -22,10 +22,10 @@ members with their own identities and a single audit trail.
 
 | Lens | Name | Blocking | Status | Answered |
 |------|------|----------|--------|----------|
-| L1 | Outcome | yes | open | — |
+| L1 | Outcome | yes | answered | 2026-08-06T09:10:00Z |
 | L2 | Users and jobs | yes | open | — |
 | L3 | Current reality | yes | prefilled | 2026-08-06T08:55:00Z |
-| L4 | Constraints | yes | open | — |
+| L4 | Constraints | yes | asked | — |
 | L5 | Blast radius | yes | open | — |
 | L6 | Success evidence | yes | open | — |
 | L7 | Non-goals | yes | open | — |
@@ -37,6 +37,37 @@ members with their own identities and a single audit trail.
 
 ## Answers
 
+### L1 — Outcome
+
+Target shape is **#3 — team-wide substrate**, contingent on being able to
+leverage Cursor and Hermes (Vince's heaviest agent tools) and to pipe in Portal
+Agents / the Agent Registry (`agentic-swarm/config/agents.yaml`) and workflows
+(COS Seal).
+
+**What "we all win" looks like:** humans and their agents collaborate on PLX
+projects in one room and get **immediate feedback from colleagues and their
+agents before executing long dev runs**.
+
+**Hosting:** must be **self-hosted**. Block-hosted buzz.xyz is out. Placement
+deferred to L4 (Constraints) — provisional preference was "same servers as
+portal staging code and DBs"; evidence contradicts that topology (see Decision
+Log and Assumptions).
+
+**Feasibility verdict (theoretical, evidence-based — not a commitment to build):**
+
+| Surface | Verdict | Evidence |
+|---|---|---|
+| Hermes | **Yes, first-class today** | Hermes docs list 3 Buzz paths: Desktop managed runtime, `buzz-acp` relay bridge, and native Hermes gateway platform plugin (recommended for full Hermes: memory, skills, approvals, cron). Hermes is also a Tier-2 preset in Buzz Desktop. |
+| Cursor (local/ACP) | **Yes in catalog; verify locally** | Buzz Desktop Tier-2 presets include Cursor as an ACP harness (`PRESET_HARNESSES`). Not Tier-1 (Goose/Claude/Codex/buzz-agent). Needs PATH-probed ACP binary. |
+| Cursor Cloud | **Theoretically yes, not native** | Cloud agents run remotely and speak MCP/HTTP, not a local ACP stdio spawn. Practical path: a host-side `buzz-acp`/`buzz-cli` bridge the Cloud agent can reach, or Cloud agents use `buzz-cli` / webhook into the relay. Glue work, not config. |
+| Portal Agent Registry / swarm | **Theoretically yes, custom bridge** | `agentic-swarm/config/agents.yaml` is LangGraph roster (COS, CFO, …), not ACP. To appear as Buzz members each identity needs a Nostr keypair + a process that speaks ACP or `buzz-cli`/webhook. YAML workflows + webhooks are the Buzz-native automation surface. Build work. |
+| COS Seal workflows | **Unknown shape — confirm** | No matching artifact found in the workspace under that name. Treated as an assumption until Vince names the concrete workflow surface. |
+
+Bottom line: **#3 is theoretically possible**. Hermes is the easy win. Cursor
+local is catalog-supported. Cursor Cloud + Portal swarm/COS Seal require
+adapters. That adapter work is the real scope driver for "team-wide substrate"
+vs "Hermes-first pilot that grows."
+
 ### L3 — Current reality
 
 Prefilled from the workspace repos and MC context at Stage 0; correct anything
@@ -47,9 +78,13 @@ several disjoint surfaces:
 
 - **Cursor Cloud / Cursor / Claude Code** for agent execution, each agent acting
   under a shared human account or token rather than its own identity.
+- **Hermes** as a primary local coding executor (UAT agent Hermes-primary with
+  Cursor Cloud failover; Hermes bridge on a Tailscale host).
 - **PLX Mission Control** (`petralabx/PLX_MC`, `https://mc.plxcustomer.io`) as the
   task state source of truth, mirrored to SharePoint; agents check out tasks and
   stamp PRs via the PLX-MC MCP.
+- **Portal agentic swarm** (`agentic-swarm/config/agents.yaml`) — LangGraph roster
+  (COS, CFO, CRO, …) running separately from Cursor/Hermes coding agents.
 - **GitHub** for code, PRs, and CI across `plx-customer-portal`,
   `local-inference`, `PLX_MC`, `skills`, `plx_secondbrain`, and others.
 - **SharePoint / M365** as the canonical system of record for MC.
@@ -67,21 +102,23 @@ signed event in one log — humans and agents alike, each with their own keypair
 ## Assumptions
 
 - Buzz is genuinely self-hostable on infra PLX already understands (Docker +
-  Postgres + Redis + S3/MinIO; Railway one-click or a VPS/Compose bundle), so a
-  trial does not require new vendor commitments. Owner: Vince. To confirm at the
-  Constraints lens (L4).
-- "Try out" implies at least standing up a working relay + desktop client and
-  connecting one or more existing agents — not merely reading the docs. Owner:
-  Vince. To confirm at the Outcome lens (L1); this is why `mode` is provisionally
-  `research+plan+execute`.
+  Postgres + Redis + S3/MinIO; Compose VPS / Tailscale host / Railway). Owner:
+  Vince. Confirmed intent (self-hosted) at L1; placement still open at L4.
+- "COS Seal" names a concrete Portal/swarm workflow Vince wants wired into Buzz.
+  Exact artifact path/owner unknown in-repo as of L1. Owner: Vince. Confirm at
+  L4 or L7.
+- Co-locating Buzz on portal *staging RDS* or *Vercel* is **not** viable (see
+  Decision Log). Adjacent Tailscale-reachable infra is the realistic shape.
+  Owner: Vince. Confirm at L4.
 
 ## Non-Goals
 
 - To be filled at the Non-Goals lens (L7). Nothing excluded yet.
+- Provisional (not yet binding): Block-hosted buzz.xyz is out (self-host only).
 
 ## Evidence
 
-Read at Stage 0:
+Read at Stage 0 / L1:
 
 - `block/buzz` README + ARCHITECTURE.md + Block engineering blog / buzz.xyz —
   Buzz is an Apache-2.0, self-hostable, Nostr-relay-based workspace where humans
@@ -98,6 +135,16 @@ Read at Stage 0:
   governance (MC task SoR, PLX-MC MCP, SharePoint SoR, Cursor Cloud agents,
   local-inference Dell/DGX control plane). Sourced L3 current reality and the
   self-host / secrets-handling constraints seeded as assumptions.
+- Hermes Buzz integration docs
+  (`hermes-agent.nousresearch.com/docs/integrations/buzz`) — three paths
+  (Desktop / buzz-acp / native gateway). Sourced L1 Hermes feasibility.
+- `block/buzz` `crates/buzz-acp/README.md` — Tier-1 (Goose, Claude, Codex,
+  buzz-agent) vs Tier-2 presets (includes Cursor, Hermes Agent). Sourced L1
+  Cursor/Hermes feasibility and "any ACP agent" BYOH path.
+- Portal `docs/runbooks/uat-agent-v2.md` + `AGENTS.md` — Hermes-primary executor,
+  Tailscale Hermes bridge, `agentic-swarm/config/agents.yaml` as Portal agent
+  registry; portal web on Vercel, DBs on RDS. Sourced L1 Cursor Cloud / Portal
+  swarm feasibility and the L4 hosting correction.
 
 ## Decision Log
 
@@ -113,11 +160,25 @@ Read at Stage 0:
 - 2026-08-06 — `mode` set provisionally to `research+plan+execute` to reflect the
   literal "try out" intent (stand it up). This is NOT the Stage 3 mode decision;
   the human picks the binding mode after convergence.
+- 2026-08-06 — L1 locked to outcome #3 (team-wide substrate) with self-host
+  mandatory. Feasibility: Hermes yes; Cursor (local ACP) yes-in-catalog; Cursor
+  Cloud + Portal swarm/COS Seal require adapters. Rationale: evidence from Buzz
+  ACP README + Hermes Buzz docs + Portal topology; do not promise native Portal
+  swarm membership without a bridge.
+- 2026-08-06 — Rejected (pending L4 confirmation) "put Buzz on the same servers
+  as portal staging code and DBs" as the literal placement. Portal *code* runs on
+  Vercel (stateless); staging *DBs* are RDS (`plx-postgres-staging` /
+  `plx-postgres-uat`). Buzz needs a long-running Docker stack (relay + Postgres +
+  Redis + object store) and must not share the portal staging Postgres (blast
+  radius, schema collision, resource contention). Adjacent Tailscale-reachable
+  host (Dell / existing Hermes-bridge host / dedicated EC2+Compose) is the
+  realistic shape. Rationale: Truth Before Action — correct the topology before
+  planning.
 
 ## Handoff
 
 Not yet handed off. Discovery is at Stage 1 (adaptive interview), `lens_cursor:
-L1` (Outcome). Target mode is provisional (`research+plan+execute`) pending the
-Stage 3 human decision; the Stage 4 collaborative review gate and, for execute
-mode, the separate `project-orchestrator` Stage 2 execution authorization are
-both still outstanding. No candidate digest exists yet.
+L4` (Constraints). Target mode is provisional (`research+plan+execute`) pending
+the Stage 3 human decision; the Stage 4 collaborative review gate and, for
+execute mode, the separate `project-orchestrator` Stage 2 execution
+authorization are both still outstanding. No candidate digest exists yet.
