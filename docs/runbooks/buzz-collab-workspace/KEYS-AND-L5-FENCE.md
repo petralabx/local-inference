@@ -23,9 +23,18 @@ One keypair **per** agent. Never reuse a human key for an agent.
 
 ## Secret hygiene
 
-- `.env` under `/opt/buzz/.../deploy/compose/` stays on the host (chmod 600).
+- **Live (2026-08-06):** pilot secrets stored in **AWS Secrets Manager
+  `buzz/pilot`** (relay key, owner, DB/Redis/MinIO/HMAC). Source them into the
+  host `.env` at deploy time; keep the on-host `.env` chmod 600.
 - Do **not** commit `.env`, nsecs, or bridge secrets to `local-inference` or portal.
 - Rotate: mint new agent key → `add-member` → update harness env → revoke old membership.
+
+## Auth posture (live)
+
+- **Membership authentication enforced** — only `add-member`'d pubkeys read/publish.
+- **Token authentication temporarily disabled** — upstream `block/buzz` lacks a
+  token-mint path (`BUZZ_API_TOKEN`). Track upstream; re-enable when available.
+  Until then, do not design agent/bridge flows that assume relay token auth.
 
 ## L5 tool fence (binding)
 
