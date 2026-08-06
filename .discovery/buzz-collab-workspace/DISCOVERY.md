@@ -1,8 +1,8 @@
 ---
 slug: buzz-collab-workspace
 created: 2026-08-06T08:55:00Z
-updated: 2026-08-06T09:57:00Z
-status: in-review
+updated: 2026-08-06T10:16:00Z
+status: approved
 mode: research+plan
 lens_cursor: done
 ---
@@ -350,13 +350,20 @@ Read at Stage 0 / L1:
   Ricardo required_approver (portal/success), Stephen consulted (usability).
   Status → `in-review`; Stage 4 freeze begins.
 
+- 2026-08-06 — Stage 4 Round 1 **approved-for-research+plan**. Vince approved
+  directly (A1). Ricardo (A2) and Stephen (A3) recorded as **Vince proxy**
+  (accountable-owner override; F2) — not personal reviews by those humans.
+  Execution Authorized: no. Candidate `sha256:b256d09884cfd7ecf3451b01e414190c6212652d504af5a92c727c9545a6643e`.
+
 ## Handoff
 
-In review (Stage 4). Binding mode: **research+plan**. Frozen candidate:
-`sha256:b256d09884cfd7ecf3451b01e414190c6212652d504af5a92c727c9545a6643e`
-(`.discovery/buzz-collab-workspace/candidates/sha256:b256d09884cfd7ecf3451b01e414190c6212652d504af5a92c727c9545a6643e/CANDIDATE.md`).
-Review round: `.discovery/buzz-collab-workspace/review/round-1.md` (open).
-On approval, hand off to `project-researcher` then `project-orchestrator`
-Stages 1–2 (spec approval gate only — **no execution**). Satisfied required
-approvers will be recorded when the review gate closes. Execution authorization
-is **not** in scope for this mode.
+**Approved** for mode **research+plan**.
+
+- Candidate digest: `sha256:b256d09884cfd7ecf3451b01e414190c6212652d504af5a92c727c9545a6643e`
+- Round: `.discovery/buzz-collab-workspace/review/round-1.md` (approved)
+- Required approvers: Vince (direct A1); Ricardo (Vince proxy A2)
+- Consulted: Stephen (Vince proxy A3)
+- Next spine: `project-researcher` → `.orchestrator/buzz-collab-workspace/RESEARCH.md`,
+  then `project-orchestrator` Stages 1–2 (SPEC approval only)
+- Execution authorization: **outstanding / not applicable** — mode forbids
+  build; even if mode later expands, a separate Stage-2 execution gate is required

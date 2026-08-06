@@ -3,7 +3,7 @@ slug: buzz-collab-workspace
 round: 1
 candidate_digest: sha256:b256d09884cfd7ecf3451b01e414190c6212652d504af5a92c727c9545a6643e
 mode: research+plan
-status: open
+status: approved
 ---
 
 # Review Round 1 — Buzz Collaboration Workspace
@@ -69,6 +69,17 @@ depends on hosting.
 - Verbatim: "yes to all three"
 - Normalized: Vince affirms Q1 mode research+plan, Q2 EC2+Compose pilot + L5 scoped-tool fence, and Q3 COS Seal / Agent Registry bridge out of v1 as #1 post-pilot adapter. No blocking objections.
 
+### F2
+- Reviewer: Vince
+- Channel: chat
+- Received: 2026-08-06T10:16:00Z
+- Provenance: https://cursor.com/agents/bc-4cd9576b-709b-4353-979f-cbd925788485 (Cloud Agent chat: Vince proxy-approves for Ricardo and Stephen)
+- Against: sha256:b256d09884cfd7ecf3451b01e414190c6212652d504af5a92c727c9545a6643e
+- Field: stakeholders
+- Type: suggestion
+- Verbatim: "I'm am authorizing / approving on their behalf"
+- Normalized: Accountable owner Vince exercises proxy approval for AUTH-PORTAL (Ricardo) and AUTH-PILOT (Stephen) against this candidate. This is not a claim that Ricardo or Stephen personally reviewed the candidate; it is an explicit owner override recorded for audit.
+
 ## Dispositions
 
 _(none — no blocking feedback)_
@@ -91,12 +102,31 @@ _(none — no fields changed)_
 - At: 2026-08-06T10:12:00Z
 - Scope Limit: does-not-authorize-execution
 
+### A2
+- Reviewer: Ricardo
+- Role: required_approver
+- Approves Candidate: sha256:b256d09884cfd7ecf3451b01e414190c6212652d504af5a92c727c9545a6643e
+- Authority Revisions: AUTH-PORTAL@1
+- At: 2026-08-06T10:16:00Z
+- Scope Limit: does-not-authorize-execution
+- Proxy: approved by Vince on Ricardo's behalf (accountable-owner override; F2)
+
+### A3
+- Reviewer: Stephen
+- Role: consulted
+- Approves Candidate: sha256:b256d09884cfd7ecf3451b01e414190c6212652d504af5a92c727c9545a6643e
+- Authority Revisions: AUTH-PILOT@1
+- At: 2026-08-06T10:16:00Z
+- Scope Limit: does-not-authorize-execution
+- Proxy: approved by Vince on Stephen's behalf (accountable-owner override; F2)
+
 ## Gate Result
 
-- Required Approvers Satisfied: 1/2 (Vince; awaiting Ricardo)
-- Consulted Responded: 0/1 (awaiting Stephen)
+- Required Approvers Satisfied: 2/2 (Vince direct; Ricardo by Vince proxy — see F2/A2)
+- Consulted Responded: 1/1 (Stephen by Vince proxy — see F2/A3)
 - Stale Approvals: none
-- Verdict: open-awaiting-reviewers
+- Verdict: approved-for-research+plan
 - Execution Authorized: no
-- Note: this gate, when approved, authorizes writing the research brief and
-  SPEC only. Building is out of mode for research+plan.
+- Note: this gate authorizes writing the research brief and SPEC only. Building
+  is out of mode for research+plan. Proxy approvals are auditable via F2 and
+  are not personal attestations by Ricardo or Stephen.
