@@ -1,8 +1,8 @@
 ---
 slug: buzz-collab-workspace
 created: 2026-08-06T08:55:00Z
-updated: 2026-08-06T10:16:00Z
-status: approved
+updated: 2026-08-06T10:20:00Z
+status: handed-off
 mode: research+plan
 lens_cursor: done
 ---
@@ -363,7 +363,10 @@ Read at Stage 0 / L1:
 - Round: `.discovery/buzz-collab-workspace/review/round-1.md` (approved)
 - Required approvers: Vince (direct A1); Ricardo (Vince proxy A2)
 - Consulted: Stephen (Vince proxy A3)
-- Next spine: `project-researcher` → `.orchestrator/buzz-collab-workspace/RESEARCH.md`,
-  then `project-orchestrator` Stages 1–2 (SPEC approval only)
+- Next spine: `project-researcher` → `.orchestrator/buzz-collab-workspace/RESEARCH.md`
+  (**draft written 2026-08-06**, rubric_score 88), then `project-orchestrator`
+  Stages 1–2 (SPEC approval only)
 - Execution authorization: **outstanding / not applicable** — mode forbids
   build; even if mode later expands, a separate Stage-2 execution gate is required
+- MC desync: Hub `mc_suggest_work` returned only fuzzy portal-scoped candidates;
+  no local-inference-scoped checkout stamp yet — reconcile before merge.
