@@ -194,6 +194,11 @@ signed event in one log — humans and agents alike, each with their own keypair
   L11 ops. Owner: Vince. Small pilot instance is acceptable to start.
 - Ricardo + Stephen will get Tailscale (and/or hostname) access to the EC2 relay
   before pilot day. Owner: Vince.
+- "COS Seal" identified (2026-08-06): the Portal **Chief of Staff**
+  (`chief-of-staff`) agent orchestrator + versioned **Agent Registry** (10 agents,
+  invocation grants) in Admin, marked by the "Px" seal. Owner: Vince. Decision
+  needed at L7: adapter target for the substrate vision but **out of v1 pilot**
+  unless Vince pulls it in.
 - Pilot agent tool allowlist starts at plx-customer-portal (exact paths TBD at
   plan time). Owner: Vince. Confirmed intent at L5.
 
@@ -231,6 +236,16 @@ Read at Stage 0 / L1:
   Tailscale Hermes bridge, `agentic-swarm/config/agents.yaml` as Portal agent
   registry; portal web on Vercel, DBs on RDS. Sourced L1 Cursor Cloud / Portal
   swarm feasibility and the L4 hosting correction.
+- Vince screenshots (2026-08-06) — Portal **Admin → Agent Registry** ("Super Admin
+  access only", versioned agent definitions + invocation grants) lists 10 live
+  agents: **Chief of Staff (`chief-of-staff`)** — staff-facing orchestrator, the
+  main PLX-Customer-Portal agent — plus Hasitha Fernando (`hasitha-fernando`) and
+  a QA fleet (qa-admin, qa-adversarial, qa-data-heavy, qa-explorer,
+  qa-floor-operator, qa-planner-user, qa-supervisor). The circular "Px" **seal**
+  is the COS orchestrator mark ("COS Seal"). There is also a "Chief of Staff /
+  Agent Orchestrator" side panel (HOME/UAT/AGENTS/TASKS/RECENTS, ticket intake,
+  quick actions). This is the concrete "Portal Agents / Agent Registry / COS
+  Seal" surface Vince wants piped into Buzz. Sourced L7 scope of COS Seal.
 
 ## Decision Log
 
