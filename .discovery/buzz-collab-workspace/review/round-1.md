@@ -58,28 +58,43 @@ depends on hosting.
 
 ## Feedback
 
-_(none yet — awaiting reviewer responses)_
+### F1
+- Reviewer: Vince
+- Channel: chat
+- Received: 2026-08-06T10:12:00Z
+- Provenance: https://cursor.com/agents/bc-4cd9576b-709b-4353-979f-cbd925788485 (Cloud Agent chat reply to Round-1 Vince pack Q1–Q3)
+- Against: sha256:b256d09884cfd7ecf3451b01e414190c6212652d504af5a92c727c9545a6643e
+- Field: mode
+- Type: suggestion
+- Verbatim: "yes to all three"
+- Normalized: Vince affirms Q1 mode research+plan, Q2 EC2+Compose pilot + L5 scoped-tool fence, and Q3 COS Seal / Agent Registry bridge out of v1 as #1 post-pilot adapter. No blocking objections.
 
 ## Dispositions
 
-_(none yet)_
+_(none — no blocking feedback)_
 
 ## Redlines
 
-_(none yet — no candidate revision in this open round)_
+_(none — candidate unchanged)_
 
 ## Re-Review
 
-_(none yet — no fields changed)_
+_(none — no fields changed)_
 
 ## Approvals
 
-_(none yet — required: Vince, Ricardo)_
+### A1
+- Reviewer: Vince
+- Role: required_approver
+- Approves Candidate: sha256:b256d09884cfd7ecf3451b01e414190c6212652d504af5a92c727c9545a6643e
+- Authority Revisions: AUTH-DECISION@1, AUTH-INFRA@1
+- At: 2026-08-06T10:12:00Z
+- Scope Limit: does-not-authorize-execution
 
 ## Gate Result
 
-- Required Approvers Satisfied: 0/2
-- Consulted Responded: 0/1
+- Required Approvers Satisfied: 1/2 (Vince; awaiting Ricardo)
+- Consulted Responded: 0/1 (awaiting Stephen)
 - Stale Approvals: none
 - Verdict: open-awaiting-reviewers
 - Execution Authorized: no
