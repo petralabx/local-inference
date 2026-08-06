@@ -100,13 +100,13 @@ else
   warn "create a cursor/* feature branch before governed work"
 fi
 
-API_KEY="${PLX_MC_MCP_API_KEY:-${MC_MCP_API_KEY:-}}"
+API_KEY="${MC_MCP_API_KEY:-${PLX_MC_MCP_API_KEY:-}}"
 if [[ -n "$API_KEY" ]]; then
   pass "MC credential is present (value not displayed)"
 elif [[ "$MODE" == "--online" ]]; then
-  fail "PLX_MC_MCP_API_KEY is required for the online check"
+  fail "MC_MCP_API_KEY is required for the online check"
 else
-  warn "PLX_MC_MCP_API_KEY is not set; offline checks continue"
+  warn "MC_MCP_API_KEY is not set; offline checks continue"
 fi
 
 if [[ "${MC_OPERATOR_EMAIL:-}" == "$EXPECTED_OPERATOR" ]]; then

@@ -13,7 +13,7 @@ promotion source.
 | Attribute | Contract |
 |---|---|
 | Scope | Operator-local Hermes/Claude agent working only in `petralabx/local-inference` |
-| Auth source | Dedicated Claude Code key supplied as `PLX_MC_MCP_API_KEY` in `~/.hermes/.env`; MC service principal `sp_mcp_claude_code`; GitHub credential managed outside Git |
+| Auth source | Dedicated runtime key supplied as `MC_MCP_API_KEY` with its reviewed `MC_MCP_PRINCIPAL_ID` in `~/.hermes/.env`; Hermes uses `sp_mcp_hermes`; GitHub credential managed outside Git |
 | Default state | Local MC and remote writes unavailable until the operator provisions credentials and permissions |
 | Kill switch | Remove the MC key and the Claude permission entries; revoke the local GitHub credential |
 | Health check | `bash scripts/local-agent-preflight.sh --online` |
@@ -37,10 +37,11 @@ or GitHub write endpoints.
 ## 2. Provision the narrow MC identity
 
 Add these names to `~/.hermes/.env`; substitute the dedicated
-`sp_mcp_claude_code` key value locally:
+`sp_mcp_hermes` key value locally:
 
 ```dotenv
-PLX_MC_MCP_API_KEY=<operator-provisioned-value>
+MC_MCP_API_KEY=<operator-provisioned-value>
+MC_MCP_PRINCIPAL_ID=sp_mcp_hermes
 MC_OPERATOR_EMAIL=cos@petrasoap.com
 MC_REPO=petralabx/local-inference
 MC_RUNTIME=local

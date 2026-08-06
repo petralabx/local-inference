@@ -44,9 +44,21 @@ fi
 
 case "$MC_RUNTIME" in
   local)
-    EXPECTED_SERVICE_PRINCIPAL="sp_mcp_claude_code"
+    EXPECTED_SERVICE_PRINCIPAL="${MC_MCP_PRINCIPAL_ID:-}"
+    case "$EXPECTED_SERVICE_PRINCIPAL" in
+      sp_mcp_claude_code|sp_mcp_codex|sp_mcp_grok|sp_mcp_hermes|sp_mcp_swarm)
+        ;;
+      *)
+        printf 'refusing MC request: unsupported MC_MCP_PRINCIPAL_ID for local runtime\n' >&2
+        exit 1
+        ;;
+    esac
     ;;
   cursor-cloud)
+    if [[ -n "${MC_MCP_PRINCIPAL_ID:-}" && "$MC_MCP_PRINCIPAL_ID" != "sp_mcp_cursor" ]]; then
+      printf 'refusing MC request: cursor-cloud requires sp_mcp_cursor\n' >&2
+      exit 1
+    fi
     EXPECTED_SERVICE_PRINCIPAL="sp_mcp_cursor"
     ;;
   *)
@@ -79,10 +91,10 @@ PY
   fi
 fi
 
-API_KEY="${PLX_MC_MCP_API_KEY:-${MC_MCP_API_KEY:-}}"
+API_KEY="${MC_MCP_API_KEY:-${PLX_MC_MCP_API_KEY:-}}"
 if [[ -z "$API_KEY" ]]; then
   if [[ "$MC_RUNTIME" == "local" ]]; then
-    printf 'MISSING: set PLX_MC_MCP_API_KEY in the local agent environment\n' >&2
+    printf 'MISSING: set MC_MCP_API_KEY in the local agent environment\n' >&2
   else
     printf 'MISSING: set PLX_MC_MCP_API_KEY (or hydrate from prod/ec2-secrets)\n' >&2
   fi
