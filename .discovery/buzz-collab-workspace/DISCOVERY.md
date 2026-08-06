@@ -1,10 +1,10 @@
 ---
 slug: buzz-collab-workspace
 created: 2026-08-06T08:55:00Z
-updated: 2026-08-06T09:40:00Z
+updated: 2026-08-06T09:49:00Z
 status: interviewing
 mode: research+plan+execute
-lens_cursor: L7
+lens_cursor: L8
 ---
 
 # Discovery — Buzz Collaboration Workspace (humans + agents)
@@ -28,8 +28,8 @@ members with their own identities and a single audit trail.
 | L4 | Constraints | yes | answered | 2026-08-06T09:26:00Z |
 | L5 | Blast radius | yes | answered | 2026-08-06T09:33:00Z |
 | L6 | Success evidence | yes | answered | 2026-08-06T09:40:00Z |
-| L7 | Non-goals | yes | asked | — |
-| L8 | Stakeholders | yes | open | — |
+| L7 | Non-goals | yes | answered | 2026-08-06T09:49:00Z |
+| L8 | Stakeholders | yes | asked | — |
 | L9 | Alternatives | no | open | — |
 | L10 | Timing | no | open | — |
 | L11 | Operations | no | open | — |
@@ -132,6 +132,31 @@ Risk framing recorded for the cohort: shared trigger surface + headless
 auto-allow on some ACP bridges — mitigated by allowlist, not by assuming only
 Vince will ever prompt the agent.
 
+### L7 — Non-Goals
+
+**Out of the v1 pilot (locked):**
+
+1. Replacing Mission Control — MC stays the PM/task SoR; Buzz is the room around
+   it.
+2. Migrating the LangGraph swarm roster (`agentic-swarm/config/agents.yaml` —
+   CFO/CRO/…) into Buzz.
+3. Company-wide move off Slack / email / GitHub — pilot is Vince + Ricardo +
+   Stephen on one portal-related project only.
+4. Live/customer-system access or portal staging RDS credentials from
+   Buzz-bound agent environments (also L5).
+5. Wiring Cursor Cloud agents as Buzz members for v1 — pilot leans on Hermes +
+   local Cursor ACP.
+6. **COS Seal / Portal Agent Registry bridge** — the portal-embedded Chief of
+   Staff (`chief-of-staff`) orchestrator + versioned Agent Registry (COS,
+   Hasitha Fernando, QA-* fleet) with invocation grants. Getting them into Buzz
+   means Nostr identities + an ACP/`buzz-cli` bridge that honors those grants —
+   **real adapter work, not config**. Explicitly a **follow-on effort after the
+   pilot succeeds**. Named as the **#1 substrate adapter target** post-pilot.
+
+**In scope for v1 (by contrast):** EC2+Compose relay; Tailscale/hostname access
+for the three humans; Hermes + local Cursor as channel members under the L5
+allowlist; one portal project completed with Buzz as the collaboration room.
+
 ### L6 — Success evidence
 
 **Pilot is a success (and the EC2 relay is kept) when both hold:**
@@ -194,18 +219,21 @@ signed event in one log — humans and agents alike, each with their own keypair
   L11 ops. Owner: Vince. Small pilot instance is acceptable to start.
 - Ricardo + Stephen will get Tailscale (and/or hostname) access to the EC2 relay
   before pilot day. Owner: Vince.
-- "COS Seal" identified (2026-08-06): the Portal **Chief of Staff**
-  (`chief-of-staff`) agent orchestrator + versioned **Agent Registry** (10 agents,
-  invocation grants) in Admin, marked by the "Px" seal. Owner: Vince. Decision
-  needed at L7: adapter target for the substrate vision but **out of v1 pilot**
-  unless Vince pulls it in.
+- "COS Seal" identified (2026-08-06): Portal Chief of Staff (`chief-of-staff`) +
+  versioned Agent Registry (10 agents, invocation grants), "Px" seal mark.
+  **Locked at L7 as out of v1 / #1 follow-on adapter after pilot.** Owner: Vince.
 - Pilot agent tool allowlist starts at plx-customer-portal (exact paths TBD at
   plan time). Owner: Vince. Confirmed intent at L5.
 
 ## Non-Goals
 
-- To be filled at the Non-Goals lens (L7). Nothing excluded yet.
-- Provisional (not yet binding): Block-hosted buzz.xyz is out (self-host only).
+- Replacing Mission Control.
+- Migrating LangGraph swarm (`agents.yaml`) into Buzz for v1.
+- Company-wide Slack/email/GitHub replacement.
+- Live/customer-system or staging-RDS access from Buzz agent envs.
+- Cursor Cloud as Buzz members for v1.
+- COS Seal / Portal Agent Registry bridge for v1 (follow-on after pilot;
+  #1 named post-pilot adapter).
 
 ## Evidence
 
@@ -290,11 +318,15 @@ Read at Stage 0 / L1:
 - 2026-08-06 — L6 locked: success = room works (#1) AND a real portal project
   completed via Buzz; verdict signed jointly by Vince + Ricardo (Stephen
   participates, not a required signer). Rationale: Vince's explicit criteria.
+- 2026-08-06 — L7 locked: COS Seal / Agent Registry bridge is a **follow-on
+  after pilot** (#1 named adapter), not v1. Also out: MC replacement, LangGraph
+  swarm migration, company-wide chat migration, live/customer access, Cursor
+  Cloud as Buzz members for v1. Rationale: Vince confirmed follow-on framing.
 
 ## Handoff
 
 Not yet handed off. Discovery is at Stage 1 (adaptive interview), `lens_cursor:
-L7` (Non-Goals). Target mode is provisional (`research+plan+execute`) pending
+L8` (Stakeholders). Target mode is provisional (`research+plan+execute`) pending
 the Stage 3 human decision; the Stage 4 collaborative review gate and, for
 execute mode, the separate `project-orchestrator` Stage 2 execution
 authorization are both still outstanding. No candidate digest exists yet.
