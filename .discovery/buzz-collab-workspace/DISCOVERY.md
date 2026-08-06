@@ -1,10 +1,10 @@
 ---
 slug: buzz-collab-workspace
 created: 2026-08-06T08:55:00Z
-updated: 2026-08-06T09:20:00Z
+updated: 2026-08-06T09:26:00Z
 status: interviewing
 mode: research+plan+execute
-lens_cursor: L4
+lens_cursor: L5
 ---
 
 # Discovery — Buzz Collaboration Workspace (humans + agents)
@@ -25,8 +25,8 @@ members with their own identities and a single audit trail.
 | L1 | Outcome | yes | answered | 2026-08-06T09:10:00Z |
 | L2 | Users and jobs | yes | answered | 2026-08-06T09:20:00Z |
 | L3 | Current reality | yes | prefilled | 2026-08-06T08:55:00Z |
-| L4 | Constraints | yes | asked | — |
-| L5 | Blast radius | yes | open | — |
+| L4 | Constraints | yes | answered | 2026-08-06T09:26:00Z |
+| L5 | Blast radius | yes | asked | — |
 | L6 | Success evidence | yes | open | — |
 | L7 | Non-goals | yes | open | — |
 | L8 | Stakeholders | yes | open | — |
@@ -88,36 +88,27 @@ meet this. See L4 reopen below.
 
 ### L4 — Constraints
 
-**Hosting — REOPENED after L2 access requirement.**
-
-Prior lock (2026-08-06T09:15Z) was: pilot = Dell/Hermes-bridge; steady-state =
-dedicated EC2 + Compose. That assumed Vince-reachable pilot infra. With Ricardo
-+ Stephen in the pilot cohort, the relay must be reachable to all three.
-
-**How Dell access actually works:**
-- Buzz clients talk to a relay URL (`ws(s)://…`).
-- If the relay is on the Dell Tailscale IP, **colleagues can reach it only if
-  they are on the same Tailscale tailnet** (or you put a public TLS hostname in
-  front of it). LAN IP alone is not enough off-site.
-- Even with Tailscale: Dell asleep / offline / reboot = Buzz down for everyone.
-- Staging portal on Vercel still cannot "host" Buzz; the Hermes bridge already
-  depends on Tailscale for the same reason.
+**Hosting (locked after reopen):**
+- **Pilot and steady-state shape:** dedicated **EC2 + Compose** on the Tailscale
+  net (or with a small TLS front). Same topology from day one — no Dell-as-relay
+  hop, no mid-pilot migration.
+- **Dell role:** agent worker only (Hermes / local models / existing bridges) —
+  not the shared Buzz relay.
+- Colleagues (Ricardo, Stephen) reach the relay via Tailscale membership and/or a
+  stable hostname; relay uptime is independent of Vince's workstation.
 
 **Still binding:**
 - Self-hosted only (Block buzz.xyz out).
 - Dedicated Buzz volumes (own Postgres/Redis/object store) — never portal staging
   RDS.
 - Hermes + Cursor first-class; Portal Agent Registry / COS Seal = adapter work.
-- Pilot orbit = portal + MC (from L2).
+- Pilot orbit = plx-customer-portal + Mission Control as PM SoR (from L2).
+- Pilot cohort = Vince + Ricardo + Stephen (from L2).
 
-**Pilot host — choose again (forced):**
-1. Keep Dell pilot **only if** Ricardo + Stephen are already on the PLX Tailscale
-   tailnet (or will be before pilot day) — accept Dell uptime as pilot SLA.
-2. Move **pilot** to dedicated EC2 + Compose now (same shape as steady-state) —
-   colleagues reach a stable Tailscale/public hostname; Dell stays agent worker,
-   not the relay.
-3. Railway (or similar) one-click self-owned relay for pilot — fastest remote
-   reachability; migrate to EC2 later.
+**Still open (assumptions, not blockers for this lens):**
+- Exact COS Seal artifact — resolve at L7.
+- EC2 size / region / who operates backups — defer to L6 graduation + L11 ops,
+  with a small pilot instance acceptable to start.
 
 ### L3 — Current reality
 
@@ -152,17 +143,16 @@ signed event in one log — humans and agents alike, each with their own keypair
 
 ## Assumptions
 
-- Pilot host placement is **reopened**: Ricardo + Stephen must reach the relay.
-  Dell works only with shared Tailscale (or public TLS) and accepts Dell uptime
-  as pilot SLA; otherwise pilot moves to EC2 or Railway. Owner: Vince. Resolve
-  before L4 can re-lock.
-- Dedicated Buzz volumes (own Postgres/Redis/object store) on whatever host wins
-  — never portal staging RDS. Owner: Vince.
+- Pilot and steady-state Buzz relay run on dedicated EC2 + Compose (own
+  Postgres/Redis/object-store volumes) — never portal staging RDS; Dell is agent
+  worker only. Owner: Vince. Locked at L4 (2026-08-06T09:26Z).
 - "COS Seal" names a concrete Portal/swarm workflow Vince wants wired into Buzz.
   Exact artifact path/owner still unknown in-repo. Owner: Vince. Resolve at L7
   (Non-Goals) — include as adapter target or explicitly exclude from v1.
-- Steady-state EC2 sizing / region / who operates it is deferred until pilot
-  graduation criteria (L6) are set. Owner: Vince.
+- EC2 sizing / region / backup owner deferred until L6 graduation criteria and
+  L11 ops. Owner: Vince. Small pilot instance is acceptable to start.
+- Ricardo + Stephen will get Tailscale (and/or hostname) access to the EC2 relay
+  before pilot day. Owner: Vince.
 
 ## Non-Goals
 
@@ -225,13 +215,22 @@ Read at Stage 0 / L1:
 - 2026-08-06 — L4 locked hosting path: **pilot = Dell/Hermes-bridge Tailscale
   host**; **steady-state = dedicated EC2 + Compose** if the pilot graduates.
   Rationale: Vince forced choice; matches existing Hermes topology for pilot
-  speed and clean ops boundary for prod.
+  speed and clean ops boundary for steady-state.
+- 2026-08-06 — L2 locked: cohort = Vince + Ricardo + Stephen; orbit =
+  plx-customer-portal with Mission Control as PM SoR. New access requirement:
+  colleagues must reach the relay from their machines.
+- 2026-08-06 — **Reopened L4 pilot host** because Dell-local contradicts the L2
+  cohort unless Ricardo + Stephen are on the Tailscale tailnet (or a public TLS
+  front exists). Dell asleep = Buzz down for all three.
+- 2026-08-06 — **L4 re-locked: EC2 + Compose for pilot** (same shape as
+  steady-state). Dell stays agent worker only. Rationale: agent recommendation
+  accepted by Vince; multi-human reachability and uptime outweigh Dell speed;
+  avoids a mid-pilot migration.
 
 ## Handoff
 
 Not yet handed off. Discovery is at Stage 1 (adaptive interview), `lens_cursor:
-L4` (Constraints — **reopened** for pilot-host reachability after L2). Target
-mode is provisional (`research+plan+execute`) pending the Stage 3 human
-decision; the Stage 4 collaborative review gate and, for execute mode, the
-separate `project-orchestrator` Stage 2 execution authorization are both still
-outstanding. No candidate digest exists yet.
+L5` (Blast radius). Target mode is provisional (`research+plan+execute`) pending
+the Stage 3 human decision; the Stage 4 collaborative review gate and, for
+execute mode, the separate `project-orchestrator` Stage 2 execution
+authorization are both still outstanding. No candidate digest exists yet.
