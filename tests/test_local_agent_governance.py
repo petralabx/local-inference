@@ -12,10 +12,24 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 CHECKOUT_SCRIPT = REPO_ROOT / "scripts" / "mc-checkout-local-inference.sh"
 PREFLIGHT_SCRIPT = REPO_ROOT / "scripts" / "local-agent-preflight.sh"
 PUSH_SCRIPT = REPO_ROOT / "scripts" / "push-agent-branch.sh"
+WINDOWS_GIT_BASH = Path("C:/Program Files/Git/bin/bash.exe")
+BASH = str(WINDOWS_GIT_BASH) if os.name == "nt" and WINDOWS_GIT_BASH.exists() else "bash"
+
+
+def _shell_path(path: Path) -> str:
+    resolved = path.resolve().as_posix()
+    if os.name == "nt":
+        drive, remainder = resolved.split(":/", 1)
+        return f"/{drive.lower()}/{remainder}"
+    return resolved
 
 
 def _write_executable(path: Path, body: str) -> None:
-    path.write_text(textwrap.dedent(body).lstrip(), encoding="utf-8")
+    path.write_text(
+        textwrap.dedent(body).lstrip(),
+        encoding="utf-8",
+        newline="\n",
+    )
     path.chmod(0o755)
 
 
@@ -27,8 +41,9 @@ class McCheckoutScriptTests(unittest.TestCase):
             env = os.environ.copy()
             env.update(
                 {
-                    "PATH": f"{bin_dir}{os.pathsep}{env['PATH']}",
-                    "PLX_MC_MCP_API_KEY": "secret-never-print",
+                    "TEST_BIN": _shell_path(bin_dir),
+                    "MC_MCP_API_KEY": "secret-never-print",
+                    "MC_MCP_PRINCIPAL_ID": "sp_mcp_hermes",
                     "MC_OPERATOR_EMAIL": "cos@petrasoap.com",
                     "MC_REPO": "petralabx/local-inference",
                     "MC_RUNTIME": "local",
@@ -37,7 +52,14 @@ class McCheckoutScriptTests(unittest.TestCase):
             if env_updates:
                 env.update(env_updates)
             return subprocess.run(
-                ["bash", str(CHECKOUT_SCRIPT), *args],
+                [
+                    BASH,
+                    "-c",
+                    'PATH="$TEST_BIN:$PATH"; exec bash "$@"',
+                    "test-shell",
+                    _shell_path(CHECKOUT_SCRIPT),
+                    *args,
+                ],
                 cwd=REPO_ROOT,
                 env=env,
                 text=True,
@@ -50,7 +72,7 @@ class McCheckoutScriptTests(unittest.TestCase):
             """
             #!/usr/bin/env bash
             printf 'curl-argv:%s\n' "$*" >&2
-            printf '%s\n' '{"data":{"ok":true},"meta":{"actor":{"repo":"petralabx/local-inference","operatorEmail":"cos@petrasoap.com","runtime":"local","servicePrincipalId":"sp_mcp_claude_code"}}}'
+            printf '%s\n' '{"data":{"ok":true},"meta":{"actor":{"repo":"petralabx/local-inference","operatorEmail":"cos@petrasoap.com","runtime":"local","servicePrincipalId":"sp_mcp_hermes"}}}'
             """,
             "--self-check",
         )
@@ -64,7 +86,7 @@ class McCheckoutScriptTests(unittest.TestCase):
         result = self._run(
             """
             #!/usr/bin/env bash
-            printf '%s\n' '{"data":{"ok":true},"meta":{"actor":{"repo":"other/repo","operatorEmail":"cos@petrasoap.com","runtime":"local","servicePrincipalId":"sp_mcp_claude_code"}}}'
+            printf '%s\n' '{"data":{"ok":true},"meta":{"actor":{"repo":"other/repo","operatorEmail":"cos@petrasoap.com","runtime":"local","servicePrincipalId":"sp_mcp_hermes"}}}'
             """,
             "--self-check",
         )
@@ -84,7 +106,7 @@ class McCheckoutScriptTests(unittest.TestCase):
         )
 
         self.assertEqual(result.returncode, 1)
-        self.assertIn("set PLX_MC_MCP_API_KEY in the local agent environment", result.stderr)
+        self.assertIn("set MC_MCP_API_KEY in the local agent environment", result.stderr)
         self.assertNotIn("curl must not run", result.stderr)
 
     def test_checkout_validates_full_identity_and_returns_stamp(self):
@@ -92,9 +114,9 @@ class McCheckoutScriptTests(unittest.TestCase):
             """
             #!/usr/bin/env bash
             if [[ "$*" == *"/api/cursor/checkout"* ]]; then
-              printf '%s\n' '{"data":{"taskId":"TASK-910","checkoutId":"dsp_test123","prBodyLine":"MC-Checkout: dsp_test123"},"meta":{"actor":{"repo":"petralabx/local-inference","operatorEmail":"cos@petrasoap.com","runtime":"local","servicePrincipalId":"sp_mcp_claude_code"}}}'
+              printf '%s\n' '{"data":{"taskId":"TASK-910","checkoutId":"dsp_test123","prBodyLine":"MC-Checkout: dsp_test123"},"meta":{"actor":{"repo":"petralabx/local-inference","operatorEmail":"cos@petrasoap.com","runtime":"local","servicePrincipalId":"sp_mcp_hermes"}}}'
             else
-              printf '%s\n' '{"data":{"ok":true},"meta":{"actor":{"repo":"petralabx/local-inference","operatorEmail":"cos@petrasoap.com","runtime":"local","servicePrincipalId":"sp_mcp_claude_code"}}}'
+              printf '%s\n' '{"data":{"ok":true},"meta":{"actor":{"repo":"petralabx/local-inference","operatorEmail":"cos@petrasoap.com","runtime":"local","servicePrincipalId":"sp_mcp_hermes"}}}'
             fi
             """,
             "TASK-910",
@@ -146,7 +168,7 @@ class McCheckoutScriptTests(unittest.TestCase):
         self.assertIn("identity must be repo=petralabx/local-inference", result.stderr)
         self.assertNotIn("curl must not run", result.stderr)
 
-    def test_local_runtime_requires_dedicated_claude_principal(self):
+    def test_local_runtime_requires_explicit_dedicated_principal(self):
         result = self._run(
             """
             #!/usr/bin/env bash
@@ -157,6 +179,21 @@ class McCheckoutScriptTests(unittest.TestCase):
 
         self.assertEqual(result.returncode, 1)
         self.assertIn('"servicePrincipalId": "sp_mcp_cursor"', result.stderr)
+
+    def test_local_runtime_rejects_unreviewed_principal_before_curl(self):
+        result = self._run(
+            """
+            #!/usr/bin/env bash
+            printf 'curl must not run\n' >&2
+            exit 99
+            """,
+            "--self-check",
+            env_updates={"MC_MCP_PRINCIPAL_ID": "sp_mcp_unreviewed"},
+        )
+
+        self.assertEqual(result.returncode, 1)
+        self.assertIn("unsupported MC_MCP_PRINCIPAL_ID", result.stderr)
+        self.assertNotIn("curl must not run", result.stderr)
 
 
 class LocalAgentPreflightTests(unittest.TestCase):
@@ -211,12 +248,12 @@ class LocalAgentPreflightTests(unittest.TestCase):
             env = os.environ.copy()
             env.update(
                 {
-                    "PATH": f"{bin_dir}{os.pathsep}{env['PATH']}",
+                    "TEST_BIN": _shell_path(bin_dir),
                     "FAKE_REPO_ROOT": str(REPO_ROOT),
                     "FAKE_ORIGIN": origin,
                     "FAKE_PUSH_URL": push_url,
                     "FAKE_BRANCH": branch,
-                    "MC_CHECKOUT_SCRIPT": str(mc_check),
+                    "MC_CHECKOUT_SCRIPT": _shell_path(mc_check),
                 }
             )
             if python_bin is not None:
@@ -224,7 +261,8 @@ class LocalAgentPreflightTests(unittest.TestCase):
             if include_credentials:
                 env.update(
                     {
-                        "PLX_MC_MCP_API_KEY": "secret-never-print",
+                        "MC_MCP_API_KEY": "secret-never-print",
+                        "MC_MCP_PRINCIPAL_ID": "sp_mcp_hermes",
                         "MC_OPERATOR_EMAIL": "cos@petrasoap.com",
                         "MC_REPO": "petralabx/local-inference",
                         "MC_RUNTIME": "local",
@@ -234,6 +272,7 @@ class LocalAgentPreflightTests(unittest.TestCase):
                 for key in (
                     "PLX_MC_MCP_API_KEY",
                     "MC_MCP_API_KEY",
+                    "MC_MCP_PRINCIPAL_ID",
                     "MC_OPERATOR_EMAIL",
                     "MC_REPO",
                     "MC_RUNTIME",
@@ -241,7 +280,14 @@ class LocalAgentPreflightTests(unittest.TestCase):
                     env.pop(key, None)
 
             return subprocess.run(
-                ["bash", str(PREFLIGHT_SCRIPT), *args],
+                [
+                    BASH,
+                    "-c",
+                    'PATH="$TEST_BIN:$PATH"; exec bash "$@"',
+                    "test-shell",
+                    _shell_path(PREFLIGHT_SCRIPT),
+                    *args,
+                ],
                 cwd=REPO_ROOT,
                 env=env,
                 text=True,
@@ -261,7 +307,7 @@ class LocalAgentPreflightTests(unittest.TestCase):
 
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertIn("offline structure checks passed", result.stdout)
-        self.assertIn("PLX_MC_MCP_API_KEY is not set", result.stdout)
+        self.assertIn("MC_MCP_API_KEY is not set", result.stdout)
 
     def test_wrong_origin_fails(self):
         result = self._run(
@@ -344,9 +390,9 @@ class PushAgentBranchTests(unittest.TestCase):
             env = os.environ.copy()
             env.update(
                 {
-                    "PATH": f"{bin_dir}{os.pathsep}{env['PATH']}",
-                    "PYTHON_BIN": str(python_bin),
-                    "FAKE_GIT_LOG": str(command_log),
+                    "TEST_BIN": _shell_path(bin_dir),
+                    "PYTHON_BIN": _shell_path(python_bin),
+                    "FAKE_GIT_LOG": _shell_path(command_log),
                     "FAKE_REPO_ROOT": str(root),
                     "FAKE_ORIGIN": origin,
                     "FAKE_PUSH_URL": push_url,
@@ -355,7 +401,13 @@ class PushAgentBranchTests(unittest.TestCase):
                 }
             )
             result = subprocess.run(
-                ["bash", str(PUSH_SCRIPT)],
+                [
+                    BASH,
+                    "-c",
+                    'PATH="$TEST_BIN:$PATH"; exec bash "$@"',
+                    "test-shell",
+                    _shell_path(PUSH_SCRIPT),
+                ],
                 cwd=root,
                 env=env,
                 text=True,
