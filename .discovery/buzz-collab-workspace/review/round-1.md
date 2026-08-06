@@ -83,5 +83,5 @@ _(none yet — required: Vince, Ricardo)_
 - Stale Approvals: none
 - Verdict: open-awaiting-reviewers
 - Execution Authorized: no
-- Note: this gate, when approved, authorizes live/customer systems of the research brief and
+- Note: this gate, when approved, authorizes writing the research brief and
   SPEC only. Building is out of mode for research+plan.
