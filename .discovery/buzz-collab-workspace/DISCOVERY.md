@@ -1,10 +1,10 @@
 ---
 slug: buzz-collab-workspace
 created: 2026-08-06T08:55:00Z
-updated: 2026-08-06T09:26:00Z
+updated: 2026-08-06T09:33:00Z
 status: interviewing
 mode: research+plan+execute
-lens_cursor: L5
+lens_cursor: L6
 ---
 
 # Discovery — Buzz Collaboration Workspace (humans + agents)
@@ -26,8 +26,8 @@ members with their own identities and a single audit trail.
 | L2 | Users and jobs | yes | answered | 2026-08-06T09:20:00Z |
 | L3 | Current reality | yes | prefilled | 2026-08-06T08:55:00Z |
 | L4 | Constraints | yes | answered | 2026-08-06T09:26:00Z |
-| L5 | Blast radius | yes | asked | — |
-| L6 | Success evidence | yes | open | — |
+| L5 | Blast radius | yes | answered | 2026-08-06T09:33:00Z |
+| L6 | Success evidence | yes | asked | — |
 | L7 | Non-goals | yes | open | — |
 | L8 | Stakeholders | yes | open | — |
 | L9 | Alternatives | no | open | — |
@@ -82,9 +82,9 @@ Buzz channel and give immediate feedback.
 Control** as the project-management SoR (tasks, checkout, compliance). Buzz is
 the collaboration room around that work — it does not replace MC.
 
-**Access requirement (new, surfaced mid-L2):** Ricardo and Stephen must be able
-to reach the Buzz relay from their own machines. A Dell-only LAN relay does not
-meet this. See L4 reopen below.
+**Access requirement:** Ricardo and Stephen must reach the Buzz relay from their
+own machines. Resolved by L4: EC2 relay + Tailscale/hostname access (not
+Dell-as-relay).
 
 ### L4 — Constraints
 
@@ -109,6 +109,28 @@ meet this. See L4 reopen below.
 - Exact COS Seal artifact — resolve at L7.
 - EC2 size / region / who operates backups — defer to L6 graduation + L11 ops,
   with a small pilot instance acceptable to start.
+
+### L5 — Blast radius
+
+**Fence (locked): #2 — scoped agent tools.**
+
+Humans stay in the loop; the room is collaborative. What changes vs solo
+Cursor/Hermes is *who can @mention an agent* (any channel member) and *where
+tools may run*. For the pilot:
+
+- Agents may use tools only against **explicit allowlisted** repos/paths
+  (starting with plx-customer-portal worktrees / agreed paths).
+- **No** live/customer systems access from Buzz-bound agent environments.
+- **No** portal staging RDS (or other shared DB) credentials injected into the
+  Buzz/agent environment on EC2.
+- Agent shell/tool host is constrained to the allowlist; EC2 relay host is not a
+  general-purpose admin box for agents.
+- Reversible: remove agent memberships / tear down the EC2 stack; Nostr audit
+  trail remains for review.
+
+Risk framing recorded for the cohort: shared trigger surface + headless
+auto-allow on some ACP bridges — mitigated by allowlist, not by assuming only
+Vince will ever prompt the agent.
 
 ### L3 — Current reality
 
@@ -153,6 +175,8 @@ signed event in one log — humans and agents alike, each with their own keypair
   L11 ops. Owner: Vince. Small pilot instance is acceptable to start.
 - Ricardo + Stephen will get Tailscale (and/or hostname) access to the EC2 relay
   before pilot day. Owner: Vince.
+- Pilot agent tool allowlist starts at plx-customer-portal (exact paths TBD at
+  plan time). Owner: Vince. Confirmed intent at L5.
 
 ## Non-Goals
 
@@ -226,11 +250,14 @@ Read at Stage 0 / L1:
   steady-state). Dell stays agent worker only. Rationale: agent recommendation
   accepted by Vince; multi-human reachability and uptime outweigh Dell speed;
   avoids a mid-pilot migration.
+- 2026-08-06 — L5 locked to fence #2 (scoped agent tools): allowlisted
+  repos/paths only; no prod; no staging RDS creds in Buzz agent env. Rationale:
+  keeps shared @mention trigger surface without full teammate network parity.
 
 ## Handoff
 
 Not yet handed off. Discovery is at Stage 1 (adaptive interview), `lens_cursor:
-L5` (Blast radius). Target mode is provisional (`research+plan+execute`) pending
-the Stage 3 human decision; the Stage 4 collaborative review gate and, for
-execute mode, the separate `project-orchestrator` Stage 2 execution
+L6` (Success evidence). Target mode is provisional (`research+plan+execute`)
+pending the Stage 3 human decision; the Stage 4 collaborative review gate and,
+for execute mode, the separate `project-orchestrator` Stage 2 execution
 authorization are both still outstanding. No candidate digest exists yet.
