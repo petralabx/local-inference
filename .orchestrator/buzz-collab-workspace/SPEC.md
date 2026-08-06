@@ -1,14 +1,19 @@
 ---
 project: buzz-collab-workspace
 created: 2026-08-06T10:22:02Z
-updated: 2026-08-06T13:17:00Z
+updated: 2026-08-06T13:57:55Z
 status: approved
 approved_by: Vince Alton
 approved_at: 2026-08-06T13:17:00Z
 discovery_candidate: sha256:b256d09884cfd7ecf3451b01e414190c6212652d504af5a92c727c9545a6643e
 research: .orchestrator/buzz-collab-workspace/RESEARCH.md
 mode: research+plan
-execution_authorized: false
+execution_authorized: true
+execution_authorized_by: Vince Alton
+execution_authorized_at: 2026-08-06T13:57:55Z
+execution_auth_provenance: >-
+  Cloud Agent chat https://cursor.com/agents/bc-4cd9576b-709b-4353-979f-cbd925788485
+  verbatim "authorize execution"
 pilot_host:
   provider: aws-ec2
   region: us-east-1
@@ -22,10 +27,14 @@ pilot_host:
     existing Lattice workloads — confirm free RAM/disk and Docker Compose ≥2.24.4
     before install. Prefer Tailscale wss over public IPv4 for the pilot cohort.
 model_plan:
-  planner:
-  builder:
-  mechanical:
-  critic:
+  planner: claude-opus-5-thinking-high
+  builder: gpt-5.6-sol-xhigh
+  mechanical: composer-2.5-fast
+  critic: cursor-grok-4.5-high
+  notes: >-
+    Vince-confirmed 2026-08-06. Critic requested as Grok 4.5 extra-high; catalog
+    has no cursor-grok-4.5-xhigh — frozen to highest available Grok
+    (cursor-grok-4.5-high).
 budget:
   max_parallel_phases: 2
   max_attempts_per_phase: 3
@@ -61,9 +70,8 @@ Lattice must be checked at execute time (free memory/disk, port conflicts).
       named as the #1 post-pilot adapter.
 - [ ] Evidence-pack template exists for the Vince+Ricardo success verdict
       (room works + one portal project completed via Buzz).
-- [ ] `execution_authorized` remains `false` until a separate, explicit human
-      authorization is recorded after SPEC approval (orchestrator Stage 2
-      execution gate).
+- [x] `execution_authorized: true` recorded 2026-08-06T13:57:55Z by Vince Alton
+      (Cloud Agent chat provenance).
 
 ## Scope
 
@@ -84,8 +92,7 @@ Lattice must be checked at execute time (free memory/disk, port conflicts).
   - Dell-as-relay (Dell remains agent worker only)
   - Provisioning a *new* EC2 for the pilot (reuse locked host unless co-tenancy
     fails the preflight)
-  - Executing Docker install / agent live cutover until
-    `execution_authorized: true`
+  - Skipping the P1 co-tenancy preflight on `lattice-prod`
 
 ## Phases
 
@@ -180,5 +187,5 @@ Lattice must be checked at execute time (free memory/disk, port conflicts).
 - integration branch: `proj/buzz-collab-workspace/integration`
 - delivery: one integration PR into `main` for the whole project (docs/runbooks +
   `.orchestrator` evidence)
-- note: do not start phase runners until SPEC is `approved` **and**
-  `execution_authorized: true` (separate human gate)
+- note: SPEC approved and `execution_authorized: true` as of 2026-08-06T13:57:55Z
+  (Vince). Phase runners / docs execution may proceed.

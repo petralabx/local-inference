@@ -1,0 +1,6 @@
+{
+  "planner": "claude-opus-5-thinking-high",
+  "builder": "gpt-5.6-sol-xhigh",
+  "mechanical": "composer-2.5-fast",
+  "critic": "cursor-grok-4.5-high"
+}
