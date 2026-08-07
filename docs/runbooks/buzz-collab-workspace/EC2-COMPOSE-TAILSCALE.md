@@ -1,7 +1,30 @@
-# Buzz on EC2 — Compose + Tailscale (`lattice-prod`)
+# Buzz on EC2 — Compose + Tailscale (`BUZZ`)
 
-Pilot host locked in SPEC: **`i-03b18532cda3c6be6`** (`lattice-prod`,
-`t3a.large`, Ubuntu 24.04, `us-east-1`).
+Pilot host: **`i-03b18532cda3c6be6`** (`t3a.large`, Ubuntu 24.04, `us-east-1`).
+EC2 + OS hostname + Tailscale name all renamed **`lattice-prod` → `BUZZ`/`buzz`**
+at go-live.
+
+## LIVE STATUS (operator-reported 2026-08-06T16:01Z)
+
+> Verified by the operator's agent on the tailnet — **not** from this Cloud VM
+> (tailnet-only, scoped egress).
+
+- Relay URL: **`wss://buzz.tail6a5d33.ts.net`**
+- All four containers healthy (relay, Postgres, Redis, MinIO)
+- Secrets in **AWS Secrets Manager `buzz/pilot`** (not in git / not in `.env` in repo)
+- **Tailnet-only**; security group has **zero inbound rules**
+- Headroom: ~6.5 GiB RAM, ~91 GiB disk free; Lattice services still active
+- **Auth:** membership authentication enforced. **Token auth temporarily
+  disabled** — upstream `block/buzz` has no token-mint path yet
+  (`BUZZ_API_TOKEN`). Do not rely on token auth until upstream ships it.
+
+The sections below are the original stand-up procedure, retained for
+rebuild/reference.
+
+---
+
+Original locked host: `i-03b18532cda3c6be6`
+(`t3a.large`, Ubuntu 24.04, `us-east-1`).
 
 Upstream deploy path: [`block/buzz` `deploy/compose/`](https://github.com/block/buzz/tree/main/deploy/compose)
 (not the repo-root `docker-compose.yml`).

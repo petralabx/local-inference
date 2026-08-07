@@ -18,14 +18,24 @@ pilot_host:
   provider: aws-ec2
   region: us-east-1
   instance_id: i-03b18532cda3c6be6
-  instance_name: lattice-prod
+  instance_name: BUZZ            # renamed from lattice-prod (EC2 + OS hostname + Tailscale) at go-live
+  former_instance_name: lattice-prod
   instance_type: t3a.large
   ami: ubuntu-noble-24.04-amd64
   sizing_verdict: adequate-for-pilot
+  status: live                   # operator-reported 2026-08-06T16:01Z (not agent-verified from this VM)
+  relay_url: wss://buzz.tail6a5d33.ts.net
+  secrets_store: aws-secrets-manager://buzz/pilot
+  network_posture: tailnet-only; security group has zero inbound rules
+  headroom_at_golive: ~6.5 GiB RAM free, ~91 GiB disk free
+  cotenancy: Lattice services remain active on the same host
+  auth: >-
+    Membership authentication enforced. Token authentication temporarily
+    DISABLED — upstream block/buzz lacks a token-mint path (BUZZ_API_TOKEN).
+    Revisit when upstream ships token minting.
   notes: >-
-    2 vCPU / 8 GiB meets upstream guidance (≥2 vCPU / ≥4 GiB). Co-tenant with
-    existing Lattice workloads — confirm free RAM/disk and Docker Compose ≥2.24.4
-    before install. Prefer Tailscale wss over public IPv4 for the pilot cohort.
+    2 vCPU / 8 GiB. Live via Tailscale wss; no public inbound. Verified by the
+    operator's agent, not from this Cloud VM (tailnet-only, scoped egress).
 model_plan:
   planner: claude-opus-5-thinking-high
   builder: gpt-5.6-sol-xhigh

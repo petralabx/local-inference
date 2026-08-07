@@ -4,11 +4,11 @@ Cohort: **Vince**, **Ricardo**, **Stephen**.
 
 ## Prerequisites
 
-- On the PLX Tailscale tailnet (same as `lattice-prod`).
+- On the PLX Tailscale tailnet (same as the `BUZZ` host).
 - Buzz Desktop (or equivalent client) from
   https://github.com/block/buzz/releases/latest
-- Relay URL from the operator (prefer `wss://…ts.net` — see
-  `EC2-COMPOSE-TAILSCALE.md`).
+- **Live relay URL: `wss://buzz.tail6a5d33.ts.net`** (tailnet-only; you must be
+  on the tailnet to reach it).
 
 ## Steps
 
