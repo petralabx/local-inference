@@ -1,7 +1,7 @@
 ---
 project: buzz-collab-workspace
 created: 2026-08-06T10:22:02Z
-updated: 2026-08-06T13:57:55Z
+updated: 2026-08-10T17:10:00Z
 status: approved
 approved_by: Vince Alton
 approved_at: 2026-08-06T13:17:00Z
@@ -23,8 +23,10 @@ pilot_host:
   instance_type: t3a.large
   ami: ubuntu-noble-24.04-amd64
   sizing_verdict: adequate-for-pilot
-  status: live                   # operator-reported 2026-08-06T16:01Z (not agent-verified from this VM)
-  relay_url: wss://buzz.tail6a5d33.ts.net
+  status: live                   # agent-verified 2026-08-10 after corporate-tailnet cutover
+  relay_url: wss://buzz.tail7cdeae.ts.net
+  tailnet: petrasoap.com
+  rollback_tailnet_profile: taylorvalton.github
   secrets_store: aws-secrets-manager://buzz/pilot
   network_posture: tailnet-only; security group has zero inbound rules
   headroom_at_golive: ~6.5 GiB RAM free, ~91 GiB disk free
@@ -34,8 +36,11 @@ pilot_host:
     DISABLED — upstream block/buzz lacks a token-mint path (BUZZ_API_TOKEN).
     Revisit when upstream ships token minting.
   notes: >-
-    2 vCPU / 8 GiB. Live via Tailscale wss; no public inbound. Verified by the
-    operator's agent, not from this Cloud VM (tailnet-only, scoped egress).
+    2 vCPU / 8 GiB. Live via the petrasoap.com Tailscale tailnet with no public
+    inbound. Ricardo and Stephen need only approved Member accounts. Vince's
+    personal taylorvalton.github tailnet consumes the corporate-owned machine
+    through a single-machine Tailscale share. The former host profile remains
+    available for rollback.
 model_plan:
   planner: claude-opus-5-thinking-high
   builder: gpt-5.6-sol-xhigh
