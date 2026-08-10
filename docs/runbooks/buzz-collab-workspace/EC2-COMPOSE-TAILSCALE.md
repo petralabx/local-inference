@@ -4,12 +4,17 @@ Pilot host: **`i-03b18532cda3c6be6`** (`t3a.large`, Ubuntu 24.04, `us-east-1`).
 EC2 + OS hostname + Tailscale name all renamed **`lattice-prod` → `BUZZ`/`buzz`**
 at go-live.
 
-## LIVE STATUS (operator-reported 2026-08-06T16:01Z)
+## LIVE STATUS (agent-verified 2026-08-10)
 
-> Verified by the operator's agent on the tailnet — **not** from this Cloud VM
-> (tailnet-only, scoped egress).
+> Verified from the host via SSM and from a Windows client consuming the
+> corporate machine through Tailscale sharing.
 
-- Relay URL: **`wss://buzz.tail6a5d33.ts.net`**
+- Relay URL: **`wss://buzz.tail7cdeae.ts.net`**
+- Active host tailnet: **`petrasoap.com`**; machine owner:
+  **`vince@petrasoap.com`**
+- Vince's `taylorvalton.github` tailnet has the corporate `buzz` machine shared
+  in. Ricardo and Stephen connect directly once approved as ordinary corporate
+  Members; they do not need Admin/IT admin roles or a machine share.
 - All four containers healthy (relay, Postgres, Redis, MinIO)
 - Secrets in **AWS Secrets Manager `buzz/pilot`** (not in git / not in `.env` in repo)
 - **Tailnet-only**; security group has **zero inbound rules**
@@ -17,6 +22,41 @@ at go-live.
 - **Auth:** membership authentication enforced. **Token auth temporarily
   disabled** — upstream `block/buzz` has no token-mint path yet
   (`BUZZ_API_TOKEN`). Do not rely on token auth until upstream ships it.
+
+## Corporate-tailnet cutover state (2026-08-10)
+
+The host retains both Tailscale profiles:
+
+- active: `petrasoap.com`
+- rollback: `taylorvalton.github`
+
+The active profile serves HTTPS on port 443 to the local relay on port 3000.
+The Compose `.env` uses the corporate DNS name for both `BUZZ_DOMAIN` and
+`RELAY_URL`.
+
+Verify without printing credentials:
+
+```bash
+tailscale status
+tailscale serve status
+curl -fsS http://127.0.0.1:3000/_readiness
+curl -fsS https://buzz.tail7cdeae.ts.net/_readiness
+```
+
+Expected readiness response:
+
+```json
+{"status":"ready"}
+```
+
+After changing the host URL, update each Buzz Desktop community's canonical
+relay URL and restart its managed agents. Editing only
+`managed-agents.json` is insufficient: current Buzz releases resolve every
+managed agent against the active workspace relay.
+
+For rollback, switch the host to the retained personal-tailnet profile, restore
+the protected pre-cutover Compose `.env`, reapply Tailscale Serve, restart the
+relay, and require local plus tailnet readiness before declaring recovery.
 
 The sections below are the original stand-up procedure, retained for
 rebuild/reference.

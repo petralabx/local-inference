@@ -5,7 +5,11 @@
 - **Code / product work:** `plx-customer-portal`
 - **PM / task SoR:** Mission Control (`mc.plxcustomer.io`) — Buzz does **not**
   replace MC checkout, stamps, or compliance
-- **Room:** Buzz channels on self-hosted relay (`lattice-prod`)
+- **Room:** Buzz channels on self-hosted `BUZZ` at
+  `wss://buzz.tail7cdeae.ts.net` (`petrasoap.com` tailnet)
+- **Bootstrap room:** `Welcome`
+  (`ee508854-2cc1-4bc5-87ca-7dfe7699d8a8`); Hermes and Cursor are bot members
+  and passed the corporate-relay mention smoke on 2026-08-10
 
 ## Channel pattern
 

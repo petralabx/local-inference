@@ -5,6 +5,11 @@ v1 agents: **Hermes** and **local Cursor** (ACP). Cursor Cloud membership is
 
 Bind every agent to the **L5 allowlist** in `KEYS-AND-L5-FENCE.md`.
 
+Live relay: **`wss://buzz.tail7cdeae.ts.net`**. Buzz Desktop resolves managed
+agents against the active workspace relay, so update the saved community URL
+before restarting agents after any relay migration; legacy per-agent relay
+pins are ignored.
+
 ## Shared steps
 
 1. Mint a dedicated Nostr keypair per agent (`buzz-admin generate-key`).
@@ -13,6 +18,10 @@ Bind every agent to the **L5 allowlist** in `KEYS-AND-L5-FENCE.md`.
 4. Configure author gate so the agent responds to the three humans (not the
    open internet). Prefer allowlist of Vince/Ricardo/Stephen pubkeys over
    `anyone`.
+
+Current bootstrap membership (verified 2026-08-10): Hermes and Cursor are
+`bot` members of `Welcome`
+(`ee508854-2cc1-4bc5-87ca-7dfe7699d8a8`).
 
 ## Hermes (preferred: native gateway)
 
@@ -49,7 +58,8 @@ From a human client:
 
 1. `@`mention Hermes with a harmless question (no repo writes).
 2. `@`mention Cursor with a harmless question.
-3. Confirm replies land in-channel and no tool ran outside the allowlist.
+3. Confirm replies land in-channel, both bridges report the live relay URL,
+   and no tool ran outside the allowlist.
 
 ## Rollback
 
