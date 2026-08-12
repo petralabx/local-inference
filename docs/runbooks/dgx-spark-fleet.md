@@ -23,8 +23,8 @@ Control-plane repo: `C:\Users\vince\local-inference` (this tree).
 | Node | Hostname | LAN IP | Tailscale IP | TS name | SSH user | Sync alias | DGX OS | Status |
 |------|----------|--------|--------------|---------|----------|------------|--------|--------|
 | Dell control plane | `VTA` | `192.168.2.12` | `100.103.33.54` | `vta` | `phsi\vince` / `vince` | — | Windows | LiteLLM `:4000`, vLLM `:8000` |
-| Spark #1 | `spark-7d3d` | `192.168.2.17` | `100.111.220.1` | `phase-f-dgx-spark` | `vinnysachet` | `V_SACHET_TB` | 7.x | Online, Sync, Tailscale |
-| Spark #2 | `spark-b4ec` | `192.168.2.18` | `100.92.253.61` | `spark-b4ec` | `vinnysachet2` | (user-defined in Sync) | 7.5.0 | Online, Sync, Tailscale |
+| Spark #1 | `spark-7d3d` | `192.168.2.17` | `100.111.220.1` | `phase-f-dgx-spark` | `vinnysachet` | `V_SACHET_TB` | 7.x | Online, Sync, Tailscale, `tag:dgx` |
+| Spark #2 | `spark-b4ec` | `192.168.2.21` | `100.92.253.61` | `spark-b4ec` | `vinnysachet2` | `spark-b4ec` (Sync) | 7.5.0 | Online, Sync, Tailscale, `tag:dgx` |
 
 **Bell router:** gateway `192.168.2.1`. Subnet moved from `192.168.1.x` on 2026-06-26;
 do not use stale addresses (`192.168.1.93`, `192.168.137.x`, or `.local` until mDNS
@@ -102,30 +102,37 @@ Example LiteLLM backend cutover: `litellm/config.dgx.example.yaml`.
 
 ## Quick SSH reference (from Dell PowerShell)
 
+Primary path (both Sparks tagged `tag:dgx`, Tailscale SSH on — ACL
+`autogroup:admin` → `tag:dgx` as `vinnysachet` / `vinnysachet2`):
+
 ```powershell
-# Preferred: NVIDIA Sync ssh_config (nvsync.key) — works when Tailscale SSH ACL blocks key auth
-ssh -F "$env:LOCALAPPDATA\NVIDIA Corporation\Sync\config\ssh_config" V_SACHET_TB
-ssh -F "$env:LOCALAPPDATA\NVIDIA Corporation\Sync\config\ssh_config" spark-b4ec
-
-# Tailscale IP + fleet/Hermes keys (Spark #1 RunSSH=false while tagged tag:dgx)
-ssh -i $env:USERPROFILE\.ssh\cursor_fleet_ed25519 -o IdentitiesOnly=yes vinnysachet@100.111.220.1
-ssh -i $env:USERPROFILE\.ssh\hermes_fleet_ed25519 -o IdentitiesOnly=yes vinnysachet@100.111.220.1
-ssh -i $env:USERPROFILE\.ssh\cursor_fleet_ed25519 -o IdentitiesOnly=yes vinnysachet2@100.92.253.61
-
-# Spark #2 also accepts Tailscale SSH (user-owned node)
+tailscale ssh vinnysachet@phase-f-dgx-spark
 tailscale ssh vinnysachet2@spark-b4ec
 ```
 
-NVIDIA Sync: prefer **Tailscale `100.x` IP** over `.ts.net` MagicDNS (Sync bug).
-Spark #1 carries ACL tag `tag:dgx`; keep Tailscale SSH off there until the
-tailnet `ssh` policy allows `vinnysachet` on `tag:dgx` (or the tag is removed).
-Operator-access fabric details: `agentic-swarm` `config/operator-hosts.yaml`.
+Break-glass (NVIDIA Sync / LAN / fleet keys):
+
+```powershell
+# Sync ssh_config (nvsync.key). Spark #1 uses LAN; prefer LAN for Spark #2 too.
+ssh -F "$env:LOCALAPPDATA\NVIDIA Corporation\Sync\config\ssh_config" V_SACHET_TB
+ssh -o IdentitiesOnly=yes -i "$env:LOCALAPPDATA\NVIDIA Corporation\Sync\config\nvsync.key" vinnysachet2@192.168.2.21
+
+# Hermes / operator fleet keys (also installed on vmc-prod + swarm-prod)
+ssh -i $env:USERPROFILE\.ssh\hermes_fleet_ed25519 -o IdentitiesOnly=yes vinnysachet@100.111.220.1
+ssh -i $env:USERPROFILE\.ssh\hermes_fleet_ed25519 -o IdentitiesOnly=yes vinnysachet2@100.92.253.61
+```
+
+NVIDIA Sync: prefer **LAN or Tailscale `100.x` IP** over `.ts.net` MagicDNS.
+Operator-access fabric: `agentic-swarm` `config/operator-hosts.yaml`
+(`dgx-spark`, `dgx-spark-2`, `hermes_identity`).
 
 ## Pitfalls (learned)
 
 | Symptom | Cause | Fix |
 |---------|-------|-----|
 | Sync can't connect | Stale IP / offline Spark | Use current LAN or TS IP; re-add device in Sync |
+| `tailnet policy does not permit you to SSH as user …` | Tailscale SSH on + ACL missing Linux user | Access controls → Tailscale SSH: `tag:dgx` users must include `vinnysachet` and `vinnysachet2` |
+| Spark #2 LAN wrong | Old reservation `.18` | Use `192.168.2.21` (observed 2026-08-12) |
 | `/welcome/update` refused | OOBE web server shut down after updates | Use SSH + Sync, not browser setup URL |
 | Tailscale offline on Spark | Default route via `192.168.137.1` | Delete `Dell-Direct`; use Bell LAN only |
 | `spark-*.local` wrong IP | mDNS stale after router swap | Use `192.168.2.x` or Tailscale IP |
