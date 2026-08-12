@@ -103,14 +103,23 @@ Example LiteLLM backend cutover: `litellm/config.dgx.example.yaml`.
 ## Quick SSH reference (from Dell PowerShell)
 
 ```powershell
-ssh vinnysachet@192.168.2.17      # Spark #1 (LAN)
-ssh vinnysachet@100.111.220.1     # Spark #1 (Tailscale)
+# Preferred: NVIDIA Sync ssh_config (nvsync.key) — works when Tailscale SSH ACL blocks key auth
+ssh -F "$env:LOCALAPPDATA\NVIDIA Corporation\Sync\config\ssh_config" V_SACHET_TB
+ssh -F "$env:LOCALAPPDATA\NVIDIA Corporation\Sync\config\ssh_config" spark-b4ec
 
-ssh vinnysachet2@192.168.2.18     # Spark #2 (LAN)
-ssh vinnysachet2@100.92.253.61    # Spark #2 (Tailscale)
+# Tailscale IP + fleet/Hermes keys (Spark #1 RunSSH=false while tagged tag:dgx)
+ssh -i $env:USERPROFILE\.ssh\cursor_fleet_ed25519 -o IdentitiesOnly=yes vinnysachet@100.111.220.1
+ssh -i $env:USERPROFILE\.ssh\hermes_fleet_ed25519 -o IdentitiesOnly=yes vinnysachet@100.111.220.1
+ssh -i $env:USERPROFILE\.ssh\cursor_fleet_ed25519 -o IdentitiesOnly=yes vinnysachet2@100.92.253.61
+
+# Spark #2 also accepts Tailscale SSH (user-owned node)
+tailscale ssh vinnysachet2@spark-b4ec
 ```
 
 NVIDIA Sync: prefer **Tailscale `100.x` IP** over `.ts.net` MagicDNS (Sync bug).
+Spark #1 carries ACL tag `tag:dgx`; keep Tailscale SSH off there until the
+tailnet `ssh` policy allows `vinnysachet` on `tag:dgx` (or the tag is removed).
+Operator-access fabric details: `agentic-swarm` `config/operator-hosts.yaml`.
 
 ## Pitfalls (learned)
 
