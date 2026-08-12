@@ -1,7 +1,10 @@
 from __future__ import annotations
 
+import os
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
+from harness.actions.archive import ArchiveLane
 from harness.actions.inbox import InboxSorter
 from harness.dedupe.fclones_wrap import apply_duplicate_plan, plan_from_hash_map
 from harness.identity import content_hash
@@ -41,7 +44,6 @@ def test_inbox_move_not_copy_and_idempotent(tmp_path: Path) -> None:
     assert r1.dest.exists()
     assert not src.exists(), "must move, not copy"
 
-    # Recreate same content in inbox — second run must skip via manifest
     src2 = inbox / "trafilea-order-again.pdf"
     src2.write_bytes(b"pdf-bytes")
     assert content_hash(src2) == digest
@@ -67,3 +69,26 @@ def test_dedupe_tombstone_default(tmp_path: Path) -> None:
     assert actions[0]["action"] == "tombstone"
     assert a.exists() and b.exists()
     assert recorded[0][0] == "tombstone"
+
+
+def test_archive_in_place_beyond_horizon(tmp_path: Path) -> None:
+    root = tmp_path / "sp"
+    folder = root / "01_Clients_Projects"
+    folder.mkdir(parents=True)
+    old = folder / "old-doc.pdf"
+    old.write_bytes(b"old")
+    past = datetime.now(timezone.utc) - timedelta(days=400)
+    ts = past.timestamp()
+    os.utime(old, (ts, ts))
+
+    journal = ActionJournal(tmp_path / "j.sqlite3")
+    run_id = journal.start_run()
+    lane = ArchiveLane(root=root, journal=journal, horizon_days=365)
+    assert lane.should_archive(old)
+    r = lane.archive_file(old, run_id=run_id)
+    assert r.status == "archived"
+    assert r.dest is not None
+    assert r.dest.exists()
+    assert not old.exists()
+    assert "_Archive" in r.dest.parts
+    journal.close()

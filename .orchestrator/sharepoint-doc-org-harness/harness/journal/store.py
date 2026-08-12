@@ -114,15 +114,15 @@ def reverse_actions(journal: ActionJournal, run_id: str) -> int:
     actions = [a for a in journal.list_actions(run_id) if not a.reversed]
     undone = 0
     for action in reversed(actions):
-        if action.action_type in {"move", "rename"}:
+        if action.action_type in {"move", "rename", "archive"}:
             src = Path(action.payload["to"])
             dest = Path(action.payload["from"])
             if src.exists():
                 apply_move(src, dest)
             journal.mark_reversed(action.id)
             undone += 1
-        elif action.action_type == "tombstone":
-            # Soft marker only — nothing to restore on disk
+        elif action.action_type in {"tombstone", "mail_attachment_save"}:
+            # Soft marker / ingest record — disk undo for mail is optional later
             journal.mark_reversed(action.id)
             undone += 1
         else:

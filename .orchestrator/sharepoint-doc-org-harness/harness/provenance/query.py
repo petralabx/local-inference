@@ -79,8 +79,9 @@ class ProvenanceStore:
         if path and path in self.graph:
             candidates.append(path)
         if name:
+            needle = name.lower()
             for n, data in self.graph.nodes(data=True):
-                if data.get("kind") == "path" and str(n).endswith(name):
+                if data.get("kind") == "path" and needle in str(n).lower():
                     candidates.append(str(n))
         # Also match path as a historical node
         for c in list(candidates):
