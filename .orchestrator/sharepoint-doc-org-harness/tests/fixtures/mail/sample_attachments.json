@@ -1,0 +1,12 @@
+{
+  "messages": {
+    "msg-001": [
+      {
+        "attachment_id": "att-1",
+        "name": "quote.pdf",
+        "content_b64": "cXVvdGUtYnl0ZXM=",
+        "content_type": "application/pdf"
+      }
+    ]
+  }
+}

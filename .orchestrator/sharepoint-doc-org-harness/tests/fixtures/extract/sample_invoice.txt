@@ -1,0 +1,4 @@
+Invoice IN3000048765
+Bill To: Petra Hygienic Systems
+Amount Due: $1200
+Thank you for your business.

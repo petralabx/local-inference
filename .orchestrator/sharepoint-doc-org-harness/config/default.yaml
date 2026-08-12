@@ -1,0 +1,31 @@
+# Default harness config — override via HARNESS_CONFIG or config/local.yaml
+
+sharepoint_sync_root: "C:/Users/vince/OneDrive - Petra Hygienic Systems Int Ltd/Vince Personal - Documents"
+inbox_rel: "00_Inbox"
+unsorted_rel: "00_Inbox/_Unsorted_Imports"
+retry_rel: "00_Inbox/_Retry_Imports"
+
+litellm:
+  base_url: "http://100.103.33.54:4000/v1"
+  classify_model: "local-fast"
+  fallback_model: "local-primary"
+  # Paid cloud bases are rejected by config validation
+  forbid_host_substrings:
+    - "api.openai.com"
+    - "api.anthropic.com"
+    - "api.x.ai"
+
+horizon_days: 365
+inbox_active_ceiling: 100
+delete_duplicates: false
+
+exclude_globs:
+  - "**/node_modules/**"
+  - "**/.git/**"
+  - "**/agentic-swarm/**"
+  - "**/agentic-swarm-*/**"
+  - "**/.venv/**"
+
+journal_path: "data/journal.sqlite3"
+taxonomy_path: "config/taxonomy_prefixes.yaml"
+correction_rules_path: "config/correction_rules.json"
