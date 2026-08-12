@@ -1,0 +1,40 @@
+{
+  "version": 1,
+  "rules": [
+    {
+      "id": "rule-001",
+      "keywords": ["trafilea"],
+      "target_folder": "01_Clients_Projects/Trafilea",
+      "prefix": "PRO",
+      "confidence_boost": 2
+    },
+    {
+      "id": "rule-002",
+      "keywords": ["gleamin"],
+      "target_folder": "01_Clients_Projects/Gleamin",
+      "prefix": "PRO",
+      "confidence_boost": 2
+    },
+    {
+      "id": "rule-003",
+      "keywords": ["warehouse responsibilit"],
+      "target_folder": "02_Business_Ops/Operations",
+      "prefix": "SOP",
+      "confidence_boost": 1
+    },
+    {
+      "id": "rule-004",
+      "keywords": ["email categorization rules"],
+      "target_folder": "04_Admin/IT",
+      "prefix": "SOP",
+      "confidence_boost": 1
+    },
+    {
+      "id": "rule-005",
+      "keywords": ["tractor supply"],
+      "target_folder": "01_Clients_Projects/Tractor_Supply",
+      "prefix": "PRO",
+      "confidence_boost": 2
+    }
+  ]
+}

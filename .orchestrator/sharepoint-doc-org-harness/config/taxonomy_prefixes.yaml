@@ -1,0 +1,20 @@
+# Category prefixes for YYYY-MM-DD_PREFIX_Description_vNN.ext
+prefixes:
+  INV: Invoice
+  RPT: Report
+  CTR: Contract
+  BRF: Brief
+  PRO: Proposal
+  MTG: Meeting notes
+  SOP: Standard procedure
+  MKT: Marketing asset
+  FIN: Financial doc
+  LGL: Legal document
+  POL: Policy
+  TMP: Template
+  IMG: Image/photo
+  VID: Video
+  COR: Correspondence
+  REF: Reference material
+  PER: Personal
+  GEN: General
