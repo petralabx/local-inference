@@ -81,6 +81,9 @@ def run_digest(
         report.write(report_path)
         return report
 
+    # Keep manifest beside the journal so pytest tmp journals never share a
+    # package-global processed hash set (cutover 2026-08-12 regression).
+    manifest_path = Path(journal.path).with_name("processed_manifest.json")
     sorter = InboxSorter(
         root=root,
         journal=journal,
@@ -88,7 +91,7 @@ def run_digest(
         litellm_base_url=cfg.litellm.base_url,
         model=cfg.litellm.classify_model,
         forbid_host_substrings=cfg.litellm.forbid_host_substrings,
-        manifest_path=cfg.resolve_path("data/processed_manifest.json"),
+        manifest_path=manifest_path,
         llm_caller=llm_caller,
     )
     if inbox.is_dir():
