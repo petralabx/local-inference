@@ -1,0 +1,71 @@
+---
+description: Multi-device Cursor continuity (laptop ↔ desktop) for local-inference
+alwaysApply: true
+---
+
+# Multi-device Cursor (laptop ↔ desktop)
+
+## Dell-local is zero-friction
+
+If you are already on Dell-VTA, open Cursor and work. Do not start a My
+Machines worker for that session. My Machines is only for laptop, web, or
+phone.
+
+## Cursor worker host vs compute fabric
+
+- **Cursor worker host:** Dell-VTA. File edits and terminals for this repo
+  run here when you are remote.
+- **Compute fabric:** the operator mesh, not this tower alone. Dell LiteLLM
+  proxy, the two DGX Sparks, and the AWS primitives already in that mesh
+  (Mission Control, secrets, EC2, and related). Call them through existing
+  contracts. See `docs/runbooks/dgx-spark-fleet.md`.
+
+Do not start Dell or DGX GPU backends in a Cloud Agent VM. Do not treat Dell
+as the only machine that can run work.
+
+## Preferred patterns (in order)
+
+1. **My Machines + Cloud Agents (when you are not at Dell)**
+   Keep a long-lived worker on Dell-VTA. From laptop, web, or phone start or
+   direct agents whose tool calls execute on Dell. The agent loop can live in
+   the cloud. File edits, terminal, and tests stay on Dell. Those agents then
+   use the compute fabric above.
+
+2. **Remote SSH / Tunnel**
+   Treat Dell-VTA as the single checkout. Connect from the other machine via
+   Remote - SSH. Paths and environment stay consistent.
+
+3. **Pure local on both machines**
+   Accept that chat and agent history is local and bound to a workspace ID
+   derived from the project path (on Linux the folder inode can also change
+   that ID). Keep the clone path as identical as possible. Important context
+   must live in repo files (`AGENTS.md`, rules, runbooks, `.orchestrator/`).
+   Use a Chat Transfer tool only when you must move one specific long
+   conversation.
+
+## Path and history realities
+
+- Cursor chat history does **not** sync via account.
+- It is tied to a workspace ID / path-hash, not to the git remote.
+- Different usernames, drive letters, clone locations, or (on Linux) a
+  recreated folder inode orphan history.
+- Prefer a consistent absolute path, or rely on repo-local context plus
+  Cloud Agents / My Machines.
+
+## This repo specifics
+
+- Cloud VMs are Linux → use `.venv/bin/...`. Never assume Dell Windows paths.
+- Call the Tailscale proxy (`http://100.103.33.54:4000/v1`) via the
+  request-scoped userspace proxy. Never set global `HTTP(S)_PROXY` /
+  `ALL_PROXY`.
+- Secrets stay in the Cursor dashboard environment Secrets tab or local
+  `.env.local`. Never commit them.
+- After any Cloud environment change, start a **new** agent. JIT agents
+  cannot re-attach to a newly saved environment.
+
+## When switching machines mid-task
+
+- Push the branch.
+- Update or reference the relevant runbook / `.orchestrator/` evidence.
+- Prefer a new Cloud Agent or My Machines session that picks up from the
+  branch plus `AGENTS.md` plus rules. Do not transplant local chat history.
