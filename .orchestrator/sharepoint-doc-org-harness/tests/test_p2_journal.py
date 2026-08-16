@@ -4,7 +4,7 @@ from pathlib import Path
 
 from harness.cli.main import main
 from harness.identity import content_hash, file_identity
-from harness.journal.store import ActionJournal, apply_move, reverse_actions
+from harness.journal.store import ActionJournal, apply_move, os_path, reverse_actions
 
 
 def test_content_hash_stable(tmp_path: Path) -> None:
@@ -61,3 +61,13 @@ def test_cli_reverse(tmp_path: Path) -> None:
     assert rc == 0
     assert src.exists()
     assert not dest.exists()
+
+
+def test_os_path_prefixes_windows_absolute(tmp_path: Path) -> None:
+    import os
+
+    got = os_path(tmp_path / "a.txt")
+    if os.name == "nt":
+        assert got.startswith("\\\\?\\")
+    else:
+        assert os.path.isabs(got)

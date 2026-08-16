@@ -40,6 +40,19 @@ def main(argv: list[str] | None = None) -> int:
     dig.add_argument("--dry-run", action="store_true")
     dig.add_argument("--journal", default=None)
 
+    drn = sub.add_parser("drain", help="move unique Petra sources onto VincePersonal homes")
+    drn.add_argument("--report", required=True, help="Path to write drain JSON report")
+    drn.add_argument("--dry-run", action="store_true")
+    drn.add_argument("--journal", default=None)
+    drn.add_argument("--source-root", default=None, help="Petra OneDrive root")
+    drn.add_argument(
+        "--only",
+        action="append",
+        default=None,
+        help="Mapped source folder name (repeatable). Default: all mapped sources.",
+    )
+    drn.add_argument("--limit", type=int, default=None, help="Max files to plan/move this run")
+
     args = parser.parse_args(argv)
     if args.version or args.cmd == "version":
         print(__version__)
@@ -100,6 +113,31 @@ def main(argv: list[str] | None = None) -> int:
             f"ceiling_breach={report.ceiling_breach}"
         )
         return 2 if report.ceiling_breach else 0
+
+    if args.cmd == "drain":
+        from harness.jobs.drain import run_drain
+
+        cfg = load_config(cfg_path)
+        journal_path = Path(args.journal) if args.journal else cfg.resolve_path(cfg.journal_path)
+        journal = ActionJournal(journal_path)
+        try:
+            report = run_drain(
+                cfg=cfg,
+                journal=journal,
+                report_path=Path(args.report),
+                source_root=Path(args.source_root) if args.source_root else None,
+                only=args.only,
+                limit=args.limit,
+                dry_run=bool(args.dry_run),
+            )
+        finally:
+            journal.close()
+        print(
+            f"run_id={report.run_id} moved={report.moved} planned={report.planned} "
+            f"skipped_duplicate={report.skipped_duplicate} skipped_secret={report.skipped_secret} "
+            f"errors={report.errors}"
+        )
+        return 1 if report.errors else 0
 
     parser.print_help()
     return 0
