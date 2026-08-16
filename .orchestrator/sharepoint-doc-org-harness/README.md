@@ -3,7 +3,7 @@
 Durable control plane for VincePersonal SharePoint + Outlook organization.
 
 - **SoT:** VincePersonal SharePoint (not OneDrive personal library)
-- **Inference (steady-state):** Dell LiteLLM only (`local-fast` / `local-primary`)
+- **Inference (steady-state):** Dell LiteLLM → Spark `local-driver` / `local-coder`
 - **Safety:** wide auto + SQLite reverse journal + provenance queries
 - **Spec:** `SPEC.md` · **Research:** `RESEARCH.md` · **OSS table:** `docs/oss-stack.md`
 

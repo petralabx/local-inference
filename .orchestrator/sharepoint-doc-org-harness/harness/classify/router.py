@@ -9,7 +9,7 @@ from typing import Any, Callable
 
 import httpx
 
-from harness.naming import build_name
+from harness.naming import build_name, build_readable_name
 
 
 @dataclass
@@ -36,18 +36,21 @@ def match_correction_rules(filename: str, rules: list[dict[str, Any]]) -> dict[s
     return best
 
 
-def heuristic_classify(filename: str, text: str) -> Classification:
+def heuristic_classify(
+    filename: str, text: str, *, readable_names: bool = False
+) -> Classification:
     blob = f"{filename}\n{text}".lower()
     when = _date_from_name_or_today(filename)
+    desc = _desc(filename, readable=readable_names)
     if "invoice" in blob or re.search(r"\bin\d{6,}", filename.lower()):
-        prefix, folder, desc = "INV", "02_Business_Ops/Finance/Invoices_Receivable", _desc(filename)
+        prefix, folder = "INV", "02_Business_Ops/Finance/Invoices_Receivable"
     elif "contract" in blob or "agreement" in blob or "nda" in blob:
-        prefix, folder, desc = "CTR", "02_Business_Ops/Legal/Contracts", _desc(filename)
+        prefix, folder = "CTR", "02_Business_Ops/Legal/Contracts"
     elif "meeting" in blob or "agenda" in blob or "minutes" in blob:
-        prefix, folder, desc = "MTG", "04_Admin/Meeting_Notes", _desc(filename)
+        prefix, folder = "MTG", "04_Admin/Meeting_Notes"
     else:
-        prefix, folder, desc = "GEN", "00_Inbox/_Unsorted_Imports", _desc(filename)
-    name = build_name(when=when, prefix=prefix, description=desc, ext=Path(filename).suffix)
+        prefix, folder = "GEN", "00_Inbox/_Unsorted_Imports"
+    name = _suggested_name(when, prefix, desc, Path(filename).suffix, readable_names=readable_names)
     return Classification(prefix, folder, desc, 0.45, "heuristic", name)
 
 
@@ -60,6 +63,7 @@ def classify_file(
     model: str,
     forbid_host_substrings: list[str],
     llm_caller: Callable[..., str] | None = None,
+    readable_names: bool = False,
 ) -> Classification:
     for needle in forbid_host_substrings:
         if needle.lower() in litellm_base_url.lower():
@@ -68,12 +72,13 @@ def classify_file(
     hit = match_correction_rules(path.name, rules)
     when = _date_from_name_or_today(path.name)
     if hit:
-        desc = _desc(path.name)
-        name = build_name(
-            when=when,
-            prefix=str(hit.get("prefix") or "GEN"),
-            description=desc,
-            ext=path.suffix,
+        desc = _desc(path.name, readable=readable_names)
+        name = _suggested_name(
+            when,
+            str(hit.get("prefix") or "GEN"),
+            desc,
+            path.suffix,
+            readable_names=readable_names,
         )
         return Classification(
             prefix=str(hit.get("prefix") or "GEN"),
@@ -96,12 +101,12 @@ def classify_file(
         data = json.loads(raw)
         prefix = str(data.get("prefix") or "GEN")
         folder = str(data.get("target_folder") or "00_Inbox/_Unsorted_Imports")
-        desc = str(data.get("description") or _desc(path.name))
+        desc = str(data.get("description") or _desc(path.name, readable=readable_names))
         conf = float(data.get("confidence") or 0.6)
-        name = build_name(when=when, prefix=prefix, description=desc, ext=path.suffix)
+        name = _suggested_name(when, prefix, desc, path.suffix, readable_names=readable_names)
         return Classification(prefix, folder, desc, conf, "llm", name)
     except Exception:
-        return heuristic_classify(path.name, text)
+        return heuristic_classify(path.name, text, readable_names=readable_names)
 
 
 def _litellm_classify(*, base_url: str, model: str, filename: str, text: str) -> str:
@@ -130,8 +135,25 @@ def _litellm_classify(*, base_url: str, model: str, filename: str, text: str) ->
     return content
 
 
-def _desc(filename: str) -> str:
+def _suggested_name(
+    when: date,
+    prefix: str,
+    desc: str,
+    ext: str,
+    *,
+    readable_names: bool,
+) -> str:
+    if readable_names:
+        return build_readable_name(description=desc, ext=ext)
+    return build_name(when=when, prefix=prefix, description=desc, ext=ext)
+
+
+def _desc(filename: str, *, readable: bool = False) -> str:
     stem = Path(filename).stem
+    if readable:
+        stem = re.sub(r"[\\/<>:\"|?*]+", " ", stem)
+        stem = re.sub(r"\s+", " ", stem).strip()
+        return stem[:80] or "Untitled"
     stem = re.sub(r"[^A-Za-z0-9]+", "", stem)
     return stem[:48] or "Untitled"
 

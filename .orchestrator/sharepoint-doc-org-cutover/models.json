@@ -1,0 +1,6 @@
+{
+  "planner": "frontier-orchestrator",
+  "builder": "frontier-builder",
+  "mechanical": "frontier-fast",
+  "critic": "frontier-critic"
+}

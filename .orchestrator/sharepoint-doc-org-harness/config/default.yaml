@@ -4,11 +4,14 @@ sharepoint_sync_root: "C:/Users/vince/OneDrive - Petra Hygienic Systems Int Ltd/
 inbox_rel: "00_Inbox"
 unsorted_rel: "00_Inbox/_Unsorted_Imports"
 retry_rel: "00_Inbox/_Retry_Imports"
+capture_from_desktop_rel: "00_Inbox/_from_desktop"
+capture_from_documents_rel: "00_Inbox/_from_documents"
+capture_from_downloads_rel: "00_Inbox/_from_downloads"
 
 litellm:
   base_url: "http://100.103.33.54:4000/v1"
-  classify_model: "local-fast"
-  fallback_model: "local-primary"
+  classify_model: "local-driver"
+  fallback_model: "local-coder"
   # Paid cloud bases are rejected by config validation
   forbid_host_substrings:
     - "api.openai.com"
@@ -16,7 +19,12 @@ litellm:
     - "api.x.ai"
 
 horizon_days: 365
-inbox_active_ceiling: 100
+auto_archive: false
+inbox_active_ceiling: 0
+naming_mode: readable
+mail_lookback_days: 90
+mail_remainder_after_proof: true
+drain_map_path: "config/drain_map.yaml"
 delete_duplicates: false
 
 exclude_globs:
