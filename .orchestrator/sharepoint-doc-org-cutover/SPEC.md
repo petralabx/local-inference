@@ -135,3 +135,7 @@ Vince confirmed “this is the plan.” Canonical summary:
 `.orchestrator/sharepoint-doc-org-harness/docs/locked-tree.md`.
 Code-phase `model_plan` stays frontier. Steady-state Organizer tokens use
 Spark aliases through Dell LiteLLM (ADR 0014).
+
+Delivery PR: https://github.com/petralabx/local-inference/pull/26
+MC-Checkout: dsp_msvl6idyawe4jt
+
