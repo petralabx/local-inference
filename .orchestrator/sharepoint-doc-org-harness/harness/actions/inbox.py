@@ -9,7 +9,7 @@ from harness.classify.router import Classification, classify_file
 from harness.extract.pipeline import extract_text
 from harness.identity import content_hash
 from harness.journal.store import ActionJournal, apply_move
-from harness.naming import next_version_name
+from harness.naming import next_free_name, next_version_name
 
 
 @dataclass
@@ -36,6 +36,7 @@ class InboxSorter:
         manifest_path: Path,
         llm_caller: Callable[..., str] | None = None,
         classify_fn: Callable[..., Classification] | None = None,
+        readable_names: bool = False,
     ) -> None:
         self.root = root
         self.journal = journal
@@ -46,6 +47,7 @@ class InboxSorter:
         self.manifest_path = manifest_path
         self.llm_caller = llm_caller
         self.classify_fn = classify_fn or classify_file
+        self.readable_names = readable_names
         self._processed = self._load_manifest()
 
     def _load_manifest(self) -> set[str]:
@@ -77,6 +79,7 @@ class InboxSorter:
             model=self.model,
             forbid_host_substrings=self.forbid_host_substrings,
             llm_caller=self.llm_caller,
+            readable_names=self.readable_names,
         )
         if classification.confidence < 0.5 and classification.source != "correction_rule":
             return SortResult(src, None, "held", run_id, "low confidence")
@@ -84,7 +87,8 @@ class InboxSorter:
         dest_dir = self.root / classification.target_folder
         dest_dir.mkdir(parents=True, exist_ok=True)
         existing = {p.name for p in dest_dir.iterdir()} if dest_dir.exists() else set()
-        name = next_version_name(existing, classification.suggested_name)
+        namer = next_free_name if self.readable_names else next_version_name
+        name = namer(existing, classification.suggested_name)
         dest = dest_dir / name
         apply_move(src, dest)
         self.journal.record(

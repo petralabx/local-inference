@@ -1,0 +1,17 @@
+# Petra personal OneDrive → VincePersonal (ADR 0016)
+sources:
+  "00_INBOX": "00_Inbox"
+  "01_Projects": "01_Clients_Projects"
+  "02_Customers": "01_Clients_Projects"
+  "03_Finance": "02_Business_Ops"
+  "04_Operations": "02_Business_Ops"
+  "05_HR": "04_Admin"
+  "06_Marketing": "03_Marketing_Creative"
+  "07_Admin": "04_Admin"
+  "08_Personal": "05_Personal"
+  "CursorInbox": "00_Inbox"
+  "cursor-inbox": "00_Inbox"
+  "Desktop": "00_Inbox"
+  "Teams Chat Files": "00_Inbox"
+  "OLD LAPTOP FILES": "00_Inbox"
+  "Vince Backup": "00_Inbox"

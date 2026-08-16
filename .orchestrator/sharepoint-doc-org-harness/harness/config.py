@@ -14,8 +14,8 @@ DEFAULT_CONFIG_PATH = PACKAGE_ROOT / "config" / "default.yaml"
 
 class LiteLLMConfig(BaseModel):
     base_url: str
-    classify_model: str = "local-fast"
-    fallback_model: str = "local-primary"
+    classify_model: str = "local-driver"
+    fallback_model: str = "local-coder"
     forbid_host_substrings: list[str] = Field(default_factory=list)
 
     @field_validator("base_url")
@@ -30,14 +30,37 @@ class HarnessConfig(BaseModel):
     inbox_rel: str = "00_Inbox"
     unsorted_rel: str = "00_Inbox/_Unsorted_Imports"
     retry_rel: str = "00_Inbox/_Retry_Imports"
+    capture_from_desktop_rel: str = "00_Inbox/_from_desktop"
+    capture_from_documents_rel: str = "00_Inbox/_from_documents"
+    capture_from_downloads_rel: str = "00_Inbox/_from_downloads"
     litellm: LiteLLMConfig
     horizon_days: int = 365
-    inbox_active_ceiling: int = 100
+    auto_archive: bool = False
+    inbox_active_ceiling: int = 0
+    naming_mode: str = "readable"
+    mail_lookback_days: int = 90
+    mail_remainder_after_proof: bool = True
+    drain_map_path: str = "config/drain_map.yaml"
     delete_duplicates: bool = False
     exclude_globs: list[str] = Field(default_factory=list)
     journal_path: str = "data/journal.sqlite3"
     taxonomy_path: str = "config/taxonomy_prefixes.yaml"
     correction_rules_path: str = "config/correction_rules.json"
+
+    @property
+    def ceiling_enabled(self) -> bool:
+        return self.inbox_active_ceiling > 0
+
+    @property
+    def readable_names(self) -> bool:
+        return self.naming_mode != "coded"
+
+    def capture_rels(self) -> list[str]:
+        return [
+            self.capture_from_desktop_rel,
+            self.capture_from_documents_rel,
+            self.capture_from_downloads_rel,
+        ]
 
     def validate_inference_policy(self) -> None:
         base = self.litellm.base_url.lower()

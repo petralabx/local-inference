@@ -18,10 +18,11 @@ from harness.naming import build_name, is_compliant, next_version_name
 
 def test_default_config_loads_and_rejects_paid_host(tmp_path: Path) -> None:
     cfg = load_config(PACKAGE_ROOT / "config" / "default.yaml")
-    assert cfg.inbox_active_ceiling == 100
-    assert cfg.horizon_days == 365
+    assert cfg.inbox_active_ceiling == 0
+    assert cfg.auto_archive is False
     assert cfg.delete_duplicates is False
-    assert "local-fast" in cfg.litellm.classify_model
+    assert cfg.litellm.classify_model == "local-driver"
+    assert cfg.litellm.fallback_model == "local-coder"
 
     bad = yaml.safe_load((PACKAGE_ROOT / "config" / "default.yaml").read_text(encoding="utf-8"))
     bad["litellm"]["base_url"] = "https://api.openai.com/v1"

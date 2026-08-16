@@ -35,10 +35,24 @@ python -m harness.cli.main digest --dry-run --report data/reports/digest-dry.jso
 
 ## Inference policy
 
-Steady-state classify/digest uses Dell LiteLLM only (`http://100.103.33.54:4000/v1`).  
-Config rejects paid hosts (`api.openai.com`, `api.anthropic.com`, `api.x.ai`).
+Steady-state classify/digest uses Dell LiteLLM
+(`http://100.103.33.54:4000/v1`) with Spark aliases `local-driver` /
+`local-coder`. Config rejects paid hosts (`api.openai.com`,
+`api.anthropic.com`, `api.x.ai`).
 
 ## Inbox ceiling
 
-Active files under `00_Inbox` (excluding `_` helper folders) should stay ≤100.  
-Digest report sets `ceiling_breach` when over.
+v1 has no inbox ceiling (ADR 0019). `inbox_active_ceiling: 0` disables
+`ceiling_breach`.
+
+## Cadence
+
+Until proven: once daily. After proof: 06:00 / 10:00 / 14:00 / 18:00
+America/Toronto via `scripts/install-organizer-cadence.ps1`.
+
+## Known-folder redirect
+
+`scripts/redirect-known-folders.ps1` defaults to dry-run. Apply on VTA
+only while Vince is present. taylorvalton waits until he is at that machine.
+
+Live execute steps: `docs/execute-checklist.md`.

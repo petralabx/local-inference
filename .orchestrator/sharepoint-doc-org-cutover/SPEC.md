@@ -1,7 +1,7 @@
 ---
 project: sharepoint-doc-org-cutover
 created: 2026-08-15T18:48:00Z
-status: approved
+status: executing
 approved_by: Vince (cos@petrasoap.com)
 approved_at: 2026-08-15T18:46:00Z
 model_plan:
