@@ -52,6 +52,28 @@ siblings. For a workspace that also needs Mission Control source:
 Committed `.cursor/environment.json` outranks personal/team saved envs for this
 repo. Keep install lean here; put multi-root layout in the dashboard env.
 
+## Multi-device / Laptop ↔ Desktop Continuity
+
+Sitting at Dell-VTA is the default seat: open Cursor and work. No extra
+steps.
+
+When you are on a laptop, the web, or a phone, use **My Machines** (worker
+on Dell-VTA) plus Cloud Agents. Dell is the Cursor tool-call host. Compute
+is the operator mesh: Dell LiteLLM proxy, the DGX Sparks, and the AWS
+primitives already in that mesh. See `.cursor/rules/multi-device-cursor.mdc`
+and `docs/runbooks/multi-device-cursor.md`.
+
+- Chat history remains local and path-hash-bound. Do not rely on it for
+  continuity.
+- Keep this file, the always-applied rules, and the runbooks under
+  `docs/runbooks/` as the durable context that any Cursor instance can
+  rehydrate from.
+- For long-running or hardware-dependent work (GPU, Tailscale proxy, Docker
+  on Dell, Spark backends), prefer the worker on Dell rather than a pure
+  cloud VM. Do not start GPU backends inside a Cloud Agent VM.
+- After landing changes to `.cursor/environment.json` or install scripts,
+  start a fresh Cloud Agent. Existing JIT sessions cannot re-attach.
+
 ## MC Compliance Gate (agent PRs)
 
 Hard gate on this repo. Always-applied rule:
