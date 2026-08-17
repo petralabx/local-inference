@@ -14,14 +14,23 @@ if (-not $EnvFile) {
 }
 
 function Test-HttpOk {
-    param([string]$Label, [string]$Url, [hashtable]$Headers = @{})
+    param(
+        [string]$Label,
+        [string]$Url,
+        [hashtable]$Headers = @{},
+        [switch]$WarnOnly
+    )
     try {
         $r = Invoke-WebRequest -Uri $Url -Headers $Headers -TimeoutSec 15 -UseBasicParsing
         Write-Host "[OK] $Label ($($r.StatusCode))"
         return $true
     } catch {
-        Write-Host "[FAIL] $Label - $($_.Exception.Message)"
-        $script:fail = 1
+        if ($WarnOnly) {
+            Write-Host "[WARN] $Label - $($_.Exception.Message)"
+        } else {
+            Write-Host "[FAIL] $Label - $($_.Exception.Message)"
+            $script:fail = 1
+        }
         return $false
     }
 }
@@ -33,7 +42,7 @@ if (Test-Path $EnvFile) {
 }
 
 Write-Host "=== Dell local inference health ==="
-Test-HttpOk "vLLM backend /models" "$BackendBase/models" | Out-Null
+Test-HttpOk "vLLM backend /models (local-primary only)" "$BackendBase/models" -WarnOnly | Out-Null
 
 if ($key) {
     Test-HttpOk "LiteLLM proxy /models" "$ProxyBase/models" @{ Authorization = "Bearer $key" } | Out-Null
@@ -45,7 +54,7 @@ if ($key) {
 if ($SmokeChat -and $key) {
     Write-Host ""
     Write-Host "=== Chat smoke ==="
-    foreach ($model in @("local-primary", "local-glm52")) {
+    foreach ($model in @("local-driver", "local-coder")) {
         try {
             $out = & (Join-Path $PSScriptRoot "ask_local_worker.ps1") -Model $model -Prompt "Reply exactly: $model ok" -MaxTokens 16 -TimeoutSec 120
             Write-Host "[OK] $model - $out"

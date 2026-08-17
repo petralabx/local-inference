@@ -4,7 +4,11 @@ from pathlib import Path
 
 import pytest
 
-from harness.classify.router import classify_file, match_correction_rules
+from harness.classify.router import (
+    MissingLiteLLMKey,
+    classify_file,
+    match_correction_rules,
+)
 from harness.config import PACKAGE_ROOT, load_correction_rules
 from harness.extract.pipeline import extract_text
 from harness.naming import is_compliant
@@ -55,6 +59,73 @@ def test_llm_classify_injectable() -> None:
     assert c.source == "llm"
     assert c.prefix == "INV"
     assert is_compliant(c.suggested_name)
+
+
+def test_missing_master_key_is_fail_visible(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("LOCAL_LITELLM_MASTER_KEY", raising=False)
+    with pytest.raises(MissingLiteLLMKey, match="LOCAL_LITELLM_MASTER_KEY"):
+        classify_file(
+            path=FIXTURE,
+            text="x",
+            rules=[],
+            litellm_base_url="http://100.103.33.54:4000/v1",
+            model="local-driver",
+            forbid_host_substrings=["api.openai.com"],
+        )
+
+
+def test_litellm_sends_bearer_and_falls_back_to_coder(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("LOCAL_LITELLM_MASTER_KEY", "sk-test-organizer")
+    seen: list[str] = []
+
+    class FakeResp:
+        def __init__(self, payload: dict) -> None:
+            self._payload = payload
+
+        def raise_for_status(self) -> None:
+            if "error" in self._payload:
+                raise RuntimeError(self._payload["error"])
+
+        def json(self) -> dict:
+            return self._payload
+
+    def fake_post(url: str, *, headers: dict, json: dict, timeout: float):
+        seen.append(json["model"])
+        assert headers.get("Authorization") == "Bearer sk-test-organizer"
+        assert url.endswith("/chat/completions")
+        if json["model"] == "local-driver":
+            return FakeResp({"error": "driver down"})
+        return FakeResp(
+            {
+                "choices": [
+                    {
+                        "message": {
+                            "content": (
+                                '{"prefix":"INV","target_folder":'
+                                '"02_Business_Ops/Finance/Invoices_Receivable",'
+                                '"description":"SampleInvoice","confidence":0.8}'
+                            )
+                        }
+                    }
+                ]
+            }
+        )
+
+    monkeypatch.setattr("harness.classify.router.httpx.post", fake_post)
+    c = classify_file(
+        path=FIXTURE,
+        text=FIXTURE.read_text(encoding="utf-8"),
+        rules=[],
+        litellm_base_url="http://100.103.33.54:4000/v1",
+        model="local-driver",
+        fallback_model="local-coder",
+        forbid_host_substrings=["api.openai.com"],
+    )
+    assert seen == ["local-driver", "local-coder"]
+    assert c.source == "llm"
+    assert c.prefix == "INV"
 
 
 def test_rejects_paid_base_url() -> None:

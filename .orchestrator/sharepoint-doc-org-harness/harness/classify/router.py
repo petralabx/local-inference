@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 import re
 from dataclasses import dataclass
 from datetime import date, datetime
@@ -10,6 +11,12 @@ from typing import Any, Callable
 import httpx
 
 from harness.naming import build_name, build_readable_name
+
+MASTER_KEY_ENV = "LOCAL_LITELLM_MASTER_KEY"
+
+
+class MissingLiteLLMKey(RuntimeError):
+    """Raised when classify would call LiteLLM without a master key."""
 
 
 @dataclass
@@ -64,6 +71,8 @@ def classify_file(
     forbid_host_substrings: list[str],
     llm_caller: Callable[..., str] | None = None,
     readable_names: bool = False,
+    fallback_model: str | None = None,
+    api_key: str | None = None,
 ) -> Classification:
     for needle in forbid_host_substrings:
         if needle.lower() in litellm_base_url.lower():
@@ -89,35 +98,67 @@ def classify_file(
             suggested_name=name,
         )
 
-    # LLM path (injectable for tests)
-    caller = llm_caller or (lambda **kw: _litellm_classify(**kw))
-    try:
-        raw = caller(
-            base_url=litellm_base_url,
-            model=model,
-            filename=path.name,
-            text=text[:4000],
+    # LLM path (injectable for tests). A missing master key is fail-visible;
+    # HTTP/parse failures still fall back to the filename heuristic.
+    key = api_key if api_key is not None else os.environ.get(MASTER_KEY_ENV, "")
+    if llm_caller is None and not key:
+        raise MissingLiteLLMKey(
+            f"{MASTER_KEY_ENV} is required for Organizer classify; "
+            "do not call LiteLLM without a Bearer token."
         )
-        data = json.loads(raw)
-        prefix = str(data.get("prefix") or "GEN")
-        folder = str(data.get("target_folder") or "00_Inbox/_Unsorted_Imports")
-        desc = str(data.get("description") or _desc(path.name, readable=readable_names))
-        conf = float(data.get("confidence") or 0.6)
-        name = _suggested_name(when, prefix, desc, path.suffix, readable_names=readable_names)
-        return Classification(prefix, folder, desc, conf, "llm", name)
-    except Exception:
-        return heuristic_classify(path.name, text, readable_names=readable_names)
+
+    caller = llm_caller or (lambda **kw: _litellm_classify(**kw))
+    models = [model]
+    if fallback_model and fallback_model != model:
+        models.append(fallback_model)
+    last_error: Exception | None = None
+    for candidate in models:
+        try:
+            raw = caller(
+                base_url=litellm_base_url,
+                model=candidate,
+                filename=path.name,
+                text=text[:4000],
+                api_key=key,
+            )
+            data = json.loads(raw)
+            prefix = str(data.get("prefix") or "GEN")
+            folder = str(data.get("target_folder") or "00_Inbox/_Unsorted_Imports")
+            desc = str(data.get("description") or _desc(path.name, readable=readable_names))
+            conf = float(data.get("confidence") or 0.6)
+            name = _suggested_name(
+                when, prefix, desc, path.suffix, readable_names=readable_names
+            )
+            return Classification(prefix, folder, desc, conf, "llm", name)
+        except MissingLiteLLMKey:
+            raise
+        except Exception as exc:
+            last_error = exc
+            continue
+    _ = last_error
+    return heuristic_classify(path.name, text, readable_names=readable_names)
 
 
-def _litellm_classify(*, base_url: str, model: str, filename: str, text: str) -> str:
+def _litellm_classify(
+    *,
+    base_url: str,
+    model: str,
+    filename: str,
+    text: str,
+    api_key: str = "",
+) -> str:
     url = base_url.rstrip("/") + "/chat/completions"
     prompt = (
         "Classify this document for SharePoint filing. "
         "Return ONLY JSON with keys prefix, target_folder, description, confidence. "
         f"filename={filename}\ntext=\n{text}"
     )
+    headers = {}
+    if api_key:
+        headers["Authorization"] = f"Bearer {api_key}"
     resp = httpx.post(
         url,
+        headers=headers,
         json={
             "model": model,
             "messages": [{"role": "user", "content": prompt}],

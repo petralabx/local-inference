@@ -9,11 +9,14 @@ Repository: [petralabx/local-inference](https://github.com/petralabx/local-infer
 | Alias | Backend | Use |
 |-------|---------|-----|
 | `local-primary` | Qwen3-32B-AWQ on Dell `:8000` | JSON, tools, medium context, general code worker |
-| `local-coder` | Qwen3-Coder-30B-FP8 on Dell `:8000` | Code fixes, refactors (swap container first) |
 | `local-fast` | Same as primary today | Reserved for smaller routing model |
-| `local-glm52` | DGX GLM `:18082` | Prose, drafts, loop worker text |
+| `local-coder` | Ornith-35B on Spark A `:18082` via this proxy | Code / Organizer fallback |
+| `local-driver` | Qwen3.6-A3B on Spark B `:18090` via this proxy | Organizer classify |
+| `local-glm52` | Retired on this proxy | Do not use for Organizer |
 
 Proxy: `http://100.103.33.54:4000/v1` · key: `LOCAL_LITELLM_MASTER_KEY` in repo `.env.local`
+
+Never curl `/v1/models` without `Authorization: Bearer $LOCAL_LITELLM_MASTER_KEY`. Unauthenticated list returns HTTP 500.
 
 ## Start / verify (on Dell)
 
@@ -31,6 +34,9 @@ powershell -ExecutionPolicy Bypass -File scripts/restart_litellm_proxy.ps1
 
 # 3. Health + chat smoke
 powershell -ExecutionPolicy Bypass -File scripts/health_check_local_inference.ps1 -SmokeChat
+
+# Organizer aliases (must send the master key)
+./scripts/smoke_organizer_aliases.sh
 ```
 
 ## Swap to Coder model

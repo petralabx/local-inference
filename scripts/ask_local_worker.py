@@ -16,8 +16,14 @@ from typing import Any, Mapping
 
 DEFAULT_BASE_URL = "http://100.103.33.54:4000/v1"
 MASTER_KEY_ENV = "LOCAL_LITELLM_MASTER_KEY"
-MODEL_ALIASES = ("local-glm52", "local-primary", "local-coder", "local-fast")
-NO_THINK_MODELS = {"local-primary", "local-coder", "local-fast"}
+MODEL_ALIASES = (
+    "local-glm52",
+    "local-primary",
+    "local-coder",
+    "local-fast",
+    "local-driver",
+)
+NO_THINK_MODELS = {"local-primary", "local-coder", "local-fast", "local-driver"}
 PROXY_SCHEMES = {"http", "https"}
 
 _THINKING_BLOCK_PATTERNS = (

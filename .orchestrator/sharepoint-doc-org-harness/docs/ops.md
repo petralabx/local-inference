@@ -37,8 +37,10 @@ python -m harness.cli.main digest --dry-run --report data/reports/digest-dry.jso
 
 Steady-state classify/digest uses Dell LiteLLM
 (`http://100.103.33.54:4000/v1`) with Spark aliases `local-driver` /
-`local-coder`. Config rejects paid hosts (`api.openai.com`,
-`api.anthropic.com`, `api.x.ai`).
+`local-coder`. Export `LOCAL_LITELLM_MASTER_KEY` before digest. Clients
+must send `Authorization: Bearer <key>`. A bare `GET /v1/models` returns
+HTTP 500 (no virtual-key DB), not a clean 401. Config rejects paid hosts
+(`api.openai.com`, `api.anthropic.com`, `api.x.ai`).
 
 ## Inbox ceiling
 
