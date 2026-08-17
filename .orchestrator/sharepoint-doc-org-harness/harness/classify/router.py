@@ -13,6 +13,20 @@ import httpx
 from harness.naming import build_name, build_readable_name
 
 MASTER_KEY_ENV = "LOCAL_LITELLM_MASTER_KEY"
+UNSORTED_FOLDER = "00_Inbox/_Unsorted_Imports"
+ALLOWED_HOMES = {
+    "00_Inbox",
+    "01_Clients_Projects",
+    "02_Business_Ops",
+    "03_Marketing_Creative",
+    "04_Admin",
+    "05_Personal",
+    "06_Reference",
+}
+_META_DESC = re.compile(
+    r"unparsed|identified by|awaiting further|binary file|uuid filename|no extracted text",
+    re.I,
+)
 
 
 class MissingLiteLLMKey(RuntimeError):
@@ -123,8 +137,10 @@ def classify_file(
             )
             data = json.loads(raw)
             prefix = str(data.get("prefix") or "GEN")
-            folder = str(data.get("target_folder") or "00_Inbox/_Unsorted_Imports")
-            desc = str(data.get("description") or _desc(path.name, readable=readable_names))
+            folder = constrain_target_folder(str(data.get("target_folder") or UNSORTED_FOLDER))
+            desc = human_description(
+                path.name, str(data.get("description") or ""), readable=readable_names
+            )
             conf = float(data.get("confidence") or 0.6)
             name = _suggested_name(
                 when, prefix, desc, path.suffix, readable_names=readable_names
@@ -149,8 +165,12 @@ def _litellm_classify(
 ) -> str:
     url = base_url.rstrip("/") + "/chat/completions"
     prompt = (
-        "Classify this document for SharePoint filing. "
+        "Classify this document for VincePersonal SharePoint filing. "
         "Return ONLY JSON with keys prefix, target_folder, description, confidence. "
+        "target_folder MUST start with one of: 00_Inbox, 01_Clients_Projects, "
+        "02_Business_Ops, 03_Marketing_Creative, 04_Admin, 05_Personal, 06_Reference. "
+        "If unsure use 00_Inbox/_Unsorted_Imports. "
+        "description is a short human title, not a sentence about the file being unparsed. "
         f"filename={filename}\ntext=\n{text}"
     )
     headers = {}
@@ -174,6 +194,23 @@ def _litellm_classify(
         content = re.sub(r"^```(?:json)?\n?", "", content)
         content = re.sub(r"\n?```$", "", content)
     return content
+
+
+def constrain_target_folder(folder: str) -> str:
+    cleaned = folder.replace("\\", "/").strip().lstrip("/")
+    if not cleaned or ".." in cleaned.split("/"):
+        return UNSORTED_FOLDER
+    top = cleaned.split("/", 1)[0]
+    if top in ALLOWED_HOMES:
+        return cleaned
+    return UNSORTED_FOLDER
+
+
+def human_description(filename: str, desc: str, *, readable: bool) -> str:
+    text = (desc or "").strip()
+    if not text or len(text) > 80 or _META_DESC.search(text):
+        return _desc(filename, readable=readable)
+    return text
 
 
 def _suggested_name(

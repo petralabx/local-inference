@@ -22,6 +22,7 @@ def test_cutover_default_pins_spark_and_drops_ceiling() -> None:
         "00_Inbox/_from_desktop",
         "00_Inbox/_from_documents",
         "00_Inbox/_from_downloads",
+        "00_Inbox/_from_mail",
     ]
 
 
@@ -37,6 +38,7 @@ def test_cutover_rejects_paid_host(tmp_path: Path) -> None:
 def test_cutover_readable_names_not_coded_prefix() -> None:
     name = build_readable_name(description="Dropship A1 American", ext="PDF")
     assert name == "Dropship A1 American.pdf"
+    assert build_readable_name(description="Unparsed binary.", ext="") == "Unparsed binary"
     assert is_readable(name)
     assert "PRO" not in name
     assert "_v01" not in name

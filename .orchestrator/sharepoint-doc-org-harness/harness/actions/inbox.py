@@ -5,6 +5,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable
 
+from harness.actions.drain import NOISE_NAMES, is_secret_file
 from harness.classify.router import Classification, classify_file
 from harness.extract.pipeline import extract_text
 from harness.identity import content_hash
@@ -68,6 +69,10 @@ class InboxSorter:
     def process_file(self, src: Path, *, run_id: str) -> SortResult:
         if not src.is_file():
             return SortResult(src, None, "skipped", run_id, "not a file")
+        if src.name.lower() in NOISE_NAMES or src.name.lower() == "_redirect_state.json":
+            return SortResult(src, None, "skipped", run_id, "helper or noise")
+        if is_secret_file(src):
+            return SortResult(src, None, "skipped", run_id, "secret")
         digest = content_hash(src)
         if digest in self._processed:
             return SortResult(src, None, "skipped", run_id, "already processed hash")
@@ -93,6 +98,10 @@ class InboxSorter:
         namer = next_free_name if self.readable_names else next_version_name
         name = namer(existing, classification.suggested_name)
         dest = dest_dir / name
+        while dest.exists():
+            existing.add(dest.name)
+            name = namer(existing, classification.suggested_name)
+            dest = dest_dir / name
         apply_move(src, dest)
         self.journal.record(
             run_id,

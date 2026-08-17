@@ -39,6 +39,13 @@ def main(argv: list[str] | None = None) -> int:
     dig.add_argument("--report", required=True, help="Path to write digest JSON report")
     dig.add_argument("--dry-run", action="store_true")
     dig.add_argument("--journal", default=None)
+    dig.add_argument(
+        "--only",
+        action="append",
+        default=None,
+        help="Capture folder name (repeatable), e.g. _from_mail. Default: all captures plus inbox root files.",
+    )
+    dig.add_argument("--limit", type=int, default=None, help="Max files to classify this run")
 
     drn = sub.add_parser("drain", help="move unique Petra sources onto VincePersonal homes")
     drn.add_argument("--report", required=True, help="Path to write drain JSON report")
@@ -104,6 +111,8 @@ def main(argv: list[str] | None = None) -> int:
                 journal=journal,
                 report_path=Path(args.report),
                 dry_run=bool(args.dry_run),
+                only=args.only,
+                limit=args.limit,
             )
         finally:
             journal.close()

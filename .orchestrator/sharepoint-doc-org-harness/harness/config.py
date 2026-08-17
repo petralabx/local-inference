@@ -33,6 +33,7 @@ class HarnessConfig(BaseModel):
     capture_from_desktop_rel: str = "00_Inbox/_from_desktop"
     capture_from_documents_rel: str = "00_Inbox/_from_documents"
     capture_from_downloads_rel: str = "00_Inbox/_from_downloads"
+    capture_from_mail_rel: str = "00_Inbox/_from_mail"
     litellm: LiteLLMConfig
     horizon_days: int = 365
     auto_archive: bool = False
@@ -60,6 +61,7 @@ class HarnessConfig(BaseModel):
             self.capture_from_desktop_rel,
             self.capture_from_documents_rel,
             self.capture_from_downloads_rel,
+            self.capture_from_mail_rel,
         ]
 
     def validate_inference_policy(self) -> None:
