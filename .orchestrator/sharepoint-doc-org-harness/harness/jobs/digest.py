@@ -94,6 +94,7 @@ def run_digest(
         manifest_path=manifest_path,
         llm_caller=llm_caller,
         readable_names=cfg.readable_names,
+        fallback_model=cfg.litellm.fallback_model,
     )
     scan_roots = [inbox]
     for rel in cfg.capture_rels():

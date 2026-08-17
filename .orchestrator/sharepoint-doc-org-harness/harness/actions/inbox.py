@@ -37,6 +37,7 @@ class InboxSorter:
         llm_caller: Callable[..., str] | None = None,
         classify_fn: Callable[..., Classification] | None = None,
         readable_names: bool = False,
+        fallback_model: str | None = None,
     ) -> None:
         self.root = root
         self.journal = journal
@@ -48,6 +49,7 @@ class InboxSorter:
         self.llm_caller = llm_caller
         self.classify_fn = classify_fn or classify_file
         self.readable_names = readable_names
+        self.fallback_model = fallback_model
         self._processed = self._load_manifest()
 
     def _load_manifest(self) -> set[str]:
@@ -80,6 +82,7 @@ class InboxSorter:
             forbid_host_substrings=self.forbid_host_substrings,
             llm_caller=self.llm_caller,
             readable_names=self.readable_names,
+            fallback_model=self.fallback_model,
         )
         if classification.confidence < 0.5 and classification.source != "correction_rule":
             return SortResult(src, None, "held", run_id, "low confidence")

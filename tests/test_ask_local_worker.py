@@ -245,6 +245,11 @@ class AskLocalWorkerTests(unittest.TestCase):
         self.assertNotIn(secret, output)
         self.assertIn("[REDACTED]", stderr.getvalue())
 
+    def test_local_driver_is_a_supported_alias(self):
+        self.assertIn("local-driver", self.mod.MODEL_ALIASES)
+        self.assertIn("local-coder", self.mod.MODEL_ALIASES)
+        self.assertIn("local-driver", self.mod.NO_THINK_MODELS)
+
 
 if __name__ == "__main__":
     unittest.main()

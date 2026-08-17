@@ -1,5 +1,5 @@
 # One-shot chat via Dell LiteLLM proxy.
-# Models: local-glm52 (prose), local-primary (Qwen3-32B tools/JSON), local-coder (Qwen3-Coder — swap container first)
+# Models: local-driver (Spark B classify), local-coder (Spark A), local-primary / local-fast (Dell Qwen), local-glm52 (retired prose alias)
 #
 # Usage:
 #   powershell -ExecutionPolicy Bypass -File ask_local_worker.ps1 -Prompt "Hello"
@@ -10,7 +10,7 @@ param(
     [Parameter(Mandatory = $true)]
     [string]$Prompt,
     [string]$System = "",
-    [ValidateSet("local-glm52", "local-primary", "local-coder", "local-fast")]
+    [ValidateSet("local-glm52", "local-primary", "local-coder", "local-fast", "local-driver")]
     [string]$Model = "local-glm52",
     [string]$BaseUrl = "http://100.103.33.54:4000/v1",
     [string]$EnvFile = "",
@@ -39,7 +39,7 @@ if (-not $key -or $key -match 'CHANGE-ME') {
 }
 
 $userPrompt = $Prompt
-if ($Model -match '^local-(primary|coder|fast)$' -and $userPrompt -notmatch '/no_think') {
+if ($Model -match '^local-(primary|coder|fast|driver)$' -and $userPrompt -notmatch '/no_think') {
     $userPrompt = "$userPrompt /no_think"
 }
 

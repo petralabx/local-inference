@@ -28,9 +28,15 @@ litellm_settings:
   set_verbose: false
   request_timeout: 600
   num_retries: 1
+  # Do not background-probe Dell :8000 / Spark from the proxy process.
+  background_health_checks: false
 
 general_settings:
   # Master key is read from the environment (LOCAL_LITELLM_MASTER_KEY in
   # .env.local, gitignored). Never hardcode a real key here. start_proxy.sh
   # exports LITELLM_MASTER_KEY from that value before launching.
   master_key: os.environ/LITELLM_MASTER_KEY
+  # LiteLLM >=1.74 looks up virtual keys in Postgres. With no DATABASE_URL,
+  # a missing/wrong Bearer can 500 /v1/models ("No connected db") instead of
+  # 401. Keep serving the configured aliases when the DB is absent.
+  allow_requests_on_db_unavailable: true
