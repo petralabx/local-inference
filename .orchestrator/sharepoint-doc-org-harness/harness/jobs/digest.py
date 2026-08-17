@@ -11,6 +11,59 @@ from harness.actions.inbox import InboxSorter
 from harness.config import HarnessConfig, load_correction_rules, match_exclude
 from harness.journal.store import ActionJournal
 
+HELPER_FILE_NAMES = {"_redirect_state.json"}
+
+
+def iter_digest_files(
+    *,
+    inbox: Path,
+    capture_dirs: list[Path],
+    exclude_globs: list[str],
+    only: list[str] | None = None,
+) -> list[Path]:
+    """Capture folders recurse. Inbox root is top-level files only."""
+    wanted = [item.strip().replace("\\", "/").rstrip("/") for item in (only or []) if item]
+    files: list[Path] = []
+    seen: set[Path] = set()
+
+    def _add_file(src: Path) -> None:
+        if not src.is_file() or src in seen:
+            return
+        if src.name.lower() in HELPER_FILE_NAMES:
+            return
+        if match_exclude(src, exclude_globs):
+            return
+        seen.add(src)
+        files.append(src)
+
+    def _add_capture(folder: Path) -> None:
+        if not folder.is_dir():
+            return
+        for src in sorted(folder.rglob("*")):
+            _add_file(src)
+
+    if wanted:
+        caps_by_name = {folder.name: folder for folder in capture_dirs}
+        for token in wanted:
+            if token in {"inbox", "00_Inbox"}:
+                if inbox.is_dir():
+                    for src in sorted(inbox.iterdir()):
+                        _add_file(src)
+                continue
+            folder = caps_by_name.get(token)
+            if folder is None:
+                folder = next((c for c in capture_dirs if c.as_posix().endswith(token)), None)
+            if folder is not None:
+                _add_capture(folder)
+        return files
+
+    for folder in capture_dirs:
+        _add_capture(folder)
+    if inbox.is_dir():
+        for src in sorted(inbox.iterdir()):
+            _add_file(src)
+    return files
+
 
 @dataclass
 class DigestReport:
@@ -58,6 +111,8 @@ def run_digest(
     report_path: Path,
     llm_caller: Callable[..., str] | None = None,
     dry_run: bool = False,
+    only: list[str] | None = None,
+    limit: int | None = None,
 ) -> DigestReport:
     """scan → classify → act → report. Fails closed if inference policy invalid."""
     cfg.validate_inference_policy()
@@ -96,30 +151,33 @@ def run_digest(
         readable_names=cfg.readable_names,
         fallback_model=cfg.litellm.fallback_model,
     )
-    scan_roots = [inbox]
-    for rel in cfg.capture_rels():
-        cap = root / rel
-        if cap.is_dir() and cap not in scan_roots:
-            scan_roots.append(cap)
-    if inbox.is_dir() or any(p.is_dir() for p in scan_roots):
-        seen: set[Path] = set()
-        for folder in scan_roots:
-            if not folder.is_dir():
-                continue
-            for src in sorted(folder.iterdir()):
-                if not src.is_file() or src in seen:
-                    continue
-                seen.add(src)
-                if match_exclude(src, cfg.exclude_globs):
-                    continue
-                report.inbox_scanned += 1
-                r = sorter.process_file(src, run_id=run_id)
-                if r.status == "moved":
-                    report.moved += 1
-                elif r.status == "held":
-                    report.held += 1
-                else:
-                    report.skipped += 1
+    capture_dirs = [root / rel for rel in cfg.capture_rels()]
+    sources = iter_digest_files(
+        inbox=inbox,
+        capture_dirs=capture_dirs,
+        exclude_globs=cfg.exclude_globs,
+        only=only,
+    )
+    if limit is not None:
+        sources = sources[: max(0, limit)]
+        report.notes.append(f"limit={limit}")
+    if only:
+        report.notes.append("only=" + ",".join(only))
+    for src in sources:
+        report.inbox_scanned += 1
+        try:
+            r = sorter.process_file(src, run_id=run_id)
+        except OSError as exc:
+            report.skipped += 1
+            if len(report.notes) < 20:
+                report.notes.append(f"skip_error:{src.name}:{exc.__class__.__name__}")
+            continue
+        if r.status == "moved":
+            report.moved += 1
+        elif r.status == "held":
+            report.held += 1
+        else:
+            report.skipped += 1
 
     if cfg.auto_archive:
         archiver = ArchiveLane(root=root, journal=journal, horizon_days=cfg.horizon_days)

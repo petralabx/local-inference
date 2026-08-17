@@ -7,6 +7,8 @@ import pytest
 from harness.classify.router import (
     MissingLiteLLMKey,
     classify_file,
+    constrain_target_folder,
+    human_description,
     match_correction_rules,
 )
 from harness.config import PACKAGE_ROOT, load_correction_rules
@@ -126,6 +128,17 @@ def test_litellm_sends_bearer_and_falls_back_to_coder(
     assert seen == ["local-driver", "local-coder"]
     assert c.source == "llm"
     assert c.prefix == "INV"
+
+
+def test_invented_folder_and_meta_description_are_constrained() -> None:
+    assert constrain_target_folder("Happy Yards") == "00_Inbox/_Unsorted_Imports"
+    assert constrain_target_folder("01_Contracts") == "00_Inbox/_Unsorted_Imports"
+    assert constrain_target_folder("02_Business_Ops/Finance") == "02_Business_Ops/Finance"
+    assert "0701 JA Happy Yards" in human_description(
+        "0701 JA Happy Yards.pdf",
+        "Binary file with unparsed content, identified by UUID filename.",
+        readable=True,
+    )
 
 
 def test_rejects_paid_base_url() -> None:

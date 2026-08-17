@@ -34,9 +34,12 @@ def build_readable_name(*, description: str, ext: str) -> str:
     stem = re.sub(r"[\\/]+", " ", description).strip()
     stem = re.sub(r"\s+", " ", stem)
     stem = re.sub(r'[<>:"|?*]', "", stem)
+    stem = stem.rstrip(" .")
     if not stem:
         stem = "Untitled"
     ext = ext.lower().lstrip(".")
+    if not ext:
+        return stem
     return f"{stem}.{ext}"
 
 

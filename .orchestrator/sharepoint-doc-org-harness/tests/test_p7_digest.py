@@ -62,3 +62,37 @@ def test_digest_moves_via_correction_rule(tmp_path: Path) -> None:
     assert report.moved >= 1
     assert report.inbox_scanned >= 1
     journal.close()
+
+
+def test_digest_scans_mail_and_nested_capture_not_inbox_trees(tmp_path: Path) -> None:
+    root = tmp_path / "sp"
+    inbox = root / "00_Inbox"
+    mail = inbox / "_from_mail"
+    desktop = inbox / "_from_desktop" / "nested"
+    hidden = inbox / ".cursor"
+    mail.mkdir(parents=True)
+    desktop.mkdir(parents=True)
+    hidden.mkdir(parents=True)
+    (mail / "note.pdf").write_bytes(b"note")
+    (mail / "clawdbot.pem").write_text("secret", encoding="utf-8")
+    (desktop / "trafilea-po.pdf").write_bytes(b"po")
+    (hidden / "should-not-scan.txt").write_text("no", encoding="utf-8")
+    cfg = _cfg_for_root(tmp_path, root)
+    journal = ActionJournal(Path(cfg.journal_path))
+    report = run_digest(
+        cfg=cfg,
+        journal=journal,
+        report_path=tmp_path / "digest-mail.json",
+        llm_caller=lambda **_: (
+            '{"prefix":"GEN","target_folder":"00_Inbox/_Unsorted_Imports",'
+            '"description":"x","confidence":0.8}'
+        ),
+        only=["_from_mail", "_from_desktop"],
+        limit=10,
+    )
+    assert report.inbox_scanned == 3
+    assert report.skipped >= 1
+    assert (mail / "clawdbot.pem").exists()
+    assert (hidden / "should-not-scan.txt").exists()
+    assert report.moved >= 1
+    journal.close()
