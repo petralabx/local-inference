@@ -12,3 +12,5 @@ wait until Vince is at the machine.
 7. [ ] After a Petra source folder is empty, remove or hide it. Do not leave a second tree.
 
 Inference stays on Dell LiteLLM `local-driver` / `local-coder`. Paid hosts stay forbidden.
+
+Open follow-ups: TASK-1063 (daily Organizer then cadence), TASK-1064 (mail remainder), TASK-1065 (LiteLLM `/v1/models`).
