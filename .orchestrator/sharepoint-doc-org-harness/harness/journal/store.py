@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import json
+import os
+import shutil
 import sqlite3
 import uuid
 from dataclasses import dataclass
@@ -102,11 +104,28 @@ class ActionJournal:
         self._conn.close()
 
 
+def os_path(path: Path) -> str:
+    """Absolute path. On Windows, prefix \\\\?\\ so names longer than MAX_PATH work."""
+    raw = os.path.abspath(os.fspath(path))
+    if os.name != "nt":
+        return raw
+    if raw.startswith("\\\\?\\"):
+        return raw
+    if raw.startswith("\\\\"):
+        return "\\\\?\\UNC\\" + raw[2:]
+    return "\\\\?\\" + raw
+
+
 def apply_move(src: Path, dest: Path) -> None:
-    dest.parent.mkdir(parents=True, exist_ok=True)
-    if dest.exists():
+    src_s = os_path(src)
+    dest_s = os_path(dest)
+    os.makedirs(os.path.dirname(dest_s), exist_ok=True)
+    if os.path.exists(dest_s):
         raise FileExistsError(dest)
-    src.rename(dest)
+    try:
+        os.rename(src_s, dest_s)
+    except OSError:
+        shutil.move(src_s, dest_s)
 
 
 def reverse_actions(journal: ActionJournal, run_id: str) -> int:

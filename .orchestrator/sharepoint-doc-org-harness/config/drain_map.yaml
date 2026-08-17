@@ -13,5 +13,7 @@ sources:
   "cursor-inbox": "00_Inbox"
   "Desktop": "00_Inbox"
   "Teams Chat Files": "00_Inbox"
+  "Microsoft Teams Chat Files": "00_Inbox"
+  "Microsoft Copilot Chat Files": "00_Inbox"
   "OLD LAPTOP FILES": "00_Inbox"
   "Vince Backup": "00_Inbox"
