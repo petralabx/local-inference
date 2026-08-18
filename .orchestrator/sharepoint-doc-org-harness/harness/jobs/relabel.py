@@ -21,12 +21,23 @@ CAPTURE_DIR_NAMES = {
     "_from_downloads",
     "_from_mail",
 }
+SKIP_DIR_NAMES = {
+    "$recycle.bin",
+    "system volume information",
+    ".trash",
+    ".trashes",
+}
 HELPER_FILE_NAMES = {"_redirect_state.json"}
+
+
+def _homes_for_relabel() -> list[str]:
+    homes = sorted(ALLOWED_HOMES)
+    return [h for h in homes if h != "00_Inbox"] + [h for h in homes if h == "00_Inbox"]
 
 
 def iter_relabel_files(root: Path, exclude_globs: list[str]) -> list[Path]:
     files: list[Path] = []
-    for home in sorted(ALLOWED_HOMES):
+    for home in _homes_for_relabel():
         folder = root / home
         if not folder.is_dir():
             continue
@@ -37,12 +48,14 @@ def iter_relabel_files(root: Path, exclude_globs: list[str]) -> list[Path]:
                 continue
             if is_secret_file(src):
                 continue
+            if any(part.lower() in SKIP_DIR_NAMES for part in src.parts):
+                continue
             if any(part in CAPTURE_DIR_NAMES for part in src.parts):
                 continue
             if match_exclude(src, exclude_globs):
                 continue
             files.append(src)
-    return sorted(files)
+    return files
 
 
 @dataclass

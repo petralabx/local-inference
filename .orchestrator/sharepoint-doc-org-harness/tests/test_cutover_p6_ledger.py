@@ -51,6 +51,21 @@ def test_brain_projection_fail_open_without_key(monkeypatch) -> None:
     assert project_document(rec) is False
 
 
+def test_relabel_skips_recycle_bin(tmp_path: Path) -> None:
+    from harness.jobs.relabel import iter_relabel_files
+
+    root = tmp_path / "sp"
+    junk = root / "00_Inbox" / "$RECYCLE.BIN" / "$RE75XIY"
+    junk.mkdir(parents=True)
+    (junk / "photo.jpg").write_bytes(b"junk")
+    dest = root / "01_Clients_Projects"
+    dest.mkdir(parents=True)
+    keep = dest / "keep.pdf"
+    keep.write_bytes(b"keep")
+    files = iter_relabel_files(root, [])
+    assert files == [keep]
+
+
 def test_relabel_renames_existing_home_file(tmp_path: Path) -> None:
     from harness.config import load_config
     from harness.jobs.relabel import run_relabel
