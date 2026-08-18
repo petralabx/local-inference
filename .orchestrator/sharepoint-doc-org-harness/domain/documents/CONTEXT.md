@@ -21,7 +21,7 @@ A credential or key. It is never a Document and never enters VincePersonal or th
 _Avoid_: file, document, attachment (when it is a key)
 
 **Document**:
-A durable business or personal record whose bytes live in VincePersonal and whose history can be asked about. Its filename is a readable title. Date, type, and version live in the journal.
+A durable business or personal record whose bytes live in VincePersonal and whose history can be asked about. The Organizer names it `YYYY-MM-DD_PREFIX_Readable Title_vNN`. Date, type, and version live in the Document ledger. The Vince Node holds a projection.
 _Avoid_: file (the bytes), item, attachment (that is Mail until filed), record
 
 **Save Path**:

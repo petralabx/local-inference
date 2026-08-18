@@ -58,7 +58,18 @@ if (-not $ReportPath) {
     $ReportPath = Join-Path $reportsDir ("digest-{0}.json" -f $stamp)
 }
 
+function Read-EnvValue {
+    param([string]$Name)
+    $line = Get-Content -LiteralPath $EnvFile | Where-Object { $_ -match ("^\s*" + [regex]::Escape($Name) + "=") } | Select-Object -First 1
+    if (-not $line) { return "" }
+    return ($line -split '=', 2)[1].Trim().Trim('"').Trim("'")
+}
+
 $env:LOCAL_LITELLM_MASTER_KEY = $key
+$vmcKey = Read-EnvValue -Name "VMC_API_KEY"
+if ($vmcKey) { $env:VMC_API_KEY = $vmcKey }
+$vmcBase = Read-EnvValue -Name "VMC_BASE_URL"
+if ($vmcBase) { $env:VMC_BASE_URL = $vmcBase }
 $env:HARNESS_CONFIG = $ConfigRel
 $env:PYTHONIOENCODING = "utf-8"
 $env:PYTHONUTF8 = "1"

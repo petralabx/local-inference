@@ -65,6 +65,53 @@ def next_free_name(existing: set[str], candidate: str) -> str:
         n += 1
 
 
+ORGANIZER_NAME_RE = re.compile(
+    r"^(?P<date>\d{4}-\d{2}-\d{2})_(?P<prefix>[A-Z0-9]+)_(?P<title>.+)_v(?P<ver>\d+)\.(?P<ext>[^.]+)$"
+)
+
+
+def build_organizer_name(
+    *,
+    when: date,
+    prefix: str,
+    title: str,
+    version: int = 1,
+    ext: str,
+) -> str:
+    """Organizer law (ADR 0011/0024): date + prefix + readable title + version."""
+    prefix = prefix.upper().strip() or "GEN"
+    stem = re.sub(r"[\\/<>:\"|?*]+", " ", title).strip()
+    stem = re.sub(r"\s+", " ", stem)
+    stem = stem.rstrip(" .")
+    if not stem:
+        stem = "Untitled"
+    ext = ext.lower().lstrip(".")
+    if not ext:
+        return f"{when.isoformat()}_{prefix}_{stem}_v{version:02d}"
+    return f"{when.isoformat()}_{prefix}_{stem}_v{version:02d}.{ext}"
+
+
+def is_organizer_name(name: str) -> bool:
+    return bool(ORGANIZER_NAME_RE.match(name))
+
+
+def next_organizer_version(existing: set[str], candidate: str) -> str:
+    m = ORGANIZER_NAME_RE.match(candidate)
+    if not m:
+        return next_free_name(existing, candidate)
+    if candidate not in existing:
+        return candidate
+    ver = int(m.group("ver"))
+    while True:
+        ver += 1
+        nxt = (
+            f"{m.group('date')}_{m.group('prefix')}_{m.group('title')}"
+            f"_v{ver:02d}.{m.group('ext')}"
+        )
+        if nxt not in existing:
+            return nxt
+
+
 def next_version_name(existing: set[str], candidate: str) -> str:
     """Bump _vNN until candidate is free within existing basenames."""
     m = _NAME_RE.match(candidate)

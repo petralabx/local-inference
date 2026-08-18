@@ -8,8 +8,9 @@ from typing import Any, Callable
 
 from harness.actions.archive import ArchiveLane
 from harness.actions.inbox import InboxSorter
-from harness.config import HarnessConfig, load_correction_rules, match_exclude
+from harness.config import HarnessConfig, load_correction_rules, load_taxonomy, match_exclude
 from harness.journal.store import ActionJournal
+from harness.ledger.documents import DocumentLedger
 
 HELPER_FILE_NAMES = {"_redirect_state.json"}
 
@@ -149,7 +150,10 @@ def run_digest(
         manifest_path=manifest_path,
         llm_caller=llm_caller,
         readable_names=cfg.readable_names,
+        organizer_names=cfg.organizer_names,
         fallback_model=cfg.litellm.fallback_model,
+        ledger=DocumentLedger(Path(journal.path)),
+        type_by_prefix=load_taxonomy(cfg.resolve_path(cfg.taxonomy_path)),
     )
     capture_dirs = [root / rel for rel in cfg.capture_rels()]
     sources = iter_digest_files(

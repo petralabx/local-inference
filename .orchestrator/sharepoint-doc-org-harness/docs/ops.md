@@ -9,6 +9,14 @@
 
 Writer lock: VTA creates `data/writer.lock` while digest runs. Laptop must not run mutating commands against the same journal.
 
+## Naming and ledger
+
+Digest applies `YYYY-MM-DD_PREFIX_Readable Title_vNN.ext` (ADR 0011 / 0024).
+Vince does not type that law. Prefix, type, date, and version live in the
+Document ledger table in `data/journal.sqlite3`. `harness where` reads the
+ledger first. Vince Node projection is fail-open (`VMC_API_KEY` +
+`VMC_BASE_URL`). Filing continues if Brain is down.
+
 ## Daily digest
 
 ```bash

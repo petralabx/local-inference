@@ -10,7 +10,7 @@ from typing import Any, Callable
 
 import httpx
 
-from harness.naming import build_name, build_readable_name
+from harness.naming import build_name, build_organizer_name, build_readable_name
 
 MASTER_KEY_ENV = "LOCAL_LITELLM_MASTER_KEY"
 UNSORTED_FOLDER = "00_Inbox/_Unsorted_Imports"
@@ -58,11 +58,15 @@ def match_correction_rules(filename: str, rules: list[dict[str, Any]]) -> dict[s
 
 
 def heuristic_classify(
-    filename: str, text: str, *, readable_names: bool = False
+    filename: str,
+    text: str,
+    *,
+    readable_names: bool = False,
+    organizer_names: bool = False,
 ) -> Classification:
     blob = f"{filename}\n{text}".lower()
     when = _date_from_name_or_today(filename)
-    desc = _desc(filename, readable=readable_names)
+    desc = _desc(filename, readable=readable_names or organizer_names)
     if "invoice" in blob or re.search(r"\bin\d{6,}", filename.lower()):
         prefix, folder = "INV", "02_Business_Ops/Finance/Invoices_Receivable"
     elif "contract" in blob or "agreement" in blob or "nda" in blob:
@@ -71,7 +75,14 @@ def heuristic_classify(
         prefix, folder = "MTG", "04_Admin/Meeting_Notes"
     else:
         prefix, folder = "GEN", "00_Inbox/_Unsorted_Imports"
-    name = _suggested_name(when, prefix, desc, Path(filename).suffix, readable_names=readable_names)
+    name = _suggested_name(
+        when,
+        prefix,
+        desc,
+        Path(filename).suffix,
+        readable_names=readable_names,
+        organizer_names=organizer_names,
+    )
     return Classification(prefix, folder, desc, 0.45, "heuristic", name)
 
 
@@ -85,6 +96,7 @@ def classify_file(
     forbid_host_substrings: list[str],
     llm_caller: Callable[..., str] | None = None,
     readable_names: bool = False,
+    organizer_names: bool = False,
     fallback_model: str | None = None,
     api_key: str | None = None,
 ) -> Classification:
@@ -95,13 +107,14 @@ def classify_file(
     hit = match_correction_rules(path.name, rules)
     when = _date_from_name_or_today(path.name)
     if hit:
-        desc = _desc(path.name, readable=readable_names)
+        desc = _desc(path.name, readable=readable_names or organizer_names)
         name = _suggested_name(
             when,
             str(hit.get("prefix") or "GEN"),
             desc,
             path.suffix,
             readable_names=readable_names,
+            organizer_names=organizer_names,
         )
         return Classification(
             prefix=str(hit.get("prefix") or "GEN"),
@@ -139,11 +152,18 @@ def classify_file(
             prefix = str(data.get("prefix") or "GEN")
             folder = constrain_target_folder(str(data.get("target_folder") or UNSORTED_FOLDER))
             desc = human_description(
-                path.name, str(data.get("description") or ""), readable=readable_names
+                path.name,
+                str(data.get("description") or ""),
+                readable=readable_names or organizer_names,
             )
             conf = float(data.get("confidence") or 0.6)
             name = _suggested_name(
-                when, prefix, desc, path.suffix, readable_names=readable_names
+                when,
+                prefix,
+                desc,
+                path.suffix,
+                readable_names=readable_names,
+                organizer_names=organizer_names,
             )
             return Classification(prefix, folder, desc, conf, "llm", name)
         except MissingLiteLLMKey:
@@ -152,7 +172,12 @@ def classify_file(
             last_error = exc
             continue
     _ = last_error
-    return heuristic_classify(path.name, text, readable_names=readable_names)
+    return heuristic_classify(
+        path.name,
+        text,
+        readable_names=readable_names,
+        organizer_names=organizer_names,
+    )
 
 
 def _litellm_classify(
@@ -220,7 +245,10 @@ def _suggested_name(
     ext: str,
     *,
     readable_names: bool,
+    organizer_names: bool = False,
 ) -> str:
+    if organizer_names:
+        return build_organizer_name(when=when, prefix=prefix, title=desc, ext=ext)
     if readable_names:
         return build_readable_name(description=desc, ext=ext)
     return build_name(when=when, prefix=prefix, description=desc, ext=ext)

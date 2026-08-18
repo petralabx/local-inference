@@ -10,7 +10,14 @@ from harness.classify.router import Classification, classify_file
 from harness.extract.pipeline import extract_text
 from harness.identity import content_hash
 from harness.journal.store import ActionJournal, apply_move
-from harness.naming import next_free_name, next_version_name
+from harness.ledger.brain import project_document
+from harness.ledger.documents import DocumentLedger, DocumentRecord
+from harness.naming import (
+    ORGANIZER_NAME_RE,
+    next_free_name,
+    next_organizer_version,
+    next_version_name,
+)
 
 
 @dataclass
@@ -38,7 +45,11 @@ class InboxSorter:
         llm_caller: Callable[..., str] | None = None,
         classify_fn: Callable[..., Classification] | None = None,
         readable_names: bool = False,
+        organizer_names: bool = False,
         fallback_model: str | None = None,
+        ledger: DocumentLedger | None = None,
+        type_by_prefix: dict[str, str] | None = None,
+        project_to_brain: bool = True,
     ) -> None:
         self.root = root
         self.journal = journal
@@ -50,7 +61,11 @@ class InboxSorter:
         self.llm_caller = llm_caller
         self.classify_fn = classify_fn or classify_file
         self.readable_names = readable_names
+        self.organizer_names = organizer_names
         self.fallback_model = fallback_model
+        self.ledger = ledger
+        self.type_by_prefix = type_by_prefix or {}
+        self.project_to_brain = project_to_brain
         self._processed = self._load_manifest()
 
     def _load_manifest(self) -> set[str]:
@@ -87,6 +102,7 @@ class InboxSorter:
             forbid_host_substrings=self.forbid_host_substrings,
             llm_caller=self.llm_caller,
             readable_names=self.readable_names,
+            organizer_names=self.organizer_names,
             fallback_model=self.fallback_model,
         )
         if classification.confidence < 0.5 and classification.source != "correction_rule":
@@ -95,7 +111,12 @@ class InboxSorter:
         dest_dir = self.root / classification.target_folder
         dest_dir.mkdir(parents=True, exist_ok=True)
         existing = {p.name for p in dest_dir.iterdir()} if dest_dir.exists() else set()
-        namer = next_free_name if self.readable_names else next_version_name
+        if self.organizer_names:
+            namer = next_organizer_version
+        elif self.readable_names:
+            namer = next_free_name
+        else:
+            namer = next_version_name
         name = namer(existing, classification.suggested_name)
         dest = dest_dir / name
         while dest.exists():
@@ -103,6 +124,10 @@ class InboxSorter:
             name = namer(existing, classification.suggested_name)
             dest = dest_dir / name
         apply_move(src, dest)
+        parsed = ORGANIZER_NAME_RE.match(dest.name)
+        version = int(parsed.group("ver")) if parsed else 1
+        doc_date = parsed.group("date") if parsed else ""
+        home = classification.target_folder.replace("\\", "/").split("/", 1)[0]
         self.journal.record(
             run_id,
             "move",
@@ -111,8 +136,28 @@ class InboxSorter:
                 "to": str(dest),
                 "sha256": digest,
                 "classification": classification.source,
+                "prefix": classification.prefix,
+                "title": classification.description,
+                "doc_date": doc_date,
+                "version": version,
             },
         )
+        if self.ledger is not None:
+            rec = self.ledger.upsert(
+                DocumentRecord(
+                    sha256=digest,
+                    title=classification.description,
+                    prefix=classification.prefix,
+                    doc_type=self.type_by_prefix.get(classification.prefix, classification.prefix),
+                    doc_date=doc_date,
+                    version=version,
+                    home=home,
+                    current_path=str(dest),
+                    source=classification.source,
+                )
+            )
+            if self.project_to_brain:
+                project_document(rec)
         self._processed.add(digest)
         self._save_manifest()
         return SortResult(src, dest, "moved", run_id, classification.source)
