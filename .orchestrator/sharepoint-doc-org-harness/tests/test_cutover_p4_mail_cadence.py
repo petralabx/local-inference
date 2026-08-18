@@ -68,6 +68,8 @@ def test_cutover_cadence_install_registers_scheduled_task() -> None:
     assert "Write-Host $key" not in runner
     assert "harness.cli.main digest" in runner
     assert "Resolve-OrganizerPython" in runner
+    assert "VMC_API_KEY" in runner
+    assert "Write-Output $vmcKey" not in runner
 
 
 def test_cutover_mail_remainder_script_does_not_invent_folders() -> None:
