@@ -68,12 +68,13 @@ def run_drain(
     only: list[str] | None = None,
     limit: int | None = None,
     dry_run: bool = False,
+    map_path: Path | None = None,
 ) -> DrainReport:
     started = datetime.now(timezone.utc).isoformat()
     run_id = journal.start_run(note="drain" + ("-dry" if dry_run else ""))
     dest_root = cfg.sync_root
     src_root = source_root or dest_root.parent
-    mapping = load_drain_map(cfg.resolve_path(cfg.drain_map_path))
+    mapping = load_drain_map(map_path or cfg.resolve_path(cfg.drain_map_path))
     selected = list(only) if only else sorted(mapping)
     report = DrainReport(
         run_id=run_id,

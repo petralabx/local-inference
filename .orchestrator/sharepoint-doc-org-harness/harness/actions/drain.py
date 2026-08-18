@@ -82,6 +82,9 @@ def dest_relative(source_rel: str, dest_home: str) -> Path:
     return Path(dest_home, *remainder)
 
 
+ROOT_FILES_KEY = "_root"
+
+
 def collect_source_files(
     source_root: Path,
     mapping: dict[str, str],
@@ -92,6 +95,16 @@ def collect_source_files(
     wanted = set(only) if only else set(mapping)
     files: list[Path] = []
     for top in wanted:
+        if top == ROOT_FILES_KEY:
+            for src in source_root.iterdir():
+                if not src.is_file():
+                    continue
+                if src.name.lower() in NOISE_NAMES:
+                    continue
+                if exclude_globs and match_exclude(src, exclude_globs):
+                    continue
+                files.append(src)
+            continue
         folder = source_root / top
         if not folder.is_dir():
             continue
