@@ -34,6 +34,8 @@ exclude_globs:
   - "**/agentic-swarm/**"
   - "**/agentic-swarm-*/**"
   - "**/.venv/**"
+  - "**/$RECYCLE.BIN/**"
+  - "**/System Volume Information/**"
 
 journal_path: "data/journal.sqlite3"
 taxonomy_path: "config/taxonomy_prefixes.yaml"

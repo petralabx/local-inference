@@ -66,6 +66,14 @@ def main(argv: list[str] | None = None) -> int:
     )
     drn.add_argument("--limit", type=int, default=None, help="Max files to plan/move this run")
 
+    rel = sub.add_parser(
+        "relabel",
+        help="apply Organizer name law + ledger to files already in 00-06",
+    )
+    rel.add_argument("--report", required=True, help="Path to write relabel JSON report")
+    rel.add_argument("--journal", default=None)
+    rel.add_argument("--limit", type=int, default=None, help="Max files this run")
+
     args = parser.parse_args(argv)
     if args.version or args.cmd == "version":
         print(__version__)
@@ -159,6 +167,28 @@ def main(argv: list[str] | None = None) -> int:
         print(
             f"run_id={report.run_id} moved={report.moved} planned={report.planned} "
             f"skipped_duplicate={report.skipped_duplicate} skipped_secret={report.skipped_secret} "
+            f"errors={report.errors}"
+        )
+        return 1 if report.errors else 0
+
+    if args.cmd == "relabel":
+        from harness.jobs.relabel import run_relabel
+
+        cfg = load_config(cfg_path)
+        journal_path = Path(args.journal) if args.journal else cfg.resolve_path(cfg.journal_path)
+        journal = ActionJournal(journal_path)
+        try:
+            report = run_relabel(
+                cfg=cfg,
+                journal=journal,
+                report_path=Path(args.report),
+                limit=args.limit,
+            )
+        finally:
+            journal.close()
+        print(
+            f"run_id={report.run_id} scanned={report.scanned} renamed={report.renamed} "
+            f"ledger_only={report.ledger_only} held={report.held} skipped={report.skipped} "
             f"errors={report.errors}"
         )
         return 1 if report.errors else 0
