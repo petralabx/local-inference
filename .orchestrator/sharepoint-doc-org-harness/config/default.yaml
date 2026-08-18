@@ -22,7 +22,7 @@ litellm:
 horizon_days: 365
 auto_archive: false
 inbox_active_ceiling: 0
-naming_mode: readable
+naming_mode: organizer
 mail_lookback_days: 90
 mail_remainder_after_proof: true
 drain_map_path: "config/drain_map.yaml"

@@ -85,6 +85,7 @@ def main(argv: list[str] | None = None) -> int:
         return 0
 
     if args.cmd == "where":
+        from harness.ledger.documents import DocumentLedger
         from harness.provenance.query import ProvenanceStore
 
         if args.journal:
@@ -92,15 +93,22 @@ def main(argv: list[str] | None = None) -> int:
         else:
             cfg = load_config(cfg_path)
             journal_path = cfg.resolve_path(cfg.journal_path)
+        ledger = DocumentLedger(journal_path)
         journal = ActionJournal(journal_path)
         try:
+            rows = ledger.lookup(
+                path=args.path, name=args.name, content_hash=args.content_hash
+            )
             store = ProvenanceStore.from_journal(journal)
             hits = store.lookup(path=args.path, name=args.name, content_hash=args.content_hash)
         finally:
             journal.close()
-        if not hits:
+            ledger.close()
+        if not rows and not hits:
             print("no_matches")
             return 1
+        for rec in rows:
+            print(rec)
         for h in hits:
             print(h)
         return 0

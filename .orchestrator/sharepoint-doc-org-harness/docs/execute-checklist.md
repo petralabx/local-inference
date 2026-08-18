@@ -13,4 +13,4 @@ wait until Vince is at the machine.
 
 Inference stays on Dell LiteLLM `local-driver` / `local-coder`. Paid hosts stay forbidden.
 
-Open follow-ups: TASK-1063 (every-4h after daily proof), TASK-1064 (mail remainder), TASK-1068 (fold leftover roots, drain archive, hide Petra). TASK-1065 is done.
+Open follow-ups: TASK-1063 (every-4h after daily proof), TASK-1064 (mail remainder), TASK-1070 (Organizer name law + Document ledger + Vince Node). TASK-1065 and TASK-1068 are done.

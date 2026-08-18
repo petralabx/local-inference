@@ -38,7 +38,7 @@ class HarnessConfig(BaseModel):
     horizon_days: int = 365
     auto_archive: bool = False
     inbox_active_ceiling: int = 0
-    naming_mode: str = "readable"
+    naming_mode: str = "organizer"
     mail_lookback_days: int = 90
     mail_remainder_after_proof: bool = True
     drain_map_path: str = "config/drain_map.yaml"
@@ -54,7 +54,11 @@ class HarnessConfig(BaseModel):
 
     @property
     def readable_names(self) -> bool:
-        return self.naming_mode != "coded"
+        return self.naming_mode == "readable"
+
+    @property
+    def organizer_names(self) -> bool:
+        return self.naming_mode == "organizer"
 
     def capture_rels(self) -> list[str]:
         return [
