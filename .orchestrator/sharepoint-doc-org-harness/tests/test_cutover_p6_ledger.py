@@ -51,6 +51,45 @@ def test_brain_projection_fail_open_without_key(monkeypatch) -> None:
     assert project_document(rec) is False
 
 
+def test_relabel_keeps_current_folder(tmp_path: Path) -> None:
+    root = tmp_path / "sp"
+    dest = root / "01_Clients_Projects" / "KeepMe"
+    dest.mkdir(parents=True)
+    src = dest / "note.pdf"
+    src.write_bytes(b"keep-folder")
+    journal = ActionJournal(tmp_path / "j.sqlite3")
+    ledger = DocumentLedger(tmp_path / "j.sqlite3")
+    run_id = journal.start_run()
+    sorter = InboxSorter(
+        root=root,
+        journal=journal,
+        rules=[
+            {
+                "id": "r1",
+                "keywords": ["note"],
+                "target_folder": "02_Business_Ops",
+                "prefix": "MEM",
+                "confidence_boost": 2,
+            }
+        ],
+        litellm_base_url="http://100.103.33.54:4000/v1",
+        model="local-driver",
+        forbid_host_substrings=["api.openai.com"],
+        manifest_path=tmp_path / "manifest.json",
+        organizer_names=True,
+        ledger=ledger,
+        type_by_prefix={"MEM": "Memo"},
+        project_to_brain=False,
+    )
+    result = sorter.process_file(src, run_id=run_id, ignore_manifest=True, keep_folder=True)
+    assert result.status == "moved"
+    assert result.dest is not None
+    assert result.dest.parent == dest
+    assert not (root / "02_Business_Ops").exists() or not list((root / "02_Business_Ops").glob("*"))
+    journal.close()
+    ledger.close()
+
+
 def test_relabel_skips_recycle_bin(tmp_path: Path) -> None:
     from harness.jobs.relabel import iter_relabel_files
 
@@ -93,7 +132,9 @@ def test_relabel_renames_existing_home_file(tmp_path: Path) -> None:
     assert report.renamed == 1
     leftover = list(dest.glob("*.pdf"))
     assert leftover
+    assert leftover[0].parent == dest
     assert is_organizer_name(leftover[0].name)
+    assert not list((root / "01_Clients_Projects").glob("*.pdf"))
     journal.close()
 
 

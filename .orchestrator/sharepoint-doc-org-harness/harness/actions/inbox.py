@@ -81,7 +81,14 @@ class InboxSorter:
             encoding="utf-8",
         )
 
-    def process_file(self, src: Path, *, run_id: str, ignore_manifest: bool = False) -> SortResult:
+    def process_file(
+        self,
+        src: Path,
+        *,
+        run_id: str,
+        ignore_manifest: bool = False,
+        keep_folder: bool = False,
+    ) -> SortResult:
         if not src.is_file():
             return SortResult(src, None, "skipped", run_id, "not a file")
         if src.name.lower() in NOISE_NAMES or src.name.lower() == "_redirect_state.json":
@@ -108,7 +115,7 @@ class InboxSorter:
         if classification.confidence < 0.5 and classification.source != "correction_rule":
             return SortResult(src, None, "held", run_id, "low confidence")
 
-        dest_dir = self.root / classification.target_folder
+        dest_dir = src.parent if keep_folder else self.root / classification.target_folder
         dest_dir.mkdir(parents=True, exist_ok=True)
         existing = {p.name for p in dest_dir.iterdir()} if dest_dir.exists() else set()
         if self.organizer_names:
@@ -131,7 +138,10 @@ class InboxSorter:
         parsed = ORGANIZER_NAME_RE.match(dest.name)
         version = int(parsed.group("ver")) if parsed else 1
         doc_date = parsed.group("date") if parsed else ""
-        home = classification.target_folder.replace("\\", "/").split("/", 1)[0]
+        try:
+            home = dest.relative_to(self.root).parts[0]
+        except ValueError:
+            home = classification.target_folder.replace("\\", "/").split("/", 1)[0]
         self.journal.record(
             run_id,
             action,

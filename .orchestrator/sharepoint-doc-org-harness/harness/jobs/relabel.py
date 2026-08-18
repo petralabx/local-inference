@@ -141,7 +141,9 @@ def run_relabel(
                 )
                 report.ledger_only += 1
                 continue
-            result = sorter.process_file(src, run_id=run_id, ignore_manifest=True)
+            result = sorter.process_file(
+                src, run_id=run_id, ignore_manifest=True, keep_folder=True
+            )
             if result.status == "held":
                 report.held += 1
             elif result.status == "moved":
