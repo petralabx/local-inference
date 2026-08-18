@@ -105,6 +105,14 @@ def test_cutover_collects_petra_root_files(tmp_path: Path) -> None:
     assert names == {"old.pdf", "Book.xlsx"}
 
 
+def test_cutover_skips_onedrive_volume_id() -> None:
+    from harness.actions.drain import is_noise_file
+
+    assert is_noise_file(Path(".849C9593-D756-4E56-8D6E-42412F2A707B"))
+    assert is_noise_file(Path("desktop.ini"))
+    assert not is_noise_file(Path("Book.xlsx"))
+
+
 def test_cutover_legacy_roots_map_skips_canonical_homes() -> None:
     mapping = load_drain_map(PACKAGE_ROOT / "config" / "legacy_roots.yaml")
     canon = {

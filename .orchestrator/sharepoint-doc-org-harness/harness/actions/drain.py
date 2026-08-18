@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable, Iterable
@@ -11,6 +12,15 @@ from harness.identity import content_hash
 from harness.naming import next_free_name
 
 NOISE_NAMES = {"desktop.ini", "thumbs.db", ".ds_store"}
+ONEDRIVE_VOLUME_RE = re.compile(
+    r"^\.[0-9A-Fa-f]{8}(?:-[0-9A-Fa-f]{4}){3}-[0-9A-Fa-f]{12}$"
+)
+
+
+def is_noise_file(path: Path) -> bool:
+    if path.name.lower() in NOISE_NAMES:
+        return True
+    return bool(ONEDRIVE_VOLUME_RE.match(path.name))
 SECRET_DIR_TOKENS = {".aws", ".ssh"}
 SECRET_NAMES = {"credentials.json", "credentials", ".env", "id_rsa", "id_ed25519", "id_dsa"}
 SECRET_SUFFIXES = {".pem", ".pfx", ".p12", ".key"}
@@ -52,7 +62,16 @@ def plan_unique_files(
     seen = set(known_hashes)
     out: list[DrainDecision] = []
     for src in files:
-        digest = hasher(src)
+        try:
+            digest = hasher(src)
+        except (PermissionError, OSError):
+            try:
+                rel = str(src.relative_to(source_root))
+            except ValueError:
+                rel = src.name
+            home = resolve_home(rel, mapping)
+            out.append(DrainDecision(src, home, "skip_unreadable", ""))
+            continue
         try:
             rel = str(src.relative_to(source_root))
         except ValueError:
@@ -99,7 +118,7 @@ def collect_source_files(
             for src in source_root.iterdir():
                 if not src.is_file():
                     continue
-                if src.name.lower() in NOISE_NAMES:
+                if is_noise_file(src):
                     continue
                 if exclude_globs and match_exclude(src, exclude_globs):
                     continue
