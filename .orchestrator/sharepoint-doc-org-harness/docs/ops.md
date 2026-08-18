@@ -17,6 +17,15 @@ Document ledger table in `data/journal.sqlite3`. `harness where` reads the
 ledger first. Vince Node projection is fail-open (`VMC_API_KEY` +
 `VMC_BASE_URL`). Filing continues if Brain is down.
 
+Already-filed homes are not picked up by digest (hash manifest). Relabel them:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts/run-organizer-relabel.ps1 -Limit 20
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts/run-organizer-relabel.ps1
+```
+
+VTA is the only writer. The laptop mount is the same VincePersonal site — verify sync; do not run a second relabel there. Capture folders (`_from_*`) are skipped so a live mail pass is not stolen.
+
 ## Daily digest
 
 ```bash

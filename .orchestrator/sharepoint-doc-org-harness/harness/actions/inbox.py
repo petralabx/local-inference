@@ -81,7 +81,7 @@ class InboxSorter:
             encoding="utf-8",
         )
 
-    def process_file(self, src: Path, *, run_id: str) -> SortResult:
+    def process_file(self, src: Path, *, run_id: str, ignore_manifest: bool = False) -> SortResult:
         if not src.is_file():
             return SortResult(src, None, "skipped", run_id, "not a file")
         if src.name.lower() in NOISE_NAMES or src.name.lower() == "_redirect_state.json":
@@ -89,7 +89,7 @@ class InboxSorter:
         if is_secret_file(src):
             return SortResult(src, None, "skipped", run_id, "secret")
         digest = content_hash(src)
-        if digest in self._processed:
+        if digest in self._processed and not ignore_manifest:
             return SortResult(src, None, "skipped", run_id, "already processed hash")
 
         extracted = extract_text(src)
@@ -119,18 +119,22 @@ class InboxSorter:
             namer = next_version_name
         name = namer(existing, classification.suggested_name)
         dest = dest_dir / name
-        while dest.exists():
+        while dest.exists() and dest.resolve() != src.resolve():
             existing.add(dest.name)
             name = namer(existing, classification.suggested_name)
             dest = dest_dir / name
-        apply_move(src, dest)
+        if dest.resolve() != src.resolve():
+            apply_move(src, dest)
+            action = "move"
+        else:
+            action = "relabel"
         parsed = ORGANIZER_NAME_RE.match(dest.name)
         version = int(parsed.group("ver")) if parsed else 1
         doc_date = parsed.group("date") if parsed else ""
         home = classification.target_folder.replace("\\", "/").split("/", 1)[0]
         self.journal.record(
             run_id,
-            "move",
+            action,
             {
                 "from": str(src),
                 "to": str(dest),

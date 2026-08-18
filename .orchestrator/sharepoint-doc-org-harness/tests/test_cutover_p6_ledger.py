@@ -51,6 +51,37 @@ def test_brain_projection_fail_open_without_key(monkeypatch) -> None:
     assert project_document(rec) is False
 
 
+def test_relabel_renames_existing_home_file(tmp_path: Path) -> None:
+    from harness.config import load_config
+    from harness.jobs.relabel import run_relabel
+    import yaml
+    from harness.config import PACKAGE_ROOT
+
+    root = tmp_path / "sp"
+    dest = root / "01_Clients_Projects" / "Trafilea"
+    dest.mkdir(parents=True)
+    src = dest / "trafilea-order.pdf"
+    src.write_bytes(b"relabel-bytes")
+    raw = yaml.safe_load((PACKAGE_ROOT / "config" / "default.yaml").read_text(encoding="utf-8"))
+    raw["sharepoint_sync_root"] = str(root)
+    raw["journal_path"] = str(tmp_path / "j.sqlite3")
+    cfg_path = tmp_path / "cfg.yaml"
+    cfg_path.write_text(yaml.safe_dump(raw), encoding="utf-8")
+    cfg = load_config(cfg_path)
+    journal = ActionJournal(tmp_path / "j.sqlite3")
+    report = run_relabel(
+        cfg=cfg,
+        journal=journal,
+        report_path=tmp_path / "relabel.json",
+        llm_caller=lambda **_: '{"error":"no"}',
+    )
+    assert report.renamed == 1
+    leftover = list(dest.glob("*.pdf"))
+    assert leftover
+    assert is_organizer_name(leftover[0].name)
+    journal.close()
+
+
 def test_digest_writes_organizer_name_and_ledger(tmp_path: Path) -> None:
     root = tmp_path / "sp"
     inbox = root / "00_Inbox"
