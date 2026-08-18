@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import json
+import os
+from collections.abc import Iterator
 from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
@@ -35,26 +37,53 @@ def _homes_for_relabel() -> list[str]:
     return [h for h in homes if h != "00_Inbox"] + [h for h in homes if h == "00_Inbox"]
 
 
+def walk_files_tolerant(folder: Path) -> Iterator[Path]:
+    """Walk files and skip directories OneDrive unlinks mid-scan (WinError 3)."""
+    stack = [folder]
+    while stack:
+        current = stack.pop()
+        try:
+            with os.scandir(current) as it:
+                entries = list(it)
+        except OSError:
+            continue
+        for entry in entries:
+            try:
+                is_dir = entry.is_dir(follow_symlinks=False)
+                is_file = entry.is_file(follow_symlinks=False)
+            except OSError:
+                continue
+            if is_dir:
+                if entry.name.lower() in SKIP_DIR_NAMES or entry.name in CAPTURE_DIR_NAMES:
+                    continue
+                stack.append(Path(entry.path))
+            elif is_file:
+                yield Path(entry.path)
+
+
 def iter_relabel_files(root: Path, exclude_globs: list[str]) -> list[Path]:
     files: list[Path] = []
     for home in _homes_for_relabel():
         folder = root / home
         if not folder.is_dir():
             continue
-        for src in folder.rglob("*"):
-            if not src.is_file():
+        for src in walk_files_tolerant(folder):
+            try:
+                if not src.is_file():
+                    continue
+                if src.name.lower() in HELPER_FILE_NAMES or is_noise_file(src):
+                    continue
+                if is_secret_file(src):
+                    continue
+                if any(part.lower() in SKIP_DIR_NAMES for part in src.parts):
+                    continue
+                if any(part in CAPTURE_DIR_NAMES for part in src.parts):
+                    continue
+                if match_exclude(src, exclude_globs):
+                    continue
+                files.append(src)
+            except OSError:
                 continue
-            if src.name.lower() in HELPER_FILE_NAMES or is_noise_file(src):
-                continue
-            if is_secret_file(src):
-                continue
-            if any(part.lower() in SKIP_DIR_NAMES for part in src.parts):
-                continue
-            if any(part in CAPTURE_DIR_NAMES for part in src.parts):
-                continue
-            if match_exclude(src, exclude_globs):
-                continue
-            files.append(src)
     return files
 
 
@@ -108,7 +137,14 @@ def run_relabel(
         ledger=ledger,
         type_by_prefix=type_by_prefix,
     )
-    sources = iter_relabel_files(root, cfg.exclude_globs)
+    try:
+        sources = iter_relabel_files(root, cfg.exclude_globs)
+    except Exception as exc:
+        report.notes.append(repr(exc))
+        report.errors += 1
+        report.finished_at = datetime.now(timezone.utc).isoformat()
+        report.write(report_path)
+        raise
     if limit is not None:
         sources = sources[: max(0, limit)]
         report.notes.append(f"limit={limit}")

@@ -76,10 +76,12 @@ if ($vmcBase) { $env:VMC_BASE_URL = $vmcBase }
 $env:HARNESS_CONFIG = $ConfigRel
 $env:PYTHONIOENCODING = "utf-8"
 $env:PYTHONUTF8 = "1"
+$env:PYTHONUNBUFFERED = "1"
 
 Write-Output "harness_root=$HarnessRoot"
 Write-Output "config=$ConfigRel"
 Write-Output "report=$ReportPath"
+Write-Output "python=$PythonExe"
 if ($Limit -gt 0) { Write-Output "limit=$Limit" }
 Write-Output "action=python -m harness.cli.main relabel"
 
@@ -87,12 +89,24 @@ $cliArgs = @("-m", "harness.cli.main", "relabel", "--report", $ReportPath)
 if ($Limit -gt 0) {
     $cliArgs += @("--limit", "$Limit")
 }
+$errLog = Join-Path $reportsDir ("relabel-python-{0}.err" -f (Get-Date -Format "yyyy-MM-dd-HHmmss"))
 
 Push-Location $HarnessRoot
 try {
-    & $PythonExe @cliArgs
-    if ($LASTEXITCODE -ne 0) {
-        throw "relabel exited $LASTEXITCODE"
+    # pypdf writes warnings to stderr. With ErrorAction Stop, Windows
+    # PowerShell 5 treats that as a terminating error and kills the pass.
+    $prevEap = $ErrorActionPreference
+    $ErrorActionPreference = "Continue"
+    try {
+        & $PythonExe @cliArgs 2> $errLog
+        $code = $LASTEXITCODE
+    } finally {
+        $ErrorActionPreference = $prevEap
+    }
+    Write-Output "python_exit=$code"
+    if ($code -ne 0) {
+        Write-Output "python_err=$errLog"
+        throw "relabel exited $code"
     }
 } finally {
     Pop-Location
