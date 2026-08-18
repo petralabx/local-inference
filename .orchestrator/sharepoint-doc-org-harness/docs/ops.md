@@ -25,13 +25,39 @@ python -m harness.cli.main digest --dry-run --report data/reports/digest-dry.jso
 
 ## Windows Task Scheduler (VTA)
 
-1. Action: start a program  
-   `C:\Path\To\python.exe`  
-   Arguments: `-m harness.cli.main digest --report D:\harness\data\reports\digest-latest.json`  
-   Start in: harness package root
-2. Trigger: daily off-hours (e.g. 02:00)
-3. Run whether user is logged on; highest privileges only if needed for sync root ACLs
-4. On failure: leave inbox untouched for next run (fail closed — no cloud LLM fallback)
+Until proven, install once daily at 06:00 America/Toronto:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts/install-organizer-cadence.ps1 -Mode daily -Install
+```
+
+After proof:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts/install-organizer-cadence.ps1 -Mode every-4h -Install
+```
+
+The job runs `scripts/run-organizer-digest.ps1`. That script loads `LOCAL_LITELLM_MASTER_KEY` from `C:\Users\vince\local-inference\.env.local` and never prints the key. Interactive logon only (Vince signed in on VTA). On failure the inbox stays for the next run — no paid-host fallback.
+
+Mail remainder (attachments older than 90 days, Outlook folders unchanged):
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts/mail-outlook-pass.ps1 -Mode remainder
+```
+
+Unique Petra archive and leftover VincePersonal roots:
+
+```powershell
+python -m harness.cli.main drain --report data/reports/drain-archive.json --only 09_Archive --only _root
+python -m harness.cli.main drain --report data/reports/fold-roots.json --source-root "<VincePersonal>" --map config/legacy_roots.yaml
+```
+
+Hide drained Petra sources only after unique files are gone. Never hides Vince Personal:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts/hide-petra-sources.ps1 -DryRun
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts/hide-petra-sources.ps1 -Apply
+```
 
 ## Inference policy
 

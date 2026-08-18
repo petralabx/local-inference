@@ -26,6 +26,8 @@ def test_cutover_petra_map_adr_0016() -> None:
     assert resolve_home("CursorInbox/a.md", mapping) == "00_Inbox"
     assert resolve_home("Microsoft Teams Chat Files/a.png", mapping) == "00_Inbox"
     assert resolve_home("OLD LAPTOP FILES/x.bin", mapping) == "00_Inbox"
+    assert resolve_home("09_Archive/2024/scan.pdf", mapping) == "00_Inbox"
+    assert resolve_home("Notebooks/note.one", mapping) == "00_Inbox"
 
 
 def test_cutover_unique_hash_skip(tmp_path: Path) -> None:
@@ -86,3 +88,43 @@ def test_cutover_drain_moves_unique_and_skips_hash_copy(tmp_path: Path) -> None:
     assert (dest / "00_Inbox" / "note.txt").read_text(encoding="utf-8") == "unique-inbox"
     assert dup.exists()
     assert not src.exists()
+
+
+def test_cutover_collects_petra_root_files(tmp_path: Path) -> None:
+    from harness.actions.drain import collect_source_files
+
+    src = tmp_path / "petra"
+    src.mkdir()
+    (src / "09_Archive").mkdir()
+    (src / "09_Archive" / "old.pdf").write_bytes(b"arch")
+    (src / "Book.xlsx").write_bytes(b"root-unique")
+    (src / "desktop.ini").write_text("[.ShellClassInfo]", encoding="utf-8")
+    mapping = load_drain_map(PACKAGE_ROOT / "config" / "drain_map.yaml")
+    files = collect_source_files(src, mapping, only=["09_Archive", "_root"])
+    names = {p.name for p in files}
+    assert names == {"old.pdf", "Book.xlsx"}
+
+
+def test_cutover_skips_onedrive_volume_id() -> None:
+    from harness.actions.drain import is_noise_file
+
+    assert is_noise_file(Path(".849C9593-D756-4E56-8D6E-42412F2A707B"))
+    assert is_noise_file(Path("desktop.ini"))
+    assert not is_noise_file(Path("Book.xlsx"))
+
+
+def test_cutover_legacy_roots_map_skips_canonical_homes() -> None:
+    mapping = load_drain_map(PACKAGE_ROOT / "config" / "legacy_roots.yaml")
+    canon = {
+        "00_Inbox",
+        "01_Clients_Projects",
+        "02_Business_Ops",
+        "03_Marketing_Creative",
+        "04_Admin",
+        "05_Personal",
+        "06_Reference",
+    }
+    assert not (canon & set(mapping))
+    assert mapping["cursor-inbox"] == "00_Inbox"
+    assert mapping["Happy Yards"] == "01_Clients_Projects"
+    assert mapping["artifacts"].startswith("06_Reference/legacy-2026/")

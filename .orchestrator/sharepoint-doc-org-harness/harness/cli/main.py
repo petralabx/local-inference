@@ -53,6 +53,12 @@ def main(argv: list[str] | None = None) -> int:
     drn.add_argument("--journal", default=None)
     drn.add_argument("--source-root", default=None, help="Petra OneDrive root")
     drn.add_argument(
+        "--map",
+        dest="drain_map",
+        default=None,
+        help="Drain map YAML (default config/drain_map.yaml). Use config/legacy_roots.yaml for leftover VincePersonal roots.",
+    )
+    drn.add_argument(
         "--only",
         action="append",
         default=None,
@@ -138,6 +144,7 @@ def main(argv: list[str] | None = None) -> int:
                 only=args.only,
                 limit=args.limit,
                 dry_run=bool(args.dry_run),
+                map_path=Path(args.drain_map) if args.drain_map else None,
             )
         finally:
             journal.close()

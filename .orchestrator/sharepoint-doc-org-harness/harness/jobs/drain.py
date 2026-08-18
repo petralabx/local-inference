@@ -7,8 +7,8 @@ from pathlib import Path
 from typing import Any
 
 from harness.actions.drain import (
-    NOISE_NAMES,
     collect_source_files,
+    is_noise_file,
     dest_relative,
     is_secret_file,
     load_drain_map,
@@ -68,12 +68,13 @@ def run_drain(
     only: list[str] | None = None,
     limit: int | None = None,
     dry_run: bool = False,
+    map_path: Path | None = None,
 ) -> DrainReport:
     started = datetime.now(timezone.utc).isoformat()
     run_id = journal.start_run(note="drain" + ("-dry" if dry_run else ""))
     dest_root = cfg.sync_root
     src_root = source_root or dest_root.parent
-    mapping = load_drain_map(cfg.resolve_path(cfg.drain_map_path))
+    mapping = load_drain_map(map_path or cfg.resolve_path(cfg.drain_map_path))
     selected = list(only) if only else sorted(mapping)
     report = DrainReport(
         run_id=run_id,
@@ -95,7 +96,7 @@ def run_drain(
 
     usable: list[Path] = []
     for src in candidates:
-        if src.name.lower() in NOISE_NAMES:
+        if is_noise_file(src):
             report.skipped_noise += 1
             _record_file(report, src, None, "skip_noise")
             continue
@@ -140,6 +141,10 @@ def run_drain(
                 dest_root=dest_root,
                 dest_home=decision.dest_home,
             )
+        if decision.status == "skip_unreadable":
+            report.skipped_noise += 1
+            _record_file(report, decision.src, dest, "skip_unreadable")
+            continue
         if decision.status == "skip_duplicate":
             report.skipped_duplicate += 1
             _record_file(report, decision.src, dest, "skip_duplicate")
