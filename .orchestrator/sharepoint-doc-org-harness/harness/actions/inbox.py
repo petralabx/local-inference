@@ -96,8 +96,13 @@ class InboxSorter:
         if is_secret_file(src):
             return SortResult(src, None, "skipped", run_id, "secret")
         digest = content_hash(src)
-        if digest in self._processed and not ignore_manifest:
-            return SortResult(src, None, "skipped", run_id, "already processed hash")
+        if not ignore_manifest:
+            if digest in self._processed:
+                return SortResult(src, None, "skipped", run_id, "already processed hash")
+            if self.ledger is not None and self.ledger.get(digest) is not None:
+                self._processed.add(digest)
+                self._save_manifest()
+                return SortResult(src, None, "skipped", run_id, "already in ledger")
 
         extracted = extract_text(src)
         classification = self.classify_fn(
