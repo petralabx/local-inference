@@ -155,12 +155,21 @@ Operator-access fabric: `agentic-swarm` `config/operator-hosts.yaml`
 | `local-inference` | This file | Inference proxy, cluster cutover, cable day |
 | `local-inference` | `README.md` | Client contract, boot durability |
 | `local-inference` | `litellm/config.dgx.example.yaml` | Post-cluster LiteLLM config |
+| `local-inference` | `docs/runbooks/spark-b-qwen36-nvfp4-bakeoff.md` | Spark B abliterated NVFP4+MTP bake-off on `:18091` (do not cut over `local-driver`) |
 | `agentic-swarm` | `docs/runbooks/dgx-spark-worker-bringup.md` | Spark #1 compute-fabric worker (`vinnysachet`) |
 | `agentic-swarm` | `docs/runbooks/local-inference-tradingbox-bridge.md` | TRADINGBOX → Dell proxy bridge |
 | `agentic-swarm` | `config/operator-hosts.yaml` | Operator mesh (`dgx-spark`, `dgx-spark-2`, EC2, Dell) |
 
 Spark #2 (`vinnysachet2`) is in `operator-hosts.yaml` as `dgx-spark-2` but not yet
 in `trading-workers.yaml` as an active compute worker.
+
+## Spark B NVFP4 bake-off (not a cutover)
+
+Abliterated Qwen3.6-35B-A3B NVFP4+MTP may be served on Spark B **side port
+`:18091`** next to live llama.cpp GGUF on `:18090`. Optional proxy alias
+`local-driver-nvfp4` lives in `litellm/config.spark-b-nvfp4.example.yaml` only.
+Do not replace `local-driver`. Do not point `local-primary` at Spark B.
+Runbook: `docs/runbooks/spark-b-qwen36-nvfp4-bakeoff.md`.
 
 ## Session handoff checklist
 
