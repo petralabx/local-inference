@@ -9,6 +9,7 @@ from harness.actions.inbox import InboxSorter
 from harness.dedupe.fclones_wrap import apply_duplicate_plan, plan_from_hash_map
 from harness.identity import content_hash
 from harness.journal.store import ActionJournal
+from harness.ledger.documents import DocumentLedger, DocumentRecord
 
 
 def test_inbox_move_not_copy_and_idempotent(tmp_path: Path) -> None:
@@ -50,6 +51,48 @@ def test_inbox_move_not_copy_and_idempotent(tmp_path: Path) -> None:
     r2 = sorter.process_file(src2, run_id=run_id)
     assert r2.status == "skipped"
     assert src2.exists(), "idempotent skip leaves file for manual triage"
+    journal.close()
+
+
+def test_inbox_skips_ledger_hash_not_in_manifest(tmp_path: Path) -> None:
+    root = tmp_path / "sp"
+    inbox = root / "00_Inbox"
+    inbox.mkdir(parents=True)
+    src = inbox / "already-filed.pdf"
+    src.write_bytes(b"filed-bytes")
+    digest = content_hash(src)
+    journal_path = tmp_path / "j.sqlite3"
+    journal = ActionJournal(journal_path)
+    ledger = DocumentLedger(journal_path)
+    ledger.upsert(
+        DocumentRecord(
+            sha256=digest,
+            title="Already Filed",
+            prefix="GEN",
+            doc_type="GEN",
+            doc_date="2026-08-19",
+            version=1,
+            home="04_Admin",
+            current_path=str(root / "04_Admin" / "filed.pdf"),
+            source="relabel_parse",
+        )
+    )
+    run_id = journal.start_run()
+    sorter = InboxSorter(
+        root=root,
+        journal=journal,
+        rules=[],
+        litellm_base_url="http://100.103.33.54:4000/v1",
+        model="local-fast",
+        forbid_host_substrings=["api.openai.com"],
+        manifest_path=tmp_path / "manifest.json",
+        ledger=ledger,
+        llm_caller=lambda **_: '{"error":"must not classify a ledger duplicate"}',
+    )
+    result = sorter.process_file(src, run_id=run_id)
+    assert result.status == "skipped"
+    assert result.detail == "already in ledger"
+    assert src.exists()
     journal.close()
 
 
