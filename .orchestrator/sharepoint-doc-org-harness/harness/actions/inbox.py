@@ -18,6 +18,7 @@ from harness.ledger.brain import project_document
 from harness.ledger.documents import DocumentLedger, DocumentRecord
 from harness.naming import (
     ORGANIZER_NAME_RE,
+    is_organizer_name,
     next_free_name,
     next_organizer_version,
     next_version_name,
@@ -144,17 +145,23 @@ class InboxSorter:
             dest_dir = self.root / classification.target_folder
         dest_dir.mkdir(parents=True, exist_ok=True)
         existing = {p.name for p in dest_dir.iterdir()} if dest_dir.exists() else set()
-        if self.organizer_names:
+        if self.organizer_names and is_organizer_name(src.name):
+            candidate = src.name
+            namer = next_organizer_version
+        elif self.organizer_names:
+            candidate = classification.suggested_name
             namer = next_organizer_version
         elif self.readable_names:
+            candidate = classification.suggested_name
             namer = next_free_name
         else:
+            candidate = classification.suggested_name
             namer = next_version_name
-        name = namer(existing, classification.suggested_name)
+        name = namer(existing, candidate)
         dest = dest_dir / name
         while dest.exists() and dest.resolve() != src.resolve():
             existing.add(dest.name)
-            name = namer(existing, classification.suggested_name)
+            name = namer(existing, candidate)
             dest = dest_dir / name
         if dest.resolve() != src.resolve():
             apply_move(src, dest)

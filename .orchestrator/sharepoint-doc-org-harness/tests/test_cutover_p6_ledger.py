@@ -212,6 +212,7 @@ def test_relabel_rule_hit_moves_already_named_ledger_file(tmp_path: Path) -> Non
     assert report.renamed == 1
     assert leftover
     assert leftover[0].parent == target
+    assert leftover[0].name == "2026-08-19_PRO_Trafilea Order_v01.pdf"
     assert not src.exists()
     journal.close()
 
