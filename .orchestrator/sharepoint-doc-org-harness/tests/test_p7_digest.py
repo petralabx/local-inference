@@ -6,8 +6,10 @@ import pytest
 import yaml
 
 from harness.config import PACKAGE_ROOT, HarnessConfig, load_config
+from harness.identity import content_hash
 from harness.jobs.digest import DigestReport, run_digest
 from harness.journal.store import ActionJournal
+from harness.ledger.documents import DocumentLedger, DocumentRecord
 
 
 def _cfg_for_root(tmp_path: Path, root: Path) -> HarnessConfig:
@@ -96,3 +98,81 @@ def test_digest_scans_mail_and_nested_capture_not_inbox_trees(tmp_path: Path) ->
     assert (hidden / "should-not-scan.txt").exists()
     assert report.moved >= 1
     journal.close()
+
+
+def test_digest_skips_ledger_hash_without_rule(tmp_path: Path) -> None:
+    root = tmp_path / "sp"
+    inbox = root / "00_Inbox"
+    inbox.mkdir(parents=True)
+    src = inbox / "random-memo.pdf"
+    src.write_bytes(b"no-rule-bytes")
+    digest = content_hash(src)
+    cfg = _cfg_for_root(tmp_path, root)
+    journal = ActionJournal(Path(cfg.journal_path))
+    ledger = DocumentLedger(Path(cfg.journal_path))
+    ledger.upsert(
+        DocumentRecord(
+            sha256=digest,
+            title="Already Filed",
+            prefix="GEN",
+            doc_type="GEN",
+            doc_date="2026-08-19",
+            version=1,
+            home="04_Admin",
+            current_path=str(root / "04_Admin" / "filed.pdf"),
+            source="relabel_parse",
+        )
+    )
+    report = run_digest(
+        cfg=cfg,
+        journal=journal,
+        report_path=tmp_path / "digest-skip.json",
+        llm_caller=lambda **_: (
+            '{"prefix":"GEN","target_folder":"02_Business_Ops",'
+            '"description":"must-not-move","confidence":0.9}'
+        ),
+    )
+    assert report.skipped >= 1
+    assert report.moved == 0
+    assert src.exists()
+    assert not (root / "02_Business_Ops").exists() or not list((root / "02_Business_Ops").rglob("*"))
+    journal.close()
+    ledger.close()
+
+
+def test_digest_rule_hit_moves_despite_ledger_hash(tmp_path: Path) -> None:
+    root = tmp_path / "sp"
+    capture = root / "00_Inbox" / "_from_desktop"
+    capture.mkdir(parents=True)
+    src = capture / "trafilea-po.pdf"
+    src.write_bytes(b"leftover-po")
+    digest = content_hash(src)
+    cfg = _cfg_for_root(tmp_path, root)
+    journal = ActionJournal(Path(cfg.journal_path))
+    ledger = DocumentLedger(Path(cfg.journal_path))
+    ledger.upsert(
+        DocumentRecord(
+            sha256=digest,
+            title="Already Hashed Trafilea",
+            prefix="PRO",
+            doc_type="PRO",
+            doc_date="2026-08-19",
+            version=1,
+            home="01_Clients_Projects",
+            current_path=str(root / "01_Clients_Projects" / "Trafilea" / "filed.pdf"),
+            source="relabel_parse",
+        )
+    )
+    report = run_digest(
+        cfg=cfg,
+        journal=journal,
+        report_path=tmp_path / "digest-rehome.json",
+        llm_caller=lambda **_: '{"error":"rule hit must not call llm"}',
+        only=["_from_desktop"],
+    )
+    target = root / "01_Clients_Projects" / "Trafilea"
+    assert report.moved >= 1
+    assert not src.exists()
+    assert list(target.glob("*.pdf"))
+    journal.close()
+    ledger.close()

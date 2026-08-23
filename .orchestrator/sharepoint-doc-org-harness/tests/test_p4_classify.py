@@ -8,6 +8,7 @@ from harness.classify.router import (
     MissingLiteLLMKey,
     classify_file,
     constrain_target_folder,
+    correction_rule_rehome,
     human_description,
     match_correction_rules,
 )
@@ -42,6 +43,22 @@ def test_correction_rule_first() -> None:
     )
     assert c.source == "correction_rule"
     assert is_compliant(c.suggested_name)
+
+
+def test_correction_rule_rehome_only_when_away_from_target(tmp_path: Path) -> None:
+    rules = load_correction_rules(PACKAGE_ROOT / "config" / "correction_rules.json")
+    root = tmp_path / "sp"
+    away = root / "00_Inbox" / "trafilea-brief.pdf"
+    home = root / "01_Clients_Projects" / "Trafilea" / "trafilea-brief.pdf"
+    away.parent.mkdir(parents=True)
+    home.parent.mkdir(parents=True)
+    away.write_bytes(b"x")
+    home.write_bytes(b"x")
+    assert correction_rule_rehome(away, root=root, rules=rules) is not None
+    assert correction_rule_rehome(home, root=root, rules=rules) is None
+    other = root / "00_Inbox" / "random-memo.pdf"
+    other.write_bytes(b"y")
+    assert correction_rule_rehome(other, root=root, rules=rules) is None
 
 
 def test_llm_classify_injectable() -> None:

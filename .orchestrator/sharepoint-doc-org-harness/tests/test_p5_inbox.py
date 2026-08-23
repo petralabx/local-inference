@@ -45,12 +45,19 @@ def test_inbox_move_not_copy_and_idempotent(tmp_path: Path) -> None:
     assert r1.dest.exists()
     assert not src.exists(), "must move, not copy"
 
+    r_home = sorter.process_file(r1.dest, run_id=run_id)
+    assert r_home.status == "skipped"
+    assert r_home.detail == "already processed hash"
+    assert r1.dest.exists(), "already at the rule home stays put"
+
     src2 = inbox / "trafilea-order-again.pdf"
     src2.write_bytes(b"pdf-bytes")
     assert content_hash(src2) == digest
     r2 = sorter.process_file(src2, run_id=run_id)
-    assert r2.status == "skipped"
-    assert src2.exists(), "idempotent skip leaves file for manual triage"
+    assert r2.status == "moved"
+    assert r2.dest is not None
+    assert r2.dest.parent == root / "01_Clients_Projects" / "Trafilea"
+    assert not src2.exists(), "rule hit still rehomes a leftover hashed copy"
     journal.close()
 
 
@@ -93,6 +100,57 @@ def test_inbox_skips_ledger_hash_not_in_manifest(tmp_path: Path) -> None:
     assert result.status == "skipped"
     assert result.detail == "already in ledger"
     assert src.exists()
+    journal.close()
+
+
+def test_rule_hit_with_ledger_hash_still_moves(tmp_path: Path) -> None:
+    root = tmp_path / "sp"
+    capture = root / "00_Inbox" / "_from_desktop"
+    capture.mkdir(parents=True)
+    src = capture / "trafilea-order.pdf"
+    src.write_bytes(b"leftover-capture")
+    digest = content_hash(src)
+    journal_path = tmp_path / "j.sqlite3"
+    journal = ActionJournal(journal_path)
+    ledger = DocumentLedger(journal_path)
+    ledger.upsert(
+        DocumentRecord(
+            sha256=digest,
+            title="Already Filed Trafilea",
+            prefix="PRO",
+            doc_type="PRO",
+            doc_date="2026-08-19",
+            version=1,
+            home="01_Clients_Projects",
+            current_path=str(root / "01_Clients_Projects" / "Trafilea" / "filed.pdf"),
+            source="relabel_parse",
+        )
+    )
+    run_id = journal.start_run()
+    sorter = InboxSorter(
+        root=root,
+        journal=journal,
+        rules=[
+            {
+                "id": "r1",
+                "keywords": ["trafilea"],
+                "target_folder": "01_Clients_Projects/Trafilea",
+                "prefix": "PRO",
+                "confidence_boost": 2,
+            }
+        ],
+        litellm_base_url="http://100.103.33.54:4000/v1",
+        model="local-fast",
+        forbid_host_substrings=["api.openai.com"],
+        manifest_path=tmp_path / "manifest.json",
+        ledger=ledger,
+        llm_caller=lambda **_: '{"error":"rule hit must not call llm"}',
+    )
+    result = sorter.process_file(src, run_id=run_id)
+    assert result.status == "moved"
+    assert result.dest is not None
+    assert result.dest.parent == root / "01_Clients_Projects" / "Trafilea"
+    assert not src.exists()
     journal.close()
 
 
