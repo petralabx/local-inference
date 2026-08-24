@@ -9,6 +9,7 @@ from typing import Any, Callable
 from harness.actions.archive import ArchiveLane
 from harness.actions.inbox import InboxSorter
 from harness.config import HarnessConfig, load_correction_rules, load_taxonomy, match_exclude
+from harness.jobs.relabel import walk_files_tolerant
 from harness.journal.store import ActionJournal
 from harness.ledger.documents import DocumentLedger
 
@@ -40,7 +41,7 @@ def iter_digest_files(
     def _add_capture(folder: Path) -> None:
         if not folder.is_dir():
             return
-        for src in sorted(folder.rglob("*")):
+        for src in sorted(walk_files_tolerant(folder), key=lambda p: str(p).lower()):
             _add_file(src)
 
     if wanted:
