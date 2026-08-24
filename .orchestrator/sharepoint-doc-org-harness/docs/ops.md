@@ -17,7 +17,11 @@ Document ledger table in `data/journal.sqlite3`. `harness where` reads the
 ledger first. Vince Node projection is fail-open (`VMC_API_KEY` +
 `VMC_BASE_URL`). Filing continues if Brain is down.
 
-Already-filed homes are not picked up by digest (hash manifest). Relabel them:
+Digest skips already-hashed files unless a correction rule matches and the
+file is not already in that rule's `target_folder`. Relabel keeps the current
+folder for LLM/heuristic names; a correction-rule match still rehomes.
+Already-filed homes with no rule hit stay on the hash/ledger skip. Relabel
+the rest:
 
 ```powershell
 powershell -NoProfile -ExecutionPolicy Bypass -File scripts/run-organizer-relabel.ps1 -Limit 20

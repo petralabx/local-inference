@@ -57,6 +57,29 @@ def match_correction_rules(filename: str, rules: list[dict[str, Any]]) -> dict[s
     return best
 
 
+def correction_rule_rehome(
+    path: Path,
+    *,
+    root: Path,
+    rules: list[dict[str, Any]],
+) -> dict[str, Any] | None:
+    """Return the matching rule when path is not already in that rule's folder.
+
+    Filename-only. Does not classify via LLM, so hashed leftovers can be
+    rehomed without opening the rest of the library.
+    """
+    hit = match_correction_rules(path.name, rules)
+    if hit is None:
+        return None
+    target = root / str(hit.get("target_folder") or "").replace("\\", "/")
+    try:
+        if path.parent.resolve() == target.resolve():
+            return None
+    except OSError:
+        return hit
+    return hit
+
+
 def heuristic_classify(
     filename: str,
     text: str,

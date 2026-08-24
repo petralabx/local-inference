@@ -63,15 +63,7 @@ def test_relabel_keeps_current_folder(tmp_path: Path) -> None:
     sorter = InboxSorter(
         root=root,
         journal=journal,
-        rules=[
-            {
-                "id": "r1",
-                "keywords": ["note"],
-                "target_folder": "02_Business_Ops",
-                "prefix": "MEM",
-                "confidence_boost": 2,
-            }
-        ],
+        rules=[],
         litellm_base_url="http://100.103.33.54:4000/v1",
         model="local-driver",
         forbid_host_substrings=["api.openai.com"],
@@ -80,6 +72,10 @@ def test_relabel_keeps_current_folder(tmp_path: Path) -> None:
         ledger=ledger,
         type_by_prefix={"MEM": "Memo"},
         project_to_brain=False,
+        llm_caller=lambda **_: (
+            '{"prefix":"MEM","target_folder":"02_Business_Ops",'
+            '"description":"note","confidence":0.9}'
+        ),
     )
     result = sorter.process_file(src, run_id=run_id, ignore_manifest=True, keep_folder=True)
     assert result.status == "moved"
@@ -135,6 +131,89 @@ def test_relabel_renames_existing_home_file(tmp_path: Path) -> None:
     assert leftover[0].parent == dest
     assert is_organizer_name(leftover[0].name)
     assert not list((root / "01_Clients_Projects").glob("*.pdf"))
+    journal.close()
+
+
+def test_relabel_rule_hit_changes_folder(tmp_path: Path) -> None:
+    from harness.config import PACKAGE_ROOT, load_config
+    from harness.jobs.relabel import run_relabel
+    import yaml
+
+    root = tmp_path / "sp"
+    wrong = root / "04_Admin" / "IT"
+    wrong.mkdir(parents=True)
+    src = wrong / "trafilea-order.pdf"
+    src.write_bytes(b"relabel-rehome")
+    raw = yaml.safe_load((PACKAGE_ROOT / "config" / "default.yaml").read_text(encoding="utf-8"))
+    raw["sharepoint_sync_root"] = str(root)
+    raw["journal_path"] = str(tmp_path / "j.sqlite3")
+    cfg_path = tmp_path / "cfg.yaml"
+    cfg_path.write_text(yaml.safe_dump(raw), encoding="utf-8")
+    cfg = load_config(cfg_path)
+    journal = ActionJournal(tmp_path / "j.sqlite3")
+    report = run_relabel(
+        cfg=cfg,
+        journal=journal,
+        report_path=tmp_path / "relabel-rehome.json",
+        llm_caller=lambda **_: '{"error":"rule hit must not call llm"}',
+    )
+    target = root / "01_Clients_Projects" / "Trafilea"
+    leftover = list(target.glob("*.pdf"))
+    assert report.renamed == 1
+    assert leftover
+    assert leftover[0].parent == target
+    assert is_organizer_name(leftover[0].name)
+    assert not src.exists()
+    journal.close()
+
+
+def test_relabel_rule_hit_moves_already_named_ledger_file(tmp_path: Path) -> None:
+    from harness.config import PACKAGE_ROOT, load_config
+    from harness.jobs.relabel import run_relabel
+    import yaml
+
+    root = tmp_path / "sp"
+    wrong = root / "04_Admin" / "IT"
+    wrong.mkdir(parents=True)
+    src = wrong / "2026-08-19_PRO_Trafilea Order_v01.pdf"
+    src.write_bytes(b"already-named")
+    digest = content_hash(src)
+    journal_path = tmp_path / "j.sqlite3"
+    ledger = DocumentLedger(journal_path)
+    ledger.upsert(
+        DocumentRecord(
+            sha256=digest,
+            title="Trafilea Order",
+            prefix="PRO",
+            doc_type="PRO",
+            doc_date="2026-08-19",
+            version=1,
+            home="04_Admin",
+            current_path=str(src),
+            source="relabel_parse",
+        )
+    )
+    ledger.close()
+    raw = yaml.safe_load((PACKAGE_ROOT / "config" / "default.yaml").read_text(encoding="utf-8"))
+    raw["sharepoint_sync_root"] = str(root)
+    raw["journal_path"] = str(journal_path)
+    cfg_path = tmp_path / "cfg.yaml"
+    cfg_path.write_text(yaml.safe_dump(raw), encoding="utf-8")
+    cfg = load_config(cfg_path)
+    journal = ActionJournal(journal_path)
+    report = run_relabel(
+        cfg=cfg,
+        journal=journal,
+        report_path=tmp_path / "relabel-named.json",
+        llm_caller=lambda **_: '{"error":"rule hit must not call llm"}',
+    )
+    target = root / "01_Clients_Projects" / "Trafilea"
+    leftover = list(target.glob("*.pdf"))
+    assert report.renamed == 1
+    assert leftover
+    assert leftover[0].parent == target
+    assert leftover[0].name == "2026-08-19_PRO_Trafilea Order_v01.pdf"
+    assert not src.exists()
     journal.close()
 
 

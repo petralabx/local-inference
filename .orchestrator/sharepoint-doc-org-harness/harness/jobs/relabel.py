@@ -10,7 +10,7 @@ from typing import Any, Callable
 
 from harness.actions.drain import is_noise_file, is_secret_file
 from harness.actions.inbox import InboxSorter
-from harness.classify.router import ALLOWED_HOMES
+from harness.classify.router import ALLOWED_HOMES, correction_rule_rehome
 from harness.config import HarnessConfig, load_correction_rules, load_taxonomy, match_exclude
 from harness.identity import content_hash
 from harness.journal.store import ActionJournal
@@ -151,10 +151,12 @@ def run_relabel(
     for src in sources:
         report.scanned += 1
         try:
-            if is_organizer_name(src.name) and ledger.get(content_hash(src)) is not None:
-                report.skipped += 1
-                continue
-            if is_organizer_name(src.name):
+            if is_organizer_name(src.name) and correction_rule_rehome(
+                src, root=root, rules=sorter.rules
+            ) is None:
+                if ledger.get(content_hash(src)) is not None:
+                    report.skipped += 1
+                    continue
                 parsed = ORGANIZER_NAME_RE.match(src.name)
                 digest = content_hash(src)
                 try:

@@ -6,7 +6,11 @@ from pathlib import Path
 from typing import Any, Callable
 
 from harness.actions.drain import NOISE_NAMES, is_secret_file
-from harness.classify.router import Classification, classify_file
+from harness.classify.router import (
+    Classification,
+    classify_file,
+    correction_rule_rehome,
+)
 from harness.extract.pipeline import extract_text
 from harness.identity import content_hash
 from harness.journal.store import ActionJournal, apply_move
@@ -14,6 +18,7 @@ from harness.ledger.brain import project_document
 from harness.ledger.documents import DocumentLedger, DocumentRecord
 from harness.naming import (
     ORGANIZER_NAME_RE,
+    is_organizer_name,
     next_free_name,
     next_organizer_version,
     next_version_name,
@@ -96,13 +101,15 @@ class InboxSorter:
         if is_secret_file(src):
             return SortResult(src, None, "skipped", run_id, "secret")
         digest = content_hash(src)
-        if not ignore_manifest:
-            if digest in self._processed:
-                return SortResult(src, None, "skipped", run_id, "already processed hash")
-            if self.ledger is not None and self.ledger.get(digest) is not None:
+        rehome_rule = correction_rule_rehome(src, root=self.root, rules=self.rules)
+        in_manifest = digest in self._processed
+        in_ledger = self.ledger is not None and self.ledger.get(digest) is not None
+        if not ignore_manifest and (in_manifest or in_ledger) and rehome_rule is None:
+            if in_ledger and not in_manifest:
                 self._processed.add(digest)
                 self._save_manifest()
                 return SortResult(src, None, "skipped", run_id, "already in ledger")
+            return SortResult(src, None, "skipped", run_id, "already processed hash")
 
         extracted = extract_text(src)
         classification = self.classify_fn(
@@ -117,23 +124,44 @@ class InboxSorter:
             organizer_names=self.organizer_names,
             fallback_model=self.fallback_model,
         )
+        if (
+            not ignore_manifest
+            and (in_manifest or in_ledger)
+            and classification.source != "correction_rule"
+        ):
+            if in_ledger and not in_manifest:
+                self._processed.add(digest)
+                self._save_manifest()
+                return SortResult(src, None, "skipped", run_id, "already in ledger")
+            return SortResult(src, None, "skipped", run_id, "already processed hash")
         if classification.confidence < 0.5 and classification.source != "correction_rule":
             return SortResult(src, None, "held", run_id, "low confidence")
 
-        dest_dir = src.parent if keep_folder else self.root / classification.target_folder
+        # keep_folder is for LLM/heuristic relabel-in-place. A correction-rule
+        # home always wins, including the stock relabel job.
+        if keep_folder and classification.source != "correction_rule":
+            dest_dir = src.parent
+        else:
+            dest_dir = self.root / classification.target_folder
         dest_dir.mkdir(parents=True, exist_ok=True)
         existing = {p.name for p in dest_dir.iterdir()} if dest_dir.exists() else set()
-        if self.organizer_names:
+        if self.organizer_names and is_organizer_name(src.name):
+            candidate = src.name
+            namer = next_organizer_version
+        elif self.organizer_names:
+            candidate = classification.suggested_name
             namer = next_organizer_version
         elif self.readable_names:
+            candidate = classification.suggested_name
             namer = next_free_name
         else:
+            candidate = classification.suggested_name
             namer = next_version_name
-        name = namer(existing, classification.suggested_name)
+        name = namer(existing, candidate)
         dest = dest_dir / name
         while dest.exists() and dest.resolve() != src.resolve():
             existing.add(dest.name)
-            name = namer(existing, classification.suggested_name)
+            name = namer(existing, candidate)
             dest = dest_dir / name
         if dest.resolve() != src.resolve():
             apply_move(src, dest)
