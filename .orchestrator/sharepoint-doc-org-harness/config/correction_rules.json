@@ -1,40 +1,51 @@
 {
   "version": 1,
   "rules": [
-    {
-      "id": "rule-001",
-      "keywords": ["trafilea"],
-      "target_folder": "01_Clients_Projects/Trafilea",
-      "prefix": "PRO",
-      "confidence_boost": 2
-    },
-    {
-      "id": "rule-002",
-      "keywords": ["gleamin"],
-      "target_folder": "01_Clients_Projects/Gleamin",
-      "prefix": "PRO",
-      "confidence_boost": 2
-    },
-    {
-      "id": "rule-003",
-      "keywords": ["warehouse responsibilit"],
-      "target_folder": "02_Business_Ops/Operations",
-      "prefix": "SOP",
-      "confidence_boost": 1
-    },
-    {
-      "id": "rule-004",
-      "keywords": ["email categorization rules"],
-      "target_folder": "04_Admin/IT",
-      "prefix": "SOP",
-      "confidence_boost": 1
-    },
-    {
-      "id": "rule-005",
-      "keywords": ["tractor supply"],
-      "target_folder": "01_Clients_Projects/Tractor_Supply",
-      "prefix": "PRO",
-      "confidence_boost": 2
-    }
+    {"id": "rule-001", "keywords": ["trafilea"], "target_folder": "01_Clients_Projects/Trafilea", "prefix": "PRO", "confidence_boost": 2},
+    {"id": "rule-002", "keywords": ["gleamin"], "target_folder": "01_Clients_Projects/Gleamin", "prefix": "PRO", "confidence_boost": 2},
+    {"id": "rule-003", "keywords": ["warehouse responsibilit"], "target_folder": "02_Business_Ops/Operations", "prefix": "SOP", "confidence_boost": 1},
+    {"id": "rule-004", "keywords": ["email categorization rules"], "target_folder": "04_Admin/IT", "prefix": "SOP", "confidence_boost": 1},
+    {"id": "rule-005", "keywords": ["tractor supply"], "target_folder": "01_Clients_Projects/Tractor_Supply", "prefix": "PRO", "confidence_boost": 2},
+    {"id": "rule-006", "keywords": ["irap"], "target_folder": "02_Business_Ops/Government", "prefix": "IRAP", "confidence_boost": 2},
+    {"id": "rule-007", "keywords": ["happy yards", "happyyards"], "target_folder": "05_Personal/Expenses", "prefix": "INV", "confidence_boost": 2},
+    {"id": "rule-008", "keywords": ["k18"], "target_folder": "01_Clients_Projects/K18", "prefix": "PRO", "confidence_boost": 2},
+    {"id": "rule-009", "keywords": ["sidia"], "target_folder": "01_Clients_Projects/Sidia", "prefix": "PRO", "confidence_boost": 2},
+    {"id": "rule-010", "keywords": ["three ships", "threeships"], "target_folder": "01_Clients_Projects/Three_Ships", "prefix": "PRO", "confidence_boost": 2},
+    {"id": "rule-011", "keywords": ["sahajan"], "target_folder": "01_Clients_Projects/Sahajan", "prefix": "PRO", "confidence_boost": 2},
+    {"id": "rule-012", "keywords": ["soapbox"], "target_folder": "01_Clients_Projects/SoapBox", "prefix": "PRO", "confidence_boost": 2},
+    {"id": "rule-013", "keywords": ["clarion", "luvo"], "target_folder": "01_Clients_Projects/Clarion", "prefix": "PRO", "confidence_boost": 2},
+    {"id": "rule-014", "keywords": ["dandylion"], "target_folder": "01_Clients_Projects/Dandylion", "prefix": "PRO", "confidence_boost": 2},
+    {"id": "rule-015", "keywords": ["biophora"], "target_folder": "01_Clients_Projects/Biophora", "prefix": "PRO", "confidence_boost": 2},
+    {"id": "rule-016", "keywords": ["province apothecary"], "target_folder": "01_Clients_Projects/Province_Apothecary", "prefix": "PRO", "confidence_boost": 2},
+    {"id": "rule-017", "keywords": ["1999 beauty"], "target_folder": "01_Clients_Projects/1999_Beauty", "prefix": "PRO", "confidence_boost": 2},
+    {"id": "rule-018", "keywords": ["inkbox"], "target_folder": "01_Clients_Projects/Inkbox", "prefix": "PRO", "confidence_boost": 2},
+    {"id": "rule-019", "keywords": ["sidac"], "target_folder": "02_Business_Ops/Vendors", "prefix": "VEN", "confidence_boost": 2},
+    {"id": "rule-020", "keywords": ["plantalia"], "target_folder": "01_Clients_Projects/Plantalia", "prefix": "PRO", "confidence_boost": 2},
+    {"id": "rule-021", "keywords": ["kaia naturals", "kaia"], "target_folder": "01_Clients_Projects/Kaia_Naturals", "prefix": "PRO", "confidence_boost": 2},
+    {"id": "rule-022", "keywords": ["super patch"], "target_folder": "01_Clients_Projects/Super_Patch", "prefix": "PRO", "confidence_boost": 2},
+    {"id": "rule-023", "keywords": ["nudge"], "target_folder": "01_Clients_Projects/Nudge", "prefix": "PRO", "confidence_boost": 2},
+    {"id": "rule-024", "keywords": ["unscented company"], "target_folder": "01_Clients_Projects/The_Unscented_Company", "prefix": "PRO", "confidence_boost": 2},
+    {"id": "rule-025", "keywords": ["hunter amenities"], "target_folder": "01_Clients_Projects/Hunter_Amenities", "prefix": "PRO", "confidence_boost": 2},
+    {"id": "rule-026", "keywords": ["phillip adam"], "target_folder": "01_Clients_Projects/Phillip_Adam", "prefix": "PRO", "confidence_boost": 2},
+    {"id": "rule-027", "keywords": ["lunavive", "luna vive"], "target_folder": "01_Clients_Projects/Lunavive", "prefix": "PRO", "confidence_boost": 2},
+    {"id": "rule-028", "keywords": ["paume"], "target_folder": "01_Clients_Projects/Paume", "prefix": "PRO", "confidence_boost": 2},
+    {"id": "rule-029", "keywords": ["1-shoppe", "1 shoppe"], "target_folder": "01_Clients_Projects/1_Shoppe", "prefix": "PRO", "confidence_boost": 2},
+    {"id": "rule-030", "keywords": ["care principle"], "target_folder": "01_Clients_Projects/The Care Principle", "prefix": "PRO", "confidence_boost": 2},
+    {"id": "rule-031", "keywords": ["for & against", "for and against"], "target_folder": "01_Clients_Projects/Private_Brands", "prefix": "PB", "confidence_boost": 2},
+    {"id": "rule-032", "keywords": ["mcgill"], "target_folder": "02_Business_Ops/Government", "prefix": "GRANT", "confidence_boost": 2},
+    {"id": "rule-033", "keywords": ["polo club"], "target_folder": "01_Clients_Projects/Polo Club", "prefix": "PRO", "confidence_boost": 3},
+    {"id": "rule-034", "keywords": ["polo"], "target_folder": "01_Clients_Projects/Polo", "prefix": "PRO", "confidence_boost": 2},
+    {"id": "rule-035", "keywords": ["aldi"], "target_folder": "01_Clients_Projects/ALDI", "prefix": "PRO", "confidence_boost": 2},
+    {"id": "rule-036", "keywords": ["diversified"], "target_folder": "01_Clients_Projects/Diversified_Hospitality", "prefix": "PRO", "confidence_boost": 2},
+    {"id": "rule-037", "keywords": ["eurofina"], "target_folder": "01_Clients_Projects/Eurofina", "prefix": "PRO", "confidence_boost": 2},
+    {"id": "rule-038", "keywords": ["furgenics"], "target_folder": "01_Clients_Projects/Furgenics", "prefix": "PRO", "confidence_boost": 2},
+    {"id": "rule-039", "keywords": ["onare"], "target_folder": "01_Clients_Projects/Onare", "prefix": "PRO", "confidence_boost": 2},
+    {"id": "rule-040", "keywords": ["tannin"], "target_folder": "01_Clients_Projects/Tannin", "prefix": "PRO", "confidence_boost": 2},
+    {"id": "rule-041", "keywords": ["jrs amenities"], "target_folder": "01_Clients_Projects/JRS_Amenities", "prefix": "PRO", "confidence_boost": 2},
+    {"id": "rule-042", "keywords": ["value max"], "target_folder": "01_Clients_Projects/Value_Max_Products", "prefix": "PRO", "confidence_boost": 2},
+    {"id": "rule-043", "keywords": ["f.miller", "f miller", "fmiller"], "target_folder": "01_Clients_Projects/FMiller", "prefix": "PRO", "confidence_boost": 2},
+    {"id": "rule-044", "keywords": ["f/that", "fthat", "f-that"], "target_folder": "01_Clients_Projects/FTHAT", "prefix": "PRO", "confidence_boost": 2},
+    {"id": "rule-045", "keywords": ["ryan levey"], "target_folder": "01_Clients_Projects/Ryan_Levey", "prefix": "PRO", "confidence_boost": 2},
+    {"id": "rule-046", "keywords": ["forsyth"], "target_folder": "01_Clients_Projects/Forsyth", "prefix": "PRO", "confidence_boost": 2}
   ]
 }
