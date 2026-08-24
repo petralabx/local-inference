@@ -1,0 +1,56 @@
+# Spark B NVFP4+MTP bake-off overlay. NOT a live cutover.
+#
+# Copy ONLY the local-driver-nvfp4 block into litellm/config.yaml when you want
+# the Dell proxy to expose the side lane. Do not replace local-driver.
+# Do not delete the GGUF backend on :18090.
+#
+# Verified live (2026-08-21), unchanged by this example:
+#   local-coder  -> Spark A llama.cpp GGUF :18082
+#   local-driver -> Spark B llama.cpp GGUF :18090
+#   local-primary / local-fast -> Dell vLLM :8000 (still current)
+#
+# After a FUTURE Dell :8000 deprecation PR (not this file):
+#   POST_CUTOVER_DO_NOT_LEAVE_LOCAL_PRIMARY_ON_DELL
+#   Do not keep local-primary on http://127.0.0.1:8000/v1 once Dell AWQ is retired.
+#   Do not point local-primary at Spark B :18091 (driver bake-off lane).
+
+model_list:
+  - model_name: local-primary
+    litellm_params:
+      model: openai/Qwen/Qwen3-32B-AWQ
+      api_base: http://127.0.0.1:8000/v1
+      api_key: sk-local
+  - model_name: local-fast
+    litellm_params:
+      model: openai/Qwen/Qwen3-32B-AWQ
+      api_base: http://127.0.0.1:8000/v1
+      api_key: sk-local
+  - model_name: local-coder
+    litellm_params:
+      model: openai/local-coder            # uncensored Ornith-35B executor (Spark A)
+      api_base: http://100.111.220.1:18082/v1
+      api_key: local-inference
+  - model_name: local-driver
+    litellm_params:
+      model: openai/local-driver           # uncensored Qwen3.6-35B-A3B GGUF (Spark B :18090)
+      api_base: http://100.92.253.61:18090/v1
+      api_key: local-inference
+  # Optional bake-off alias — side port only. Do not rename this to local-driver yet.
+  - model_name: local-driver-nvfp4
+    litellm_params:
+      model: openai/local-driver-nvfp4     # THe-Plague abliterated NVFP4+MTP (Spark B :18091)
+      api_base: http://100.92.253.61:18091/v1
+      api_key: local-inference
+
+litellm_settings:
+  drop_params: true
+  set_verbose: false
+  request_timeout: 600
+  num_retries: 1
+  background_health_checks: false
+
+general_settings:
+  master_key: os.environ/LITELLM_MASTER_KEY
+  # Already in live config.yaml. Unauthenticated /v1/models can still 500
+  # ("No connected db") — clients must send Authorization: Bearer $LOCAL_LITELLM_MASTER_KEY.
+  allow_requests_on_db_unavailable: true
