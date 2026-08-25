@@ -1,0 +1,20 @@
+# Leftover VincePersonal piles (folder-level audit 2026-08-25).
+# Fold is hygiene AFTER harvest stamp, not the search architecture.
+# Default is dry-run. Never archive 00-06. Never hide Vince Personal.
+#
+# Root leftovers are also discovered as any top-level directory not in
+# 00_Inbox–06_Reference. known_roots keeps the audit list visible even when empty.
+known_roots:
+  - Documents
+  - Daily Reports
+  - Command Center
+  - cursor-inbox
+  - Lattice-Peptides
+  - Projects
+
+# Nested leftover piles inside taxonomy 00-06. Do not list the seven homes.
+nested:
+  - 01_Clients_Projects/Petra
+  - 04_Admin/Documents
+  - 04_Admin/General_Docs
+  - 05_Personal/Misc

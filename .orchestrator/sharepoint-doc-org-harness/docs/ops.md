@@ -145,7 +145,9 @@ Unique Petra archive and leftover VincePersonal roots:
 
 ```powershell
 python -m harness.cli.main drain --report data/reports/drain-archive.json --only 09_Archive --only _root
-python -m harness.cli.main drain --report data/reports/fold-roots.json --source-root "<VincePersonal>" --map config/legacy_roots.yaml
+python -m harness.cli.main fold --report data/reports/fold.json
+# Default is dry-run. --apply only after harvest stamp, on VTA, Vince present.
+# Never hides Vince Personal. Never archives 00-06 (archived SPO drops out of Copilot).
 ```
 
 Hide drained Petra sources only after unique files are gone. Never hides Vince Personal:

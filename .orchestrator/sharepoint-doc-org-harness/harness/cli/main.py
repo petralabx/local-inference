@@ -82,6 +82,31 @@ def main(argv: list[str] | None = None) -> int:
     stmp.add_argument("--journal", default=None)
     stmp.add_argument("--limit", type=int, default=None, help="Max files this run")
 
+    fld = sub.add_parser(
+        "fold",
+        help="plan leftover-tree fold into 00-06 (dry-run default; --apply to move)",
+    )
+    fld.add_argument("--report", required=True, help="Path to write fold JSON report")
+    fld.add_argument(
+        "--apply",
+        action="store_true",
+        default=False,
+        help="Execute moves. Default is dry-run (plan only).",
+    )
+    fld.add_argument("--journal", default=None)
+    fld.add_argument(
+        "--source-root",
+        default=None,
+        help="VincePersonal sync root (default from config). Fixtures only in tests.",
+    )
+    fld.add_argument(
+        "--only",
+        action="append",
+        default=None,
+        help="Leftover tree relative path (repeatable). Default: discovered leftovers.",
+    )
+    fld.add_argument("--limit", type=int, default=None, help="Max files to classify this run")
+
     args = parser.parse_args(argv)
     if args.version or args.cmd == "version":
         print(__version__)
@@ -220,6 +245,36 @@ def main(argv: list[str] | None = None) -> int:
             f"run_id={report.run_id} scanned={report.scanned} stamped={report.stamped} "
             f"skipped={report.skipped} columns_written={report.columns_written} "
             f"columns_skipped={report.columns_skipped} embedded={report.embedded} "
+            f"errors={report.errors}"
+        )
+        return 1 if report.errors else 0
+
+    if args.cmd == "fold":
+        from harness.actions.fold import FoldApplyBlocked
+        from harness.jobs.fold import run_fold
+
+        cfg = load_config(cfg_path)
+        journal_path = Path(args.journal) if args.journal else cfg.resolve_path(cfg.journal_path)
+        journal = ActionJournal(journal_path)
+        try:
+            report = run_fold(
+                cfg=cfg,
+                journal=journal,
+                report_path=Path(args.report),
+                apply=bool(args.apply),
+                only=args.only,
+                limit=args.limit,
+                source_root=Path(args.source_root) if args.source_root else None,
+            )
+        except FoldApplyBlocked as exc:
+            print(f"fold_blocked: {exc}")
+            return 2
+        finally:
+            journal.close()
+        print(
+            f"run_id={report.run_id} apply={report.apply} dry_run={report.dry_run} "
+            f"planned={report.planned} moved={report.moved} "
+            f"skipped_secret={report.skipped_secret} skipped_code={report.skipped_code} "
             f"errors={report.errors}"
         )
         return 1 if report.errors else 0

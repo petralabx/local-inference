@@ -210,6 +210,76 @@ def classify_file(
     )
 
 
+def classify_with_order(
+    *,
+    path: Path,
+    text: str,
+    rules: list[dict[str, Any]],
+    litellm_base_url: str = "",
+    model: str = "",
+    forbid_host_substrings: list[str] | None = None,
+    llm_caller: Callable[..., str] | None = None,
+    readable_names: bool = False,
+    organizer_names: bool = False,
+    fallback_model: str | None = None,
+    api_key: str | None = None,
+    allow_live_llm: bool = False,
+) -> Classification:
+    """Leftover-fold order: correction_rule → heuristic → LLM.
+
+    LLM runs only when the heuristic lands on GEN/unsorted and a caller is
+    injected or live LLM is explicitly allowed. Dry-run fold planning does
+    not require a LiteLLM key.
+    """
+    hit = match_correction_rules(path.name, rules)
+    when = _date_from_name_or_today(path.name)
+    if hit:
+        desc = _desc(path.name, readable=readable_names or organizer_names)
+        prefix = normalize_organizer_prefix(str(hit.get("prefix") or "GEN"))
+        name = _suggested_name(
+            when,
+            prefix,
+            desc,
+            path.suffix,
+            readable_names=readable_names,
+            organizer_names=organizer_names,
+        )
+        return Classification(
+            prefix=prefix,
+            target_folder=str(hit["target_folder"]),
+            description=desc,
+            confidence=0.9 + 0.02 * int(hit.get("confidence_boost") or 0),
+            source="correction_rule",
+            suggested_name=name,
+        )
+
+    heur = heuristic_classify(
+        path.name,
+        text,
+        readable_names=readable_names,
+        organizer_names=organizer_names,
+    )
+    generic = heur.prefix == "GEN" or heur.target_folder == UNSORTED_FOLDER
+    if not generic or (llm_caller is None and not allow_live_llm):
+        return heur
+    try:
+        return classify_file(
+            path=path,
+            text=text,
+            rules=rules,
+            litellm_base_url=litellm_base_url,
+            model=model,
+            forbid_host_substrings=forbid_host_substrings or [],
+            llm_caller=llm_caller,
+            readable_names=readable_names,
+            organizer_names=organizer_names,
+            fallback_model=fallback_model,
+            api_key=api_key,
+        )
+    except MissingLiteLLMKey:
+        return heur
+
+
 def _litellm_classify(
     *,
     base_url: str,

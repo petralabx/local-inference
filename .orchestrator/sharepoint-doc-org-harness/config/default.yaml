@@ -26,6 +26,7 @@ naming_mode: organizer
 mail_lookback_days: 90
 mail_remainder_after_proof: true
 drain_map_path: "config/drain_map.yaml"
+leftover_trees_path: "config/leftover_trees.yaml"
 delete_duplicates: false
 
 exclude_globs:
