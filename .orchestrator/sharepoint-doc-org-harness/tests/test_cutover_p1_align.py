@@ -163,6 +163,13 @@ def test_cutover_organizer_rejects_folder_prefix_and_space_version() -> None:
     assert peel_organizer_title("SOP_Template") == "SOP_Template"
     assert is_organizer_name(sop)
     assert peel_rebuild_organizer_name(sop) == sop
+    unknown_outer = (
+        "2026-08-18_ABC_2026-08-17_INV_Project Brief_v01_v01.pdf"
+    )
+    assert not is_organizer_name(unknown_outer)
+    rebuilt_unknown = peel_rebuild_organizer_name(unknown_outer)
+    assert rebuilt_unknown == "2026-08-18_INV_Project Brief_v01.pdf"
+    assert is_organizer_name(rebuilt_unknown)
 
 
 def test_cutover_organizer_keeps_date_in_middle_of_words() -> None:
