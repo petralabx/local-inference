@@ -173,13 +173,27 @@ def peel_organizer_title(title: str) -> str:
     text = title
     if _LEADING_DATE_RE.match(text) or _TRAILING_VERSION_RE.search(text):
         text = _FILENAME_EXT_RE.sub("", text)
+    after_date = False
     for _ in range(32):
-        nxt = _LEADING_DATE_RE.sub("", text, count=1)
+        nxt = text
+        if _LEADING_DATE_RE.match(nxt):
+            nxt = _LEADING_DATE_RE.sub("", nxt, count=1)
+            after_date = True
         # Folder tokens before taxonomy PREFIX so BUSINESS_OPS / PERSONAL
         # are not split into a fake prefix plus an OPS_ leftover.
-        nxt = _LEADING_FOLDER_RE.sub("", nxt, count=1)
-        nxt = _strip_known_leading_prefix(nxt)
-        nxt = _LEADING_NUMBERED_HOME_RE.sub("", nxt, count=1)
+        folded = _LEADING_FOLDER_RE.sub("", nxt, count=1)
+        if folded != nxt:
+            nxt = folded
+            after_date = False
+        if after_date:
+            stripped = _strip_known_leading_prefix(nxt)
+            if stripped != nxt:
+                nxt = stripped
+                after_date = False
+        numbered = _LEADING_NUMBERED_HOME_RE.sub("", nxt, count=1)
+        if numbered != nxt:
+            nxt = numbered
+            after_date = False
         nxt = _TRAILING_VERSION_RE.sub("", nxt, count=1)
         if nxt == text:
             break
