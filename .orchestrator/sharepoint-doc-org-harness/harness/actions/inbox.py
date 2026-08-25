@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Callable
+from typing import TYPE_CHECKING, Any, Callable
 
 from harness.actions.drain import NOISE_NAMES, is_secret_file
 from harness.classify.router import (
@@ -23,7 +23,9 @@ from harness.naming import (
     next_organizer_version,
     next_version_name,
 )
-from harness.stamp.harvest import HarvestStamp
+
+if TYPE_CHECKING:
+    from harness.stamp.harvest import HarvestStamp
 
 
 @dataclass
