@@ -12,6 +12,7 @@ Do not treat this as automated acceptance. Run after Graph delegated auth is rea
 8. [ ] Mail: ensure folder/rule against test mailbox; one attachment lands in inbox
 9. [ ] Install Task Scheduler job per `docs/ops.md`; laptop stays query-only
 10. [ ] Confirm `delete_duplicates: false` until Vince enables deletes
+11. [ ] On VTA, `python -m harness.cli.main graph-login` as `vince@petrasoap.com`, then `harness stamp --limit 20` writes Party/Prefix/Home (folder walk; no FileLeafRef filter)
 
 ## Promotion to standalone repo
 
