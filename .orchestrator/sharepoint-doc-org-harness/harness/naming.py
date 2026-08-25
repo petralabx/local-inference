@@ -146,6 +146,17 @@ def normalize_organizer_prefix(prefix: str) -> str:
     return _DEFAULT_PREFIX
 
 
+def readable_title_from_filename(name: str) -> str:
+    """SharePoint Title: peeled readable title, never the full law filename."""
+    parsed = ORGANIZER_NAME_RE.match(name)
+    if parsed:
+        title = peel_organizer_title(parsed.group("title"))
+        if title:
+            return title
+    stem = name.rsplit(".", 1)[0] if "." in name else name
+    return peel_organizer_title(stem) or stem or "Untitled"
+
+
 def peel_organizer_title(title: str) -> str:
     """Strip stacked law wrappers, keeping the readable title (spaces preserved)."""
     text = title

@@ -9,9 +9,11 @@ from typing import Any, Callable
 from harness.actions.archive import ArchiveLane
 from harness.actions.inbox import InboxSorter
 from harness.config import HarnessConfig, load_correction_rules, load_taxonomy, match_exclude
+from harness.graph.drive_client import GraphDriveClient
 from harness.jobs.relabel import walk_files_tolerant
 from harness.journal.store import ActionJournal
 from harness.ledger.documents import DocumentLedger
+from harness.stamp.harvest import HarvestStamp
 
 HELPER_FILE_NAMES = {"_redirect_state.json"}
 
@@ -115,6 +117,7 @@ def run_digest(
     dry_run: bool = False,
     only: list[str] | None = None,
     limit: int | None = None,
+    graph: GraphDriveClient | None = None,
 ) -> DigestReport:
     """scan → classify → act → report. Fails closed if inference policy invalid."""
     cfg.validate_inference_policy()
@@ -141,6 +144,16 @@ def run_digest(
     # Keep manifest beside the journal so pytest tmp journals never share a
     # package-global processed hash set (cutover 2026-08-12 regression).
     manifest_path = Path(journal.path).with_name("processed_manifest.json")
+    ledger = DocumentLedger(Path(journal.path))
+    stamper = HarvestStamp(
+        journal=journal,
+        graph=graph,
+        rules=rules,
+        ledger=ledger,
+        exclude_globs=cfg.exclude_globs,
+    )
+    if graph is None:
+        report.notes.append("graph_offline")
     sorter = InboxSorter(
         root=root,
         journal=journal,
@@ -153,8 +166,9 @@ def run_digest(
         readable_names=cfg.readable_names,
         organizer_names=cfg.organizer_names,
         fallback_model=cfg.litellm.fallback_model,
-        ledger=DocumentLedger(Path(journal.path)),
+        ledger=ledger,
         type_by_prefix=load_taxonomy(cfg.resolve_path(cfg.taxonomy_path)),
+        stamper=stamper,
     )
     capture_dirs = [root / rel for rel in cfg.capture_rels()]
     sources = iter_digest_files(

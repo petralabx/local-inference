@@ -12,10 +12,12 @@ from harness.actions.drain import is_noise_file, is_secret_file
 from harness.actions.inbox import InboxSorter
 from harness.classify.router import ALLOWED_HOMES, correction_rule_rehome
 from harness.config import HarnessConfig, load_correction_rules, load_taxonomy, match_exclude
+from harness.graph.drive_client import GraphDriveClient
 from harness.identity import content_hash
 from harness.journal.store import ActionJournal
 from harness.ledger.documents import DocumentLedger, DocumentRecord
 from harness.naming import ORGANIZER_NAME_RE, is_organizer_name
+from harness.stamp.harvest import HarvestStamp
 
 CAPTURE_DIR_NAMES = {
     "_from_desktop",
@@ -115,17 +117,28 @@ def run_relabel(
     report_path: Path,
     llm_caller: Callable[..., str] | None = None,
     limit: int | None = None,
+    graph: GraphDriveClient | None = None,
 ) -> RelabelReport:
     started = datetime.now(timezone.utc).isoformat()
     run_id = journal.start_run(note="relabel")
     root = cfg.sync_root
     type_by_prefix = load_taxonomy(cfg.resolve_path(cfg.taxonomy_path))
     ledger = DocumentLedger(Path(journal.path))
+    rules = load_correction_rules(cfg.resolve_path(cfg.correction_rules_path))
     report = RelabelReport(run_id=run_id, started_at=started, finished_at="")
+    stamper = HarvestStamp(
+        journal=journal,
+        graph=graph,
+        rules=rules,
+        ledger=ledger,
+        exclude_globs=cfg.exclude_globs,
+    )
+    if graph is None:
+        report.notes.append("graph_offline")
     sorter = InboxSorter(
         root=root,
         journal=journal,
-        rules=load_correction_rules(cfg.resolve_path(cfg.correction_rules_path)),
+        rules=rules,
         litellm_base_url=cfg.litellm.base_url,
         model=cfg.litellm.classify_model,
         forbid_host_substrings=cfg.litellm.forbid_host_substrings,
@@ -136,6 +149,7 @@ def run_relabel(
         fallback_model=cfg.litellm.fallback_model,
         ledger=ledger,
         type_by_prefix=type_by_prefix,
+        stamper=stamper,
     )
     try:
         sources = iter_relabel_files(root, cfg.exclude_globs)
@@ -176,6 +190,13 @@ def run_relabel(
                         current_path=str(src),
                         source="relabel_parse",
                     )
+                )
+                stamper.apply(
+                    src,
+                    run_id=run_id,
+                    prefix=parsed.group("prefix"),
+                    home=home,
+                    title=parsed.group("title"),
                 )
                 report.ledger_only += 1
                 continue

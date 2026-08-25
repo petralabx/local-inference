@@ -106,6 +106,21 @@ class DocumentLedger:
         self._conn.commit()
         return rec
 
+    def rekey(self, old_sha256: str, new_sha256: str) -> DocumentRecord | None:
+        """Follow content-hash identity after an embed rewrite changes bytes."""
+        if old_sha256 == new_sha256:
+            return self.get(old_sha256)
+        rec = self.get(old_sha256)
+        if rec is None:
+            return None
+        existing = self.get(new_sha256)
+        self._conn.execute("DELETE FROM documents WHERE sha256 = ?", (old_sha256,))
+        self._conn.commit()
+        rec.sha256 = new_sha256
+        if existing is not None:
+            rec.created_at = existing.created_at
+        return self.upsert(rec)
+
     def get(self, sha256: str) -> DocumentRecord | None:
         row = self._conn.execute(
             "SELECT * FROM documents WHERE sha256 = ?", (sha256,)

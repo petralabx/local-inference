@@ -16,7 +16,7 @@ Confirm this before smoke, redirect, or drain.
 ## Documents
 
 - Known folders on VTA and taylorvalton redirect into `00_Inbox/_from_desktop|_from_documents|_from_downloads`. Same method on every machine. No second Desktop.
-- The Organizer applies `YYYY-MM-DD_PREFIX_Readable Title_vNN` at digest and at relabel of already-filed homes. Vince does not type that law. Prefix, type, date, and version live in the Document ledger. The Vince Node holds a projection.
+- The Organizer applies `YYYY-MM-DD_PREFIX_Readable Title_vNN` at digest and at relabel of already-filed homes. Vince does not type that law. Prefix, type, date, and version live in the Document ledger. SharePoint Title and Party/Prefix/Home are a projection of that ledger (ADR 0025). The Vince Node holds a projection.
 - Petra OneDrive maps per ADR 0016. Unique archive and backup files are classified. Hash copies are skipped.
 - Leftover VincePersonal roots fold or park per ADR 0015.
 - After a Petra source is empty, remove or hide it. Do not leave a second tree.

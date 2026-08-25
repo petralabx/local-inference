@@ -23,6 +23,7 @@ from harness.naming import (
     next_organizer_version,
     next_version_name,
 )
+from harness.stamp.harvest import HarvestStamp
 
 
 @dataclass
@@ -55,6 +56,7 @@ class InboxSorter:
         ledger: DocumentLedger | None = None,
         type_by_prefix: dict[str, str] | None = None,
         project_to_brain: bool = True,
+        stamper: HarvestStamp | None = None,
     ) -> None:
         self.root = root
         self.journal = journal
@@ -71,6 +73,7 @@ class InboxSorter:
         self.ledger = ledger
         self.type_by_prefix = type_by_prefix or {}
         self.project_to_brain = project_to_brain
+        self.stamper = stamper
         self._processed = self._load_manifest()
 
     def _load_manifest(self) -> set[str]:
@@ -205,6 +208,17 @@ class InboxSorter:
             )
             if self.project_to_brain:
                 project_document(rec)
-        self._processed.add(digest)
+        filed_hash = digest
+        if self.stamper is not None:
+            stamped = self.stamper.apply(
+                dest,
+                run_id=run_id,
+                prefix=classification.prefix,
+                home=home,
+            )
+            if stamped.sha256_after:
+                filed_hash = stamped.sha256_after
+        self._processed.discard(digest)
+        self._processed.add(filed_hash)
         self._save_manifest()
         return SortResult(src, dest, "moved", run_id, classification.source)
