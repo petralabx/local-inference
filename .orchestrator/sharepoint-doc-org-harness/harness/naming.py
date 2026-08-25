@@ -164,6 +164,19 @@ def _leading_prefix_token(text: str) -> str | None:
     return match.group(0).rstrip("_")
 
 
+def _remainder_is_stacked(remainder: str) -> bool:
+    if not remainder:
+        return False
+    if _LEADING_DATE_RE.match(remainder):
+        return True
+    if _LEADING_FOLDER_RE.match(remainder):
+        return True
+    if _LEADING_NUMBERED_HOME_RE.match(remainder):
+        return True
+    token = _leading_prefix_token(remainder)
+    return bool(token and token in known_organizer_prefixes())
+
+
 def last_known_organizer_prefix(name: str) -> str | None:
     """Last taxonomy/correction-rule PREFIX glued into a stacked filename."""
     known = known_organizer_prefixes()
@@ -195,8 +208,15 @@ def peel_organizer_title(title: str) -> str:
         if after_date:
             token = _leading_prefix_token(nxt)
             if token is not None:
-                nxt = nxt[len(token) + 1 :]
-                after_date = False
+                remainder = nxt[len(token) + 1 :]
+                # Known PREFIX is the law slot (INV_Project Brief). Unknown
+                # tokens stay unless the remainder is still a stacked wrapper
+                # (ABC_2026-08-17_INV_... or ABC_01_CLIENTS_PROJECTS_...).
+                if token in known_organizer_prefixes() or _remainder_is_stacked(
+                    remainder
+                ):
+                    nxt = remainder
+                    after_date = False
         numbered = _LEADING_NUMBERED_HOME_RE.sub("", nxt, count=1)
         if numbered != nxt:
             nxt = numbered

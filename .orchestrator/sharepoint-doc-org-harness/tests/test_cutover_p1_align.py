@@ -170,6 +170,10 @@ def test_cutover_organizer_rejects_folder_prefix_and_space_version() -> None:
     rebuilt_unknown = peel_rebuild_organizer_name(unknown_outer)
     assert rebuilt_unknown == "2026-08-18_INV_Project Brief_v01.pdf"
     assert is_organizer_name(rebuilt_unknown)
+    stacked_q4 = "2026-08-18_INV_2026-08-17_Q4_Report_v01_v01.pdf"
+    stacked_po = "2026-08-18_GEN_2026-08-17_PO_12345_v01_v01.pdf"
+    assert peel_rebuild_organizer_name(stacked_q4) == "2026-08-18_INV_Q4_Report_v01.pdf"
+    assert peel_rebuild_organizer_name(stacked_po) == "2026-08-18_GEN_PO_12345_v01.pdf"
 
 
 def test_cutover_organizer_keeps_date_in_middle_of_words() -> None:
