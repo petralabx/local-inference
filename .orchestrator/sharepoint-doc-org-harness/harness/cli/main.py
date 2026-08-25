@@ -74,6 +74,14 @@ def main(argv: list[str] | None = None) -> int:
     rel.add_argument("--journal", default=None)
     rel.add_argument("--limit", type=int, default=None, help="Max files this run")
 
+    stmp = sub.add_parser(
+        "stamp",
+        help="metadata-only backfill of SharePoint Title + Party/Prefix/Home (no rename)",
+    )
+    stmp.add_argument("--report", required=True, help="Path to write stamp JSON report")
+    stmp.add_argument("--journal", default=None)
+    stmp.add_argument("--limit", type=int, default=None, help="Max files this run")
+
     args = parser.parse_args(argv)
     if args.version or args.cmd == "version":
         print(__version__)
@@ -189,6 +197,29 @@ def main(argv: list[str] | None = None) -> int:
         print(
             f"run_id={report.run_id} scanned={report.scanned} renamed={report.renamed} "
             f"ledger_only={report.ledger_only} held={report.held} skipped={report.skipped} "
+            f"errors={report.errors}"
+        )
+        return 1 if report.errors else 0
+
+    if args.cmd == "stamp":
+        from harness.jobs.stamp import run_stamp
+
+        cfg = load_config(cfg_path)
+        journal_path = Path(args.journal) if args.journal else cfg.resolve_path(cfg.journal_path)
+        journal = ActionJournal(journal_path)
+        try:
+            report = run_stamp(
+                cfg=cfg,
+                journal=journal,
+                report_path=Path(args.report),
+                limit=args.limit,
+            )
+        finally:
+            journal.close()
+        print(
+            f"run_id={report.run_id} scanned={report.scanned} stamped={report.stamped} "
+            f"skipped={report.skipped} columns_written={report.columns_written} "
+            f"columns_skipped={report.columns_skipped} embedded={report.embedded} "
             f"errors={report.errors}"
         )
         return 1 if report.errors else 0

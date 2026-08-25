@@ -4,7 +4,7 @@ A Document has one identity row keyed by content hash (`sha256`). That row holds
 
 The move journal stays the SoT for *moves* (ADR 0005). The ledger is the SoT for *identity*. If they disagree, show Vince one diff. If he judges, Judgement wins. If he does not, the journal wins on the path and the ledger is rebuilt from the journal plus classify fields.
 
-The Vince Node is a projection, not a second SoT. Each ledger upsert may ingest into Vince’s private Brain slice. If Brain is down, filing continues. Company Brain does not receive VincePersonal text (ADR 0003). SharePoint columns are not the SoT.
+The Vince Node is a projection, not a second SoT. Each ledger upsert may ingest into Vince’s private Brain slice. If Brain is down, filing continues. Company Brain does not receive VincePersonal text (ADR 0003). SharePoint Title and Party/Prefix/Home columns are a projection of the ledger, not a second SoT (ADR 0025).
 
 `harness where` reads the ledger first, then the journal path trail.
 

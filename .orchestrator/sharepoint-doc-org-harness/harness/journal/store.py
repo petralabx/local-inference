@@ -140,7 +140,7 @@ def reverse_actions(journal: ActionJournal, run_id: str) -> int:
                 apply_move(src, dest)
             journal.mark_reversed(action.id)
             undone += 1
-        elif action.action_type in {"tombstone", "mail_attachment_save", "relabel"}:
+        elif action.action_type in {"tombstone", "mail_attachment_save", "relabel", "stamp"}:
             # Soft marker / ingest record — disk undo for mail is optional later
             journal.mark_reversed(action.id)
             undone += 1

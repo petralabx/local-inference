@@ -30,6 +30,81 @@ powershell -NoProfile -ExecutionPolicy Bypass -File scripts/run-organizer-relabe
 
 VTA is the only writer. The laptop mount is the same VincePersonal site — verify sync; do not run a second relabel there. Capture folders (`_from_*`) are skipped so a live mail pass is not stolen.
 
+## Harvest stamp (Title + Party/Prefix/Home)
+
+After digest and relabel name a file, the Organizer stamps SharePoint ranking
+surfaces. Metadata-only backfill (no rename) of already-filed `00`–`06` homes:
+
+```bash
+python -m harness.cli.main stamp --report data/reports/stamp.json --limit 20
+python -m harness.cli.main stamp --report data/reports/stamp.json
+```
+
+Skips `_from_*` capture, secrets, and code trees. Graph listItem fields when
+online; Office/PDF Title/Subject/Keywords on the sync-root even when Graph is
+offline (journal `columns_skipped`).
+
+Locked site-column contract: display names Party / Prefix / Home; internal
+names `OrganizerParty` / `OrganizerPrefix` / `OrganizerHome`; site columns on
+Vince Personal, added to the default Document content type, all three indexed.
+Stamp list-item **Title** to the peeled readable title. Do not rename the
+native Title field. Do not create Term store, Syntex, or custom ranking.
+Do not enable Autofill on those three columns
+([autofill-setup](https://learn.microsoft.com/en-us/microsoft-365/documentprocessing/autofill-setup)).
+
+### Copilot / search (Vince Personal must stay in the index)
+
+Microsoft Copilot uses library column metadata + Title when a library or folder
+is attached. Folder names are not Copilot classification. Party/Prefix/Home
+are that signal.
+[Semantic indexing for Microsoft Copilot](https://learn.microsoft.com/en-us/microsoftsearch/semantic-index-for-copilot)
+(updated 2026-08-18).
+
+Vince Personal **Allow this site to appear in search results** must stay
+**Yes** (Site settings → Search and offline availability). **No** drops the
+site from both Microsoft Search and the semantic index
+([make-site-content-searchable](https://learn.microsoft.com/en-us/sharepoint/make-site-content-searchable);
+same exclusion steps on the Copilot page).
+
+Do not archive `00`–`06` homes as cleanup. Archived SharePoint data is not in
+the semantic index
+([supported content types](https://learn.microsoft.com/en-us/microsoftsearch/semantic-index-for-copilot#supported-content-types);
+[Archive FAQ](https://learn.microsoft.com/en-us/microsoft-365/archive/archive-faq)
+—“Does archived content get returned in Microsoft Copilot queries? No”).
+
+### One-time tenant-admin search schema (Python cannot finish this)
+
+Crawled properties `ows_OrganizerParty`, `ows_OrganizerPrefix`, and
+`ows_OrganizerHome` exist only after the site columns are created and the
+library is crawled. Mapping them to refinable managed properties requires a
+Search Administrator. Follow Microsoft’s search-schema docs; do not invent a
+click path.
+
+1. Open tenant Search Schema from SharePoint admin center → More features →
+   Search → Manage Search Schema, as documented in
+   [Manage the search schema in SharePoint](https://learn.microsoft.com/en-us/sharepoint/manage-search-schema)
+   (“Create a managed property by renaming an existing one” and
+   “Map a crawled property to a managed property”).
+2. Unused refinable strings (alias + crawled mapping) from that same page’s
+   [Default unused managed properties](https://learn.microsoft.com/en-us/sharepoint/manage-search-schema#default-unused-managed-properties)
+   table: `RefinableString00`–`RefinableString219` are Query/Retrieve/Refine/Sort.
+3. Map and alias (once each unused RefinableString is still unmapped):
+
+   | Crawled property | Managed property | Alias |
+   | --- | --- | --- |
+   | `ows_OrganizerParty` | `RefinableString00` | Party |
+   | `ows_OrganizerPrefix` | `RefinableString01` | Prefix |
+   | `ows_OrganizerHome` | `RefinableString02` | Home |
+
+   Microsoft: for built-in managed properties you change crawled mappings and
+   the **alias** setting; custom managed properties cannot be refinable in
+   Microsoft 365 — reuse RefinableStringNN.
+   Overview of crawled vs managed properties:
+   [search-schema-overview](https://learn.microsoft.com/en-us/sharepoint/search/search-schema-overview).
+4. After mapping, request a re-index of the library as that page describes.
+   Until this admin step, Graph Title + site columns still rank All-tab Title
+   and Copilot library-scoped metadata; they are not refiners.
+
 ## Daily digest
 
 ```bash
