@@ -10,7 +10,12 @@ from typing import Any, Callable
 
 import httpx
 
-from harness.naming import build_name, build_organizer_name, build_readable_name
+from harness.naming import (
+    build_name,
+    build_organizer_name,
+    build_readable_name,
+    normalize_organizer_prefix,
+)
 
 MASTER_KEY_ENV = "LOCAL_LITELLM_MASTER_KEY"
 UNSORTED_FOLDER = "00_Inbox/_Unsorted_Imports"
@@ -98,6 +103,7 @@ def heuristic_classify(
         prefix, folder = "MTG", "04_Admin/Meeting_Notes"
     else:
         prefix, folder = "GEN", "00_Inbox/_Unsorted_Imports"
+    prefix = normalize_organizer_prefix(prefix)
     name = _suggested_name(
         when,
         prefix,
@@ -131,16 +137,17 @@ def classify_file(
     when = _date_from_name_or_today(path.name)
     if hit:
         desc = _desc(path.name, readable=readable_names or organizer_names)
+        prefix = normalize_organizer_prefix(str(hit.get("prefix") or "GEN"))
         name = _suggested_name(
             when,
-            str(hit.get("prefix") or "GEN"),
+            prefix,
             desc,
             path.suffix,
             readable_names=readable_names,
             organizer_names=organizer_names,
         )
         return Classification(
-            prefix=str(hit.get("prefix") or "GEN"),
+            prefix=prefix,
             target_folder=str(hit["target_folder"]),
             description=desc,
             confidence=0.9 + 0.02 * int(hit.get("confidence_boost") or 0),
@@ -172,7 +179,7 @@ def classify_file(
                 api_key=key,
             )
             data = json.loads(raw)
-            prefix = str(data.get("prefix") or "GEN")
+            prefix = normalize_organizer_prefix(str(data.get("prefix") or "GEN"))
             folder = constrain_target_folder(str(data.get("target_folder") or UNSORTED_FOLDER))
             desc = human_description(
                 path.name,

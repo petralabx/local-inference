@@ -75,11 +75,17 @@ _LEADING_DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}_")
 _TITLE_DATE_PREFIX_RE = re.compile(r"\d{4}-\d{2}-\d{2}_")
 # Taxonomy-like PREFIX: A-Z0-9, 2–8 chars, must start with a letter (INV, GEN, …).
 _LEADING_PREFIX_RE = re.compile(r"^[A-Z][A-Z0-9]{1,7}_")
-# Trailing / inner extra version token from a stacked law name.
+# Numbered VincePersonal homes used as a PREFIX stand-in (01, 02, …).
+# Kept off _TITLE_FOLDER_RE so mid-title "_01_" is not a false leftover.
+_LEADING_NUMBERED_HOME_RE = re.compile(r"^(?:00|01|02|03|04|05|06)(?:_|$)")
+# Trailing extra version from a stacked law name: _vNN or leftover space-vNN.
 # Optional .ext so a full filename (not just a stem) can be peeled.
-_TRAILING_VERSION_RE = re.compile(r"_v\d+(?:\.[A-Za-z]{2,5})?$")
+_TRAILING_VERSION_RE = re.compile(r"(?:_v\d+| v\d+)(?:\.[A-Za-z]{2,5})?$")
 _TITLE_VERSION_RE = re.compile(r"_v\d+")
+_TITLE_SPACE_VERSION_RE = re.compile(r" v\d+$")
 _FILENAME_EXT_RE = re.compile(r"\.[A-Za-z]{2,5}$")
+_DEFAULT_PREFIX = "GEN"
+_KNOWN_PREFIXES: frozenset[str] | None = None
 
 # Folder tokens as they appear when a path fragment is glued into the filename.
 # Numbered homes first, then unnumbered aliases. Longest match wins.
@@ -112,6 +118,34 @@ _TITLE_FOLDER_RE = re.compile(
 )
 
 
+def known_organizer_prefixes() -> frozenset[str]:
+    """Taxonomy prefixes plus any prefix a correction rule is allowed to emit."""
+    global _KNOWN_PREFIXES
+    if _KNOWN_PREFIXES is None:
+        from harness.config import PACKAGE_ROOT, load_correction_rules, load_taxonomy
+
+        prefixes = {
+            str(key).upper().strip()
+            for key in load_taxonomy(PACKAGE_ROOT / "config" / "taxonomy_prefixes.yaml")
+            if str(key).strip()
+        }
+        for rule in load_correction_rules(PACKAGE_ROOT / "config" / "correction_rules.json"):
+            extra = str(rule.get("prefix") or "").upper().strip()
+            if extra:
+                prefixes.add(extra)
+        prefixes.add(_DEFAULT_PREFIX)
+        _KNOWN_PREFIXES = frozenset(prefixes)
+    return _KNOWN_PREFIXES
+
+
+def normalize_organizer_prefix(prefix: str) -> str:
+    """Keep a taxonomy/correction-rule prefix; map folder and unknown tokens to GEN."""
+    cleaned = prefix.upper().strip()
+    if cleaned in known_organizer_prefixes():
+        return cleaned
+    return _DEFAULT_PREFIX
+
+
 def peel_organizer_title(title: str) -> str:
     """Strip stacked law wrappers, keeping the readable title (spaces preserved)."""
     text = title
@@ -121,6 +155,7 @@ def peel_organizer_title(title: str) -> str:
         nxt = _LEADING_DATE_RE.sub("", text, count=1)
         nxt = _LEADING_PREFIX_RE.sub("", nxt, count=1)
         nxt = _LEADING_FOLDER_RE.sub("", nxt, count=1)
+        nxt = _LEADING_NUMBERED_HOME_RE.sub("", nxt, count=1)
         nxt = _TRAILING_VERSION_RE.sub("", nxt, count=1)
         if nxt == text:
             break
@@ -137,7 +172,7 @@ def build_organizer_name(
     ext: str,
 ) -> str:
     """Organizer law (ADR 0011/0024): date + prefix + readable title + version."""
-    prefix = prefix.upper().strip() or "GEN"
+    prefix = normalize_organizer_prefix(prefix)
     stem = re.sub(r"[\\/<>:\"|?*]+", " ", title).strip()
     stem = re.sub(r"\s+", " ", stem)
     stem = stem.rstrip(" .")
@@ -156,12 +191,16 @@ def is_organizer_name(name: str) -> bool:
     parsed = ORGANIZER_NAME_RE.match(name)
     if not parsed:
         return False
+    if parsed.group("prefix") not in known_organizer_prefixes():
+        return False
     title = parsed.group("title")
     if peel_organizer_title(title) != title:
         return False
     if _TITLE_DATE_PREFIX_RE.search(title):
         return False
     if _TITLE_VERSION_RE.search(title):
+        return False
+    if _TITLE_SPACE_VERSION_RE.search(title):
         return False
     if _TITLE_FOLDER_RE.search(title):
         return False
