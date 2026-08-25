@@ -300,3 +300,97 @@ def test_default_config_keeps_canonical_checkout_off_sharepoint() -> None:
     cfg = load_config(PACKAGE_ROOT / "config" / "default.yaml")
     assert "local-inference-canonical" in cfg.skip_code_path_tokens
     assert any("local-inference-canonical" in glob for glob in cfg.exclude_globs)
+
+
+def test_inventory_skips_loose_code_files(tmp_path: Path) -> None:
+    fx = _fixture_roots(tmp_path)
+    script = _write(fx["downloads"] / "backup.ps1", "Write-Output 'no'")
+    py_file = _write(fx["downloads"] / "scratch.py", "print(1)\n")
+    js_file = _write(fx["personal"] / "Documents" / "app.js", "console.log(1)\n")
+    cfg, _ = _cfg_for_root(tmp_path, fx["vp"])
+    journal = ActionJournal(tmp_path / "j.sqlite3")
+    try:
+        report = run_inventory(
+            cfg=cfg,
+            journal=journal,
+            report_path=tmp_path / "code-files.json",
+            roots=[str(fx["downloads"]), str(fx["personal"])],
+        )
+    finally:
+        journal.close()
+    by_path = {row["path"]: row for row in report.files}
+    assert by_path[str(script)]["status"] == STATUS_SKIP_CODE
+    assert by_path[str(py_file)]["status"] == STATUS_SKIP_CODE
+    assert by_path[str(js_file)]["status"] == STATUS_SKIP_CODE
+    assert by_path[str(script)]["sha256"] == ""
+    assert by_path[str(fx["invoice"])]["status"] == STATUS_CANDIDATE
+
+
+def test_inventory_classifies_symlink_alias_to_secret(tmp_path: Path) -> None:
+    fx = _fixture_roots(tmp_path)
+    alias = fx["downloads"] / "notes.pdf"
+    os.symlink(fx["secret"], alias)
+    cfg, _ = _cfg_for_root(tmp_path, fx["vp"])
+    journal = ActionJournal(tmp_path / "j.sqlite3")
+    try:
+        report = run_inventory(
+            cfg=cfg,
+            journal=journal,
+            report_path=tmp_path / "symlink-secret.json",
+            roots=[str(fx["downloads"])],
+        )
+    finally:
+        journal.close()
+    row = next(item for item in report.files if item["path"] == str(alias))
+    assert row["status"] == STATUS_SKIP_SECRET
+    assert row["sha256"] == ""
+    assert fx["secret"].read_text(encoding="utf-8") == "SECRET-KEY"
+
+
+def test_inventory_survives_cyclic_symlinks(tmp_path: Path) -> None:
+    fx = _fixture_roots(tmp_path)
+    loop_a = fx["downloads"] / "loop-a"
+    loop_b = fx["downloads"] / "loop-b"
+    os.symlink(loop_b, loop_a)
+    os.symlink(loop_a, loop_b)
+    cfg, _ = _cfg_for_root(tmp_path, fx["vp"])
+    journal = ActionJournal(tmp_path / "j.sqlite3")
+    try:
+        report = run_inventory(
+            cfg=cfg,
+            journal=journal,
+            report_path=tmp_path / "cycles.json",
+            roots=[str(fx["downloads"])],
+        )
+    finally:
+        journal.close()
+    assert any(Path(row["path"]).name == "invoice.pdf" for row in report.files)
+    assert report.copied is False
+
+
+def test_inventory_cli_all_missing_roots_exits_nonzero(tmp_path: Path) -> None:
+    fx = _fixture_roots(tmp_path)
+    _, cfg_path = _cfg_for_root(tmp_path, fx["vp"])
+    proc = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "harness.cli.main",
+            "--config",
+            str(cfg_path),
+            "inventory",
+            "--report",
+            str(tmp_path / "missing.json"),
+            "--root",
+            str(tmp_path / "does-not-exist"),
+            "--journal",
+            str(tmp_path / "cli-journal.sqlite3"),
+        ],
+        cwd=str(PACKAGE_ROOT),
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert proc.returncode == 1, proc.stderr + proc.stdout
+    assert "missing_roots=" in proc.stdout
+

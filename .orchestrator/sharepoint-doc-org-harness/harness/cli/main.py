@@ -268,8 +268,13 @@ def main(argv: list[str] | None = None) -> int:
             f"candidate_to_consume={report.candidate_to_consume} "
             f"skip_code={report.skip_code} skip_secret={report.skip_secret} "
             f"already_in_vince_personal={report.already_in_vince_personal} "
-            f"copied={report.copied} uploaded={report.uploaded}"
+            f"copied={report.copied} uploaded={report.uploaded} "
+            f"missing_roots={len(report.missing_roots)}"
         )
+        if report.missing_roots:
+            print("missing_roots=" + ",".join(report.missing_roots))
+        if report.missing_roots and len(report.missing_roots) == len(report.roots):
+            return 1
         return 0
 
     parser.print_help()

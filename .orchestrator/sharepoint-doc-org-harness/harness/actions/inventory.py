@@ -26,6 +26,62 @@ CODE_DIR_NAMES = {
 
 SECRET_DIR_NAMES = {".aws", ".ssh"}
 
+# Loose leftover scripts and binaries are not Documents (ADR 0008).
+CODE_FILE_SUFFIXES = {
+    ".py",
+    ".pyw",
+    ".pyc",
+    ".pyo",
+    ".ipynb",
+    ".js",
+    ".mjs",
+    ".cjs",
+    ".ts",
+    ".tsx",
+    ".jsx",
+    ".ps1",
+    ".psm1",
+    ".psd1",
+    ".sh",
+    ".bash",
+    ".zsh",
+    ".bat",
+    ".cmd",
+    ".go",
+    ".rs",
+    ".java",
+    ".c",
+    ".cc",
+    ".cpp",
+    ".h",
+    ".hpp",
+    ".cs",
+    ".rb",
+    ".php",
+    ".swift",
+    ".kt",
+    ".exe",
+    ".dll",
+    ".so",
+    ".dylib",
+    ".msi",
+}
+
+
+def _safe_resolve(path: Path) -> Path | None:
+    try:
+        return path.resolve()
+    except (OSError, RuntimeError):
+        return None
+
+
+def _paths_for_classify(path: Path) -> list[Path]:
+    paths = [path]
+    resolved = _safe_resolve(path)
+    if resolved is not None and resolved != path:
+        paths.append(resolved)
+    return paths
+
 
 def load_inventory_roots(path: Path) -> list[str]:
     data = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
@@ -55,12 +111,8 @@ def merge_roots(*groups: Iterable[str] | None) -> list[str]:
 
 def is_under(path: Path, root: Path) -> bool:
     """True when path is the root or a descendant. Resolves junctions/symlinks."""
-    try:
-        resolved = path.resolve()
-        root_res = root.resolve()
-    except OSError:
-        resolved = path
-        root_res = root
+    resolved = _safe_resolve(path) or path
+    root_res = _safe_resolve(root) or root
     try:
         resolved.relative_to(root_res)
         return True
@@ -94,7 +146,7 @@ def path_has_token(path: Path, tokens: Iterable[str]) -> bool:
     return False
 
 
-def is_code_dir(path: Path, extra_tokens: Iterable[str]) -> bool:
+def _dir_looks_like_code(path: Path, extra_tokens: Iterable[str]) -> bool:
     name = path.name.lower()
     if name in CODE_DIR_NAMES or name.startswith("agentic-swarm"):
         return True
@@ -107,6 +159,24 @@ def is_code_dir(path: Path, extra_tokens: Iterable[str]) -> bool:
         return False
 
 
+def is_code_dir(path: Path, extra_tokens: Iterable[str]) -> bool:
+    return any(_dir_looks_like_code(item, extra_tokens) for item in _paths_for_classify(path))
+
+
+def _looks_like_secret(path: Path) -> bool:
+    return is_secret_file(path) or path_has_token(path, SECRET_DIR_NAMES)
+
+
+def _looks_like_code(path: Path, exclude_globs: list[str], extra_tokens: list[str]) -> bool:
+    if match_exclude(path, exclude_globs) or path_has_token(path, extra_tokens):
+        return True
+    if any(part.lower() in CODE_DIR_NAMES or part.lower().startswith("agentic-swarm") for part in path.parts):
+        return True
+    if path.suffix.lower() in CODE_FILE_SUFFIXES:
+        return True
+    return False
+
+
 def classify_file(
     path: Path,
     *,
@@ -114,11 +184,10 @@ def classify_file(
     exclude_globs: list[str],
     extra_tokens: list[str],
 ) -> str:
-    if is_secret_file(path) or path_has_token(path, SECRET_DIR_NAMES):
+    views = _paths_for_classify(path)
+    if any(_looks_like_secret(item) for item in views):
         return STATUS_SKIP_SECRET
-    if match_exclude(path, exclude_globs) or path_has_token(path, extra_tokens):
-        return STATUS_SKIP_CODE
-    if any(part.lower() in CODE_DIR_NAMES or part.lower().startswith("agentic-swarm") for part in path.parts):
+    if any(_looks_like_code(item, exclude_globs, extra_tokens) for item in views):
         return STATUS_SKIP_CODE
     if is_under(path, sync_root):
         return STATUS_ALREADY
@@ -135,10 +204,8 @@ class InventoryHit:
 
 
 def _dir_key(path: Path) -> str:
-    try:
-        return os.path.normcase(str(path.resolve()))
-    except OSError:
-        return os.path.normcase(str(path))
+    resolved = _safe_resolve(path)
+    return os.path.normcase(str(resolved if resolved is not None else path))
 
 
 def _entry_kind(entry: os.DirEntry[str]) -> tuple[bool, bool]:
@@ -146,16 +213,15 @@ def _entry_kind(entry: os.DirEntry[str]) -> tuple[bool, bool]:
         is_dir = entry.is_dir(follow_symlinks=False)
         is_file = entry.is_file(follow_symlinks=False)
         if entry.is_symlink():
-            target = Path(entry.path)
-            try:
-                resolved = target.resolve()
-            except OSError:
+            resolved = _safe_resolve(Path(entry.path))
+            if resolved is None:
                 return False, False
             if resolved.is_dir():
                 return True, False
             if resolved.is_file():
                 return False, True
-    except OSError:
+            return False, False
+    except (OSError, RuntimeError):
         return False, False
     return is_dir, is_file
 
@@ -186,6 +252,8 @@ def walk_inventory_roots(
             continue
         stack: list[tuple[Path, Path]] = []
         if root.is_file():
+            if over_limit():
+                break
             if is_noise_file(root):
                 skipped_noise += 1
                 continue
@@ -281,6 +349,6 @@ def walk_inventory_roots(
             continue
         try:
             hit.sha256 = content_hash(hit.path)
-        except OSError:
+        except (OSError, RuntimeError):
             hit.sha256 = ""
     return hits, missing, skipped_noise
