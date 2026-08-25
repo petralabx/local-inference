@@ -58,6 +58,50 @@ def test_cutover_organizer_name_law() -> None:
     assert bumped == "2026-08-18_INV_Happy Yards Quote_v02.pdf"
 
 
+def test_cutover_organizer_peels_stacked_happy_yards_name() -> None:
+    stacked = (
+        "2026-08-18_INV_2026-08-18_01_CLIENTS_PROJECTS_"
+        "Happy Yards Garden Clean Up Quote_v01_v01.pdf"
+    )
+    assert not is_organizer_name(stacked)
+    peeled = build_organizer_name(
+        when=date(2026, 8, 18),
+        prefix="INV",
+        title=stacked,
+        ext="pdf",
+    )
+    assert peeled == "2026-08-18_INV_Happy Yards Garden Clean Up Quote_v01.pdf"
+    assert is_organizer_name(peeled)
+    # Passing an already-law stem as the title must not wrap a second time.
+    again = build_organizer_name(
+        when=date(2026, 8, 18),
+        prefix="INV",
+        title="2026-08-18_INV_Happy Yards Garden Clean Up Quote_v01",
+        ext="pdf",
+    )
+    assert again == peeled
+
+
+def test_cutover_organizer_keeps_date_in_middle_of_words() -> None:
+    title = "Notes from 2026-08-18 meeting"
+    name = build_organizer_name(
+        when=date(2026, 8, 18),
+        prefix="MTG",
+        title=title,
+        ext="pdf",
+    )
+    assert name == "2026-08-18_MTG_Notes from 2026-08-18 meeting_v01.pdf"
+    assert is_organizer_name(name)
+    glued = build_organizer_name(
+        when=date(2026, 8, 18),
+        prefix="FIN",
+        title="FY2026-08-18Budget Review",
+        ext="pdf",
+    )
+    assert glued == "2026-08-18_FIN_FY2026-08-18Budget Review_v01.pdf"
+    assert is_organizer_name(glued)
+
+
 def test_cutover_readable_helper_still_exists() -> None:
     name = build_readable_name(description="Dropship A1 American", ext="PDF")
     assert name == "Dropship A1 American.pdf"

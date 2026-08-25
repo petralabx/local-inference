@@ -69,6 +69,64 @@ ORGANIZER_NAME_RE = re.compile(
     r"^(?P<date>\d{4}-\d{2}-\d{2})_(?P<prefix>[A-Z0-9]+)_(?P<title>.+)_v(?P<ver>\d+)\.(?P<ext>[^.]+)$"
 )
 
+# Leading law date token: YYYY-MM-DD_
+_LEADING_DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}_")
+# Date used as a law prefix anywhere in the captured title (underscore, not a date in words).
+_TITLE_DATE_PREFIX_RE = re.compile(r"\d{4}-\d{2}-\d{2}_")
+# Taxonomy-like PREFIX: A-Z0-9, 2–8 chars, must start with a letter (INV, GEN, …).
+_LEADING_PREFIX_RE = re.compile(r"^[A-Z][A-Z0-9]{1,7}_")
+# Trailing / inner extra version token from a stacked law name.
+# Optional .ext so a full filename (not just a stem) can be peeled.
+_TRAILING_VERSION_RE = re.compile(r"_v\d+(?:\.[A-Za-z]{2,5})?$")
+_TITLE_VERSION_RE = re.compile(r"_v\d+")
+_FILENAME_EXT_RE = re.compile(r"\.[A-Za-z]{2,5}$")
+
+# Folder tokens as they appear when a path fragment is glued into the filename.
+# Numbered homes first, then unnumbered aliases. Longest match wins.
+_FOLDER_TOKENS = (
+    "00_INBOX",
+    "01_CLIENTS_PROJECTS",
+    "02_BUSINESS_OPS",
+    "03_MARKETING_CREATIVE",
+    "04_ADMIN",
+    "05_PERSONAL",
+    "06_REFERENCE",
+    "CLIENTS_PROJECTS",
+    "BUSINESS_OPS",
+    "MARKETING_CREATIVE",
+    "INBOX",
+    "ADMIN",
+    "PERSONAL",
+    "REFERENCE",
+)
+_FOLDER_ALTERNATION = "|".join(
+    re.escape(tok) for tok in sorted(_FOLDER_TOKENS, key=len, reverse=True)
+)
+_LEADING_FOLDER_RE = re.compile(
+    rf"^(?:{_FOLDER_ALTERNATION})(?:_|$)",
+    re.IGNORECASE,
+)
+_TITLE_FOLDER_RE = re.compile(
+    rf"(?:^|_)(?:{_FOLDER_ALTERNATION})(?:_|$)",
+    re.IGNORECASE,
+)
+
+
+def peel_organizer_title(title: str) -> str:
+    """Strip stacked law wrappers, keeping the readable title (spaces preserved)."""
+    text = title
+    if _LEADING_DATE_RE.match(text) or _TRAILING_VERSION_RE.search(text):
+        text = _FILENAME_EXT_RE.sub("", text)
+    for _ in range(32):
+        nxt = _LEADING_DATE_RE.sub("", text, count=1)
+        nxt = _LEADING_PREFIX_RE.sub("", nxt, count=1)
+        nxt = _LEADING_FOLDER_RE.sub("", nxt, count=1)
+        nxt = _TRAILING_VERSION_RE.sub("", nxt, count=1)
+        if nxt == text:
+            break
+        text = nxt
+    return text.strip(" _")
+
 
 def build_organizer_name(
     *,
@@ -83,6 +141,9 @@ def build_organizer_name(
     stem = re.sub(r"[\\/<>:\"|?*]+", " ", title).strip()
     stem = re.sub(r"\s+", " ", stem)
     stem = stem.rstrip(" .")
+    stem = peel_organizer_title(stem)
+    stem = re.sub(r"\s+", " ", stem).strip(" _")
+    stem = stem.rstrip(" .")
     if not stem:
         stem = "Untitled"
     ext = ext.lower().lstrip(".")
@@ -92,7 +153,19 @@ def build_organizer_name(
 
 
 def is_organizer_name(name: str) -> bool:
-    return bool(ORGANIZER_NAME_RE.match(name))
+    parsed = ORGANIZER_NAME_RE.match(name)
+    if not parsed:
+        return False
+    title = parsed.group("title")
+    if peel_organizer_title(title) != title:
+        return False
+    if _TITLE_DATE_PREFIX_RE.search(title):
+        return False
+    if _TITLE_VERSION_RE.search(title):
+        return False
+    if _TITLE_FOLDER_RE.search(title):
+        return False
+    return True
 
 
 def next_organizer_version(existing: set[str], candidate: str) -> str:
