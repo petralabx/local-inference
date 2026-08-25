@@ -60,11 +60,80 @@ CODE_FILE_SUFFIXES = {
     ".php",
     ".swift",
     ".kt",
+    ".sql",
     ".exe",
     ".dll",
     ".so",
     ".dylib",
     ".msi",
+    ".com",
+}
+
+CODE_BASENAMES = {
+    "dockerfile",
+    "makefile",
+    "cmakelists.txt",
+    "vagrantfile",
+    "gemfile",
+    "rakefile",
+    "package.json",
+    "package-lock.json",
+    "composer.json",
+    "go.mod",
+    "cargo.toml",
+}
+
+DOCUMENT_SUFFIXES = {
+    ".pdf",
+    ".doc",
+    ".docx",
+    ".docm",
+    ".xls",
+    ".xlsx",
+    ".xlsm",
+    ".xlsb",
+    ".ppt",
+    ".pptx",
+    ".pptm",
+    ".txt",
+    ".md",
+    ".csv",
+    ".tsv",
+    ".rtf",
+    ".odt",
+    ".ods",
+    ".odp",
+    ".png",
+    ".jpg",
+    ".jpeg",
+    ".gif",
+    ".heic",
+    ".heif",
+    ".webp",
+    ".tif",
+    ".tiff",
+    ".bmp",
+    ".one",
+    ".msg",
+    ".eml",
+    ".html",
+    ".htm",
+    ".pages",
+    ".numbers",
+    ".key",
+    ".epub",
+    ".vsd",
+    ".vsdx",
+    ".pub",
+}
+
+EXTRA_SECRET_NAMES = {
+    ".npmrc",
+    ".netrc",
+    ".pypirc",
+    ".pgpass",
+    ".git-credentials",
+    "nuget.config",
 }
 
 
@@ -164,7 +233,16 @@ def is_code_dir(path: Path, extra_tokens: Iterable[str]) -> bool:
 
 
 def _looks_like_secret(path: Path) -> bool:
-    return is_secret_file(path) or path_has_token(path, SECRET_DIR_NAMES)
+    if is_secret_file(path) or path_has_token(path, SECRET_DIR_NAMES):
+        return True
+    name = path.name.lower()
+    if name in EXTRA_SECRET_NAMES:
+        return True
+    if "client_secret" in name:
+        return True
+    if name.endswith("serviceaccount.json") or name.endswith("service_account.json"):
+        return True
+    return False
 
 
 def _looks_like_code(path: Path, exclude_globs: list[str], extra_tokens: list[str]) -> bool:
@@ -174,7 +252,13 @@ def _looks_like_code(path: Path, exclude_globs: list[str], extra_tokens: list[st
         return True
     if path.suffix.lower() in CODE_FILE_SUFFIXES:
         return True
+    if path.name.lower() in CODE_BASENAMES:
+        return True
     return False
+
+
+def _is_document(path: Path) -> bool:
+    return path.suffix.lower() in DOCUMENT_SUFFIXES
 
 
 def classify_file(
@@ -188,6 +272,8 @@ def classify_file(
     if any(_looks_like_secret(item) for item in views):
         return STATUS_SKIP_SECRET
     if any(_looks_like_code(item, exclude_globs, extra_tokens) for item in views):
+        return STATUS_SKIP_CODE
+    if not all(_is_document(item) for item in views):
         return STATUS_SKIP_CODE
     if is_under(path, sync_root):
         return STATUS_ALREADY

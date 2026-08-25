@@ -326,6 +326,36 @@ def test_inventory_skips_loose_code_files(tmp_path: Path) -> None:
     assert by_path[str(fx["invoice"])]["status"] == STATUS_CANDIDATE
 
 
+def test_inventory_allowlists_documents_and_skips_credential_names(tmp_path: Path) -> None:
+    fx = _fixture_roots(tmp_path)
+    dockerfile = _write(fx["downloads"] / "Dockerfile", "FROM scratch\n")
+    schema = _write(fx["downloads"] / "schema.sql", "select 1;\n")
+    payload = _write(fx["downloads"] / "payload.com", b"MZ")
+    npmrc = _write(fx["personal"] / ".npmrc", "//registry.npmjs.org/:_authToken=nope\n")
+    secret_json = _write(fx["personal"] / "client_secret_app.json", '{"client_secret":"x"}\n')
+    cfg, _ = _cfg_for_root(tmp_path, fx["vp"])
+    journal = ActionJournal(tmp_path / "j.sqlite3")
+    try:
+        report = run_inventory(
+            cfg=cfg,
+            journal=journal,
+            report_path=tmp_path / "allowlist.json",
+            roots=[str(fx["downloads"]), str(fx["personal"])],
+        )
+    finally:
+        journal.close()
+    by_path = {row["path"]: row for row in report.files}
+    assert by_path[str(dockerfile)]["status"] == STATUS_SKIP_CODE
+    assert by_path[str(schema)]["status"] == STATUS_SKIP_CODE
+    assert by_path[str(payload)]["status"] == STATUS_SKIP_CODE
+    assert by_path[str(npmrc)]["status"] == STATUS_SKIP_SECRET
+    assert by_path[str(secret_json)]["status"] == STATUS_SKIP_SECRET
+    assert by_path[str(npmrc)]["sha256"] == ""
+    assert by_path[str(secret_json)]["sha256"] == ""
+    assert by_path[str(fx["invoice"])]["status"] == STATUS_CANDIDATE
+    assert by_path[str(fx["leftover_doc"])]["status"] == STATUS_CANDIDATE
+
+
 def test_inventory_classifies_symlink_alias_to_secret(tmp_path: Path) -> None:
     fx = _fixture_roots(tmp_path)
     alias = fx["downloads"] / "notes.pdf"
