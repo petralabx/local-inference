@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import subprocess
+import sys
 from pathlib import Path
 
 import yaml
@@ -17,6 +19,39 @@ from harness.stamp.harvest import party_for_document
 
 HAPPY_YARDS_LAW = "2026-08-18_INV_Happy Yards Garden Clean Up Quote_v01.pdf"
 HAPPY_YARDS_TITLE = "Happy Yards Garden Clean Up Quote"
+
+
+def _isolated(code: str) -> subprocess.CompletedProcess[str]:
+    """Run Python with a clean interpreter so prior test imports cannot hide a cycle."""
+    return subprocess.run(
+        [sys.executable, "-c", code],
+        cwd=str(PACKAGE_ROOT),
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+
+def test_harvest_stamp_imports_as_first_harness_stamp_module() -> None:
+    """VTA: `from harness.stamp.harvest import HarvestStamp` must work first."""
+    proc = _isolated(
+        "from harness.stamp.harvest import HarvestStamp; "
+        "assert HarvestStamp.__name__ == 'HarvestStamp'"
+    )
+    assert proc.returncode == 0, proc.stderr
+
+
+def test_stamp_cli_help_does_not_crash() -> None:
+    proc = subprocess.run(
+        [sys.executable, "-m", "harness.cli.main", "stamp", "--help"],
+        cwd=str(PACKAGE_ROOT),
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert proc.returncode == 0, proc.stderr
+    assert "stamp" in proc.stdout.lower()
+    assert "--report" in proc.stdout
 
 
 def _cfg_for_root(tmp_path: Path, root: Path):
