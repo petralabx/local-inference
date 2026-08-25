@@ -15,6 +15,7 @@ from harness.naming import (
     next_free_name,
     next_organizer_version,
     peel_organizer_title,
+    peel_rebuild_organizer_name,
 )
 
 
@@ -135,6 +136,21 @@ def test_cutover_organizer_rejects_folder_prefix_and_space_version() -> None:
     assert again == clean
     assert not is_organizer_name("2026-08-18_PERSONAL_Vacation Photos_v01.jpg")
     assert is_organizer_name("2026-08-18_IRAP_Application_v01.pdf")
+    personal = peel_rebuild_organizer_name("2026-08-18_PERSONAL_Vacation Photos_v01.jpg")
+    assert personal == "2026-08-18_GEN_Vacation Photos_v01.jpg"
+    assert is_organizer_name(personal)
+    ops = peel_rebuild_organizer_name("2026-08-18_BUSINESS_OPS_Vendor Invoice_v01_v01.pdf")
+    assert ops == "2026-08-18_GEN_Vendor Invoice_v01.pdf"
+    assert is_organizer_name(ops)
+    assert "BUSINESS_OPS" not in ops
+    stacked = (
+        "2026-08-18_INV_2026-08-18_01_CLIENTS_PROJECTS_"
+        "Happy Yards Garden Clean Up Quote_v01_v01.pdf"
+    )
+    peeled = peel_rebuild_organizer_name(stacked)
+    assert peeled == "2026-08-18_INV_Happy Yards Garden Clean Up Quote_v01.pdf"
+    assert is_organizer_name(peeled)
+    assert peel_rebuild_organizer_name("trafilea-order.pdf") is None
 
 
 def test_cutover_organizer_keeps_date_in_middle_of_words() -> None:

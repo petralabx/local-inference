@@ -15,6 +15,7 @@ from harness.naming import (
     build_organizer_name,
     build_readable_name,
     normalize_organizer_prefix,
+    peel_organizer_title,
 )
 
 MASTER_KEY_ENV = "LOCAL_LITELLM_MASTER_KEY"
@@ -287,6 +288,7 @@ def _suggested_name(
 def _desc(filename: str, *, readable: bool = False) -> str:
     stem = Path(filename).stem
     if readable:
+        stem = peel_organizer_title(stem) or stem
         stem = re.sub(r"[\\/<>:\"|?*]+", " ", stem)
         stem = re.sub(r"\s+", " ", stem).strip()
         return stem[:80] or "Untitled"

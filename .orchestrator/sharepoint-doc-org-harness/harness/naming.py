@@ -164,14 +164,40 @@ def peel_organizer_title(title: str) -> str:
         text = _FILENAME_EXT_RE.sub("", text)
     for _ in range(32):
         nxt = _LEADING_DATE_RE.sub("", text, count=1)
-        nxt = _LEADING_PREFIX_RE.sub("", nxt, count=1)
+        # Folder tokens before taxonomy-like PREFIX so BUSINESS_OPS / PERSONAL
+        # are not split into a fake prefix plus an OPS_ leftover.
         nxt = _LEADING_FOLDER_RE.sub("", nxt, count=1)
+        nxt = _LEADING_PREFIX_RE.sub("", nxt, count=1)
         nxt = _LEADING_NUMBERED_HOME_RE.sub("", nxt, count=1)
         nxt = _TRAILING_VERSION_RE.sub("", nxt, count=1)
         if nxt == text:
             break
         text = nxt
     return text.strip(" _")
+
+
+def peel_rebuild_organizer_name(name: str, *, prefix: str | None = None) -> str | None:
+    """Rebuild a law-shaped (possibly stacked) filename to a single-law name.
+
+    Returns None when the name is not law-shaped, so callers can fall through
+    to classify. Correction-rule prefix, when provided, wins over the token
+    glued into the filename.
+    """
+    parsed = ORGANIZER_NAME_RE.match(name)
+    if parsed is None:
+        return None
+    when = date.fromisoformat(parsed.group("date"))
+    raw_prefix = prefix if prefix is not None else parsed.group("prefix")
+    title = peel_organizer_title(parsed.group("title"))
+    if not title:
+        title = peel_organizer_title(name.rsplit(".", 1)[0]) or "Untitled"
+    return build_organizer_name(
+        when=when,
+        prefix=raw_prefix,
+        title=title,
+        version=int(parsed.group("ver")),
+        ext=parsed.group("ext"),
+    )
 
 
 def build_organizer_name(
