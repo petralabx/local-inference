@@ -21,9 +21,14 @@ python -m pytest -q
 python -m harness.cli.main version
 python -m harness.cli.main digest --dry-run --report data/reports/digest.json
 python -m harness.cli.main stamp --report data/reports/stamp.json --limit 20
+python -m harness.cli.main sync-audit --dry-run
 python -m harness.cli.main where --name trafilea
 python -m harness.cli.main reverse --run-id <id>
 ```
+
+`sync-audit` is report-only (no upload, rename, or stamp). Dry-run walks local +
+SharePoint folder-by-folder and writes `data/reports/sync-audit.json`. The cloud
+VM cannot see VTA OneDrive; run the live audit on Dell-VTA.
 
 ## Operator notes
 

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import os
 import sys
 from pathlib import Path
 
@@ -81,6 +82,43 @@ def main(argv: list[str] | None = None) -> int:
     stmp.add_argument("--report", required=True, help="Path to write stamp JSON report")
     stmp.add_argument("--journal", default=None)
     stmp.add_argument("--limit", type=int, default=None, help="Max files this run")
+
+    audit = sub.add_parser(
+        "sync-audit",
+        help="report-only local vs SharePoint file inventory (no upload/rename/stamp)",
+    )
+    audit.add_argument(
+        "--report",
+        default=None,
+        help="JSON report path (default: data/reports/sync-audit.json)",
+    )
+    audit.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Path inventory only — skip content hashes. Never mutates.",
+    )
+    audit.add_argument(
+        "--hashes",
+        action="store_true",
+        help="Compare hashes when the server listing provides sha256 (ignored with --dry-run)",
+    )
+    audit.add_argument(
+        "--backend",
+        choices=("graph", "rest"),
+        default="graph",
+        help="Folder listing API: Graph drive children or SharePoint REST Files/Folders",
+    )
+    audit.add_argument(
+        "--cassette",
+        default=None,
+        help="JSON remote tree for tests/offline. Live VTA omits this and uses env tokens.",
+    )
+    audit.add_argument(
+        "--only",
+        action="append",
+        default=None,
+        help="Relative folder to walk (repeatable), e.g. 05_Personal. Default: library root.",
+    )
 
     args = parser.parse_args(argv)
     if args.version or args.cmd == "version":
@@ -221,6 +259,55 @@ def main(argv: list[str] | None = None) -> int:
             f"skipped={report.skipped} columns_written={report.columns_written} "
             f"columns_skipped={report.columns_skipped} embedded={report.embedded} "
             f"errors={report.errors}"
+        )
+        return 1 if report.errors else 0
+
+    if args.cmd == "sync-audit":
+        from harness.graph.folder_lister import build_live_lister, lister_from_cassette
+        from harness.jobs.sync_audit import default_report_path, run_sync_audit
+
+        cfg = load_config(cfg_path)
+        try:
+            if args.cassette:
+                lister = lister_from_cassette(Path(args.cassette), backend=args.backend)
+            else:
+                token = os.environ.get("HARNESS_GRAPH_TOKEN") or os.environ.get("HARNESS_SP_TOKEN")
+                lister = build_live_lister(
+                    backend=args.backend,
+                    token=token,
+                    drive_id=os.environ.get("HARNESS_GRAPH_DRIVE_ID"),
+                    site_url=os.environ.get("HARNESS_SP_SITE_URL"),
+                    server_relative_root=os.environ.get("HARNESS_SP_SERVER_RELATIVE_ROOT"),
+                    graph_base_url=os.environ.get(
+                        "HARNESS_GRAPH_BASE_URL", "https://graph.microsoft.com/v1.0"
+                    ),
+                )
+        except ValueError as exc:
+            print(
+                f"sync-audit needs a folder lister ({exc}). "
+                "On VTA set HARNESS_GRAPH_TOKEN and HARNESS_GRAPH_DRIVE_ID "
+                "(graph) or HARNESS_SP_SITE_URL, HARNESS_SP_SERVER_RELATIVE_ROOT, "
+                "and HARNESS_SP_TOKEN (rest). Cloud VMs cannot see Vince Personal — "
+                "use --cassette for fixture tests. This job never uploads, renames, or stamps.",
+                file=sys.stderr,
+            )
+            return 1
+        report_path = Path(args.report) if args.report else default_report_path()
+        report = run_sync_audit(
+            cfg=cfg,
+            lister=lister,
+            report_path=report_path,
+            dry_run=bool(args.dry_run),
+            hashes=bool(args.hashes),
+            only=args.only,
+        )
+        print(
+            f"run_id={report.run_id} backend={report.backend} dry_run={report.dry_run} "
+            f"folders_walked={report.folders_walked} local_files={report.local_files} "
+            f"server_files={report.server_files} local_only={len(report.local_only)} "
+            f"server_only={len(report.server_only)} path_mismatches={len(report.path_mismatches)} "
+            f"hash_mismatches={len(report.hash_mismatches)} skipped={report.skipped} "
+            f"errors={len(report.errors)} report={report_path}"
         )
         return 1 if report.errors else 0
 
