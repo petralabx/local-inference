@@ -140,10 +140,11 @@ class LiveGraphDriveClient:
             current = stack.pop()
             for child in self.list_folder_children(current):
                 child_rel = _child_rel(current, child)
-                if child.get("folder"):
+                # Graph sends "folder": {} / "file": {} — empty dicts are falsy.
+                if "folder" in child:
                     stack.append(child_rel)
                     continue
-                if child.get("file") or child.get("name"):
+                if "file" in child or child.get("name"):
                     yield {**child, "libraryPath": child_rel}
 
     def list_folder_children(self, folder_rel: str) -> list[dict[str, Any]]:

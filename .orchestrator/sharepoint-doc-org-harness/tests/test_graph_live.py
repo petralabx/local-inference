@@ -478,7 +478,17 @@ def test_cli_graph_login_help() -> None:
         check=False,
     )
     assert proc.returncode == 0, proc.stderr
-    assert "device-code" in proc.stdout.lower() or "delegated" in proc.stdout.lower()
+    blob = (proc.stdout + proc.stderr).lower()
+    assert "device-code" in blob or "delegated" in blob
+    top = subprocess.run(
+        [sys.executable, "-m", "harness.cli.main", "--help"],
+        cwd=str(PACKAGE_ROOT),
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert top.returncode == 0, top.stderr
+    assert "graph-login" in top.stdout
 
 
 def test_docs_record_delegated_graph_decision() -> None:

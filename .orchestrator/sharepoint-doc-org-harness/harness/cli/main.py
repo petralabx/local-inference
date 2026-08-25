@@ -92,6 +92,7 @@ def main(argv: list[str] | None = None) -> int:
     sub.add_parser(
         "graph-login",
         help="delegated MSAL device-code login for Vince Personal Graph writes",
+        description="Delegated MSAL device-code login for Vince Personal Graph writes.",
     )
 
     args = parser.parse_args(argv)
