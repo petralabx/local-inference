@@ -80,6 +80,26 @@ def test_llm_classify_injectable() -> None:
     assert is_compliant(c.suggested_name)
 
 
+def test_llm_folder_prefix_maps_to_gen() -> None:
+    leftover = Path("2026-08-18_01_Atomic Reseller Agreement v01_v01.docx")
+    c = classify_file(
+        path=leftover,
+        text="",
+        rules=[],
+        litellm_base_url="http://100.103.33.54:4000/v1",
+        model="local-fast",
+        forbid_host_substrings=["api.openai.com"],
+        organizer_names=True,
+        llm_caller=lambda **kw: (
+            '{"prefix":"01","target_folder":"01_Clients_Projects",'
+            '"description":"Atomic Reseller Agreement v01","confidence":0.9}'
+        ),
+    )
+    assert c.source == "llm"
+    assert c.prefix == "GEN"
+    assert c.suggested_name == "2026-08-18_GEN_Atomic Reseller Agreement_v01.docx"
+
+
 def test_missing_master_key_is_fail_visible(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv("LOCAL_LITELLM_MASTER_KEY", raising=False)
     with pytest.raises(MissingLiteLLMKey, match="LOCAL_LITELLM_MASTER_KEY"):
