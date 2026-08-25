@@ -151,6 +151,14 @@ def test_cutover_organizer_rejects_folder_prefix_and_space_version() -> None:
     assert peeled == "2026-08-18_INV_Happy Yards Garden Clean Up Quote_v01.pdf"
     assert is_organizer_name(peeled)
     assert peel_rebuild_organizer_name("trafilea-order.pdf") is None
+    q4 = "2026-08-18_INV_Q4_Report_v01.pdf"
+    po = "2026-08-18_GEN_PO_12345_v01.pdf"
+    assert peel_organizer_title("Q4_Report") == "Q4_Report"
+    assert peel_organizer_title("PO_12345") == "PO_12345"
+    assert is_organizer_name(q4)
+    assert is_organizer_name(po)
+    assert peel_rebuild_organizer_name(q4) == q4
+    assert peel_rebuild_organizer_name(po) == po
 
 
 def test_cutover_organizer_keeps_date_in_middle_of_words() -> None:

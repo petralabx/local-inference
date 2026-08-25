@@ -353,8 +353,10 @@ def test_relabel_peels_folder_and_visual_version_leftovers(tmp_path: Path) -> No
     personal.mkdir(parents=True)
     leftover_ops = ops / "2026-08-18_BUSINESS_OPS_Vendor Invoice_v01_v01.pdf"
     leftover_personal = personal / "2026-08-18_PERSONAL_Vacation Photos_v01.jpg"
+    keep_q4 = ops / "2026-08-18_INV_Q4_Report_v01.pdf"
     leftover_ops.write_bytes(b"ops-stacked")
     leftover_personal.write_bytes(b"personal-stacked")
+    keep_q4.write_bytes(b"keep-acronym-title")
     cfg = _relabel_cfg(tmp_path, root)
     journal = ActionJournal(tmp_path / "j.sqlite3")
     report = run_relabel(
@@ -368,6 +370,8 @@ def test_relabel_peels_folder_and_visual_version_leftovers(tmp_path: Path) -> No
     assert report.peeled == 2
     assert (ops / "2026-08-18_GEN_Vendor Invoice_v01.pdf").exists()
     assert (personal / "2026-08-18_GEN_Vacation Photos_v01.jpg").exists()
+    assert keep_q4.exists()
+    assert keep_q4.name == "2026-08-18_INV_Q4_Report_v01.pdf"
     assert not leftover_ops.exists()
     assert not leftover_personal.exists()
     journal.close()

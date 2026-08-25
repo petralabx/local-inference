@@ -157,6 +157,17 @@ def readable_title_from_filename(name: str) -> str:
     return peel_organizer_title(stem) or stem or "Untitled"
 
 
+def _strip_known_leading_prefix(text: str) -> str:
+    """Strip only taxonomy/correction-rule PREFIX tokens, not Q4_ / PO_ titles."""
+    match = _LEADING_PREFIX_RE.match(text)
+    if not match:
+        return text
+    token = match.group(0).rstrip("_")
+    if token not in known_organizer_prefixes():
+        return text
+    return text[match.end() :]
+
+
 def peel_organizer_title(title: str) -> str:
     """Strip stacked law wrappers, keeping the readable title (spaces preserved)."""
     text = title
@@ -164,10 +175,10 @@ def peel_organizer_title(title: str) -> str:
         text = _FILENAME_EXT_RE.sub("", text)
     for _ in range(32):
         nxt = _LEADING_DATE_RE.sub("", text, count=1)
-        # Folder tokens before taxonomy-like PREFIX so BUSINESS_OPS / PERSONAL
+        # Folder tokens before taxonomy PREFIX so BUSINESS_OPS / PERSONAL
         # are not split into a fake prefix plus an OPS_ leftover.
         nxt = _LEADING_FOLDER_RE.sub("", nxt, count=1)
-        nxt = _LEADING_PREFIX_RE.sub("", nxt, count=1)
+        nxt = _strip_known_leading_prefix(nxt)
         nxt = _LEADING_NUMBERED_HOME_RE.sub("", nxt, count=1)
         nxt = _TRAILING_VERSION_RE.sub("", nxt, count=1)
         if nxt == text:
@@ -188,9 +199,11 @@ def peel_rebuild_organizer_name(name: str, *, prefix: str | None = None) -> str 
         return None
     when = date.fromisoformat(parsed.group("date"))
     raw_prefix = prefix if prefix is not None else parsed.group("prefix")
-    title = peel_organizer_title(parsed.group("title"))
+    # Peel the full filename so a folder token that spans the regex
+    # prefix/title split (BUSINESS_OPS) is removed as one leftover.
+    title = peel_organizer_title(name)
     if not title:
-        title = peel_organizer_title(name.rsplit(".", 1)[0]) or "Untitled"
+        title = peel_organizer_title(parsed.group("title")) or "Untitled"
     return build_organizer_name(
         when=when,
         prefix=raw_prefix,
