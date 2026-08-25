@@ -10,6 +10,7 @@ wait until Vince is at the machine.
 5. [x] Mail first pass: last 90 days of attachments. 2026-08-17 Outlook COM on VTA (`vince@petrasoap.com`): 3,196 unique saved to `00_Inbox/_from_mail`; 9,706 hash copies skipped; 22,017 inline skipped; 0 secrets; 0 errors. Outlook folders unchanged. Remainder of mailbox after this writer is proven.
 6. [x] First Organizer digest proven 2026-08-17/18. Proof run `0f7f643d4e1d4916b4ae5deeecf79c59` (40 files). Then mail capture `712f41a420d345e09527b8db9e03185b` (3105 moved), desktop/docs/downloads `d2220e0bb8f94baa88bc35ce8629c5d6` (1984 moved), inbox top-level `9c1878adc55e4e0289e82c2d47276a0a` (4 moved). `harness where` resolved Happy Yards. Once-daily Task Scheduler `VincePersonal-Organizer-Digest` installed 2026-08-18 on VTA; next run 2026-08-19 06:00 America/Toronto. Stay on daily until findability stays proven, then `-Mode every-4h` (06:00/10:00/14:00/18:00).
 7. [ ] After unique Petra work is gone, hide the old Petra sources (`hide-petra-sources.ps1`). Never hide Vince Personal. Drain `09_Archive` + Petra root loose files first. Fold leftover VincePersonal roots per `config/legacy_roots.yaml` (ADR 0015).
+8. [ ] Leftover personal-OneDrive / second Downloads / laptop leftovers: run `harness inventory --root …` on VTA now (and on taylorvalton when Vince is at that machine). Report-only JSON; no copy/upload. Fold candidates later.
 
 Inference stays on Dell LiteLLM `local-driver` / `local-coder`. Paid hosts stay forbidden.
 

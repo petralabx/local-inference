@@ -1,0 +1,21 @@
+# Leftover local roots for `harness inventory` (report-only).
+# Pass this file with --roots-file on the machine that has the paths.
+# Do not scan these Windows paths from a Cloud Agent VM.
+#
+# VTA Desktop/Documents/Downloads already redirect into
+# VincePersonal 00_Inbox/_from_desktop|_from_documents|_from_downloads.
+# List the leftovers that are still outside that sync root:
+#   personal OneDrive, leftover Petra OneDrive folders, a second real Downloads,
+#   laptop leftovers when Vince is at taylorvalton.
+#
+# Never hide Vince Personal. If a listed root is (or resolves into) the
+# VincePersonal sync folder, hits classify as already-in-VincePersonal.
+#
+# VTA examples (uncomment on that machine):
+#   - "C:/Users/vince/OneDrive"
+#   - "C:/Users/vince/Downloads"
+#   - "C:/Users/vince/OneDrive - Petra Hygienic Systems Int Ltd"
+# Laptop examples:
+#   - "C:/Users/taylo/OneDrive"
+#   - "C:/Users/taylo/Downloads"
+roots: []

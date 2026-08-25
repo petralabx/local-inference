@@ -34,8 +34,12 @@ exclude_globs:
   - "**/agentic-swarm/**"
   - "**/agentic-swarm-*/**"
   - "**/.venv/**"
+  - "**/local-inference-canonical/**"
   - "**/$RECYCLE.BIN/**"
   - "**/System Volume Information/**"
+
+skip_code_path_tokens:
+  - "local-inference-canonical"
 
 journal_path: "data/journal.sqlite3"
 taxonomy_path: "config/taxonomy_prefixes.yaml"
