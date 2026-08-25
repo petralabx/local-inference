@@ -333,6 +333,8 @@ def test_inventory_allowlists_documents_and_skips_credential_names(tmp_path: Pat
     payload = _write(fx["downloads"] / "payload.com", b"MZ")
     npmrc = _write(fx["personal"] / ".npmrc", "//registry.npmjs.org/:_authToken=nope\n")
     secret_json = _write(fx["personal"] / "client_secret_app.json", '{"client_secret":"x"}\n')
+    passwords = _write(fx["downloads"] / "passwords.txt", "admin:nope\n")
+    vault_csv = _write(fx["downloads"] / "Bitwarden_export.csv", "url,password\n")
     cfg, _ = _cfg_for_root(tmp_path, fx["vp"])
     journal = ActionJournal(tmp_path / "j.sqlite3")
     try:
@@ -350,8 +352,12 @@ def test_inventory_allowlists_documents_and_skips_credential_names(tmp_path: Pat
     assert by_path[str(payload)]["status"] == STATUS_SKIP_CODE
     assert by_path[str(npmrc)]["status"] == STATUS_SKIP_SECRET
     assert by_path[str(secret_json)]["status"] == STATUS_SKIP_SECRET
+    assert by_path[str(passwords)]["status"] == STATUS_SKIP_SECRET
+    assert by_path[str(vault_csv)]["status"] == STATUS_SKIP_SECRET
     assert by_path[str(npmrc)]["sha256"] == ""
     assert by_path[str(secret_json)]["sha256"] == ""
+    assert by_path[str(passwords)]["sha256"] == ""
+    assert by_path[str(vault_csv)]["sha256"] == ""
     assert by_path[str(fx["invoice"])]["status"] == STATUS_CANDIDATE
     assert by_path[str(fx["leftover_doc"])]["status"] == STATUS_CANDIDATE
 

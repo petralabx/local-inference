@@ -136,6 +136,18 @@ EXTRA_SECRET_NAMES = {
     "nuget.config",
 }
 
+SECRET_NAME_FRAGMENTS = (
+    "password",
+    "passwd",
+    "bitwarden",
+    "lastpass",
+    "1password",
+    "keepass",
+    "vault_export",
+    "credential",
+    "client_secret",
+)
+
 
 def _safe_resolve(path: Path) -> Path | None:
     try:
@@ -238,7 +250,7 @@ def _looks_like_secret(path: Path) -> bool:
     name = path.name.lower()
     if name in EXTRA_SECRET_NAMES:
         return True
-    if "client_secret" in name:
+    if any(fragment in name for fragment in SECRET_NAME_FRAGMENTS):
         return True
     if name.endswith("serviceaccount.json") or name.endswith("service_account.json"):
         return True
