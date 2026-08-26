@@ -25,6 +25,7 @@ python -m harness.cli.main relabel --report data/reports/relabel.json --limit 20
 python -m harness.cli.main stamp --report data/reports/stamp.json --limit 20
 python -m harness.cli.main inventory --report data/reports/inventory.json --root "<leftover-root>"
 python -m harness.cli.main sync-audit --dry-run
+python -m harness.cli.main fold --report data/reports/fold.json
 python -m harness.cli.main where --name trafilea
 python -m harness.cli.main reverse --run-id <id>
 ```
@@ -45,6 +46,8 @@ VM cannot see VTA OneDrive; run the live audit on Dell-VTA.
 - Single-writer scheduler: Dell-VTA (`docs/ops.md`)
 - Laptop: SoT + `harness where` / reverse only
 - Live cutover: `docs/cutover-checklist.md`
+- Leftover-tree fold: `harness fold` is dry-run by default. `--apply` is opt-in
+  hygiene after harvest stamp; never hide Vince Personal; never archive `00`–`06`.
 - Promotion target: `petralabx/sharepoint-doc-org-harness` (operator creates repo)
 
 ## Phases

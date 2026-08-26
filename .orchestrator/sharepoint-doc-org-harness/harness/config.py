@@ -61,6 +61,7 @@ class HarnessConfig(BaseModel):
     mail_lookback_days: int = 90
     mail_remainder_after_proof: bool = True
     drain_map_path: str = "config/drain_map.yaml"
+    leftover_trees_path: str = "config/leftover_trees.yaml"
     delete_duplicates: bool = False
     exclude_globs: list[str] = Field(default_factory=list)
     skip_code_path_tokens: list[str] = Field(

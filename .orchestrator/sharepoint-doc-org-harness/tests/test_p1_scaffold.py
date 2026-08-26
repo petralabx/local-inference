@@ -21,6 +21,7 @@ def test_default_config_loads_and_rejects_paid_host(tmp_path: Path) -> None:
     assert cfg.inbox_active_ceiling == 0
     assert cfg.auto_archive is False
     assert cfg.delete_duplicates is False
+    assert cfg.leftover_trees_path.endswith("leftover_trees.yaml")
     assert cfg.litellm.classify_model == "local-driver"
     assert cfg.litellm.fallback_model == "local-coder"
 
