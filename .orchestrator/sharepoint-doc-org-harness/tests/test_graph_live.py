@@ -10,7 +10,12 @@ import yaml
 from harness.cli import main as cli_main
 from harness.config import PACKAGE_ROOT, load_config
 from harness.graph.auth import acquire_delegated_token
-from harness.graph.drive_client import FakeGraphDriveClient, GraphOfflineError, ORGANIZER_COLUMNS
+from harness.graph.drive_client import (
+    FakeGraphDriveClient,
+    GraphConflictError,
+    GraphOfflineError,
+    ORGANIZER_COLUMNS,
+)
 from harness.graph.factory import resolve_graph_client
 from harness.graph.live_client import (
     LiveGraphDriveClient,
@@ -69,20 +74,27 @@ class GraphFixture:
         self.ct_columns = set(self.columns)
         self.fields: dict[str, dict[str, str]] = {}
         self.children: dict[str, list[dict]] = {}
+        self.blobs: dict[str, bytes] = {}
+        self.session_buf = bytearray()
+        self.upload_url = "https://example.test/upload-session/unit"
+        self._next_list_item = 1
 
-    def add_file(self, rel: str, *, list_item_id: str = LIST_ITEM_ID) -> None:
+    def add_file(self, rel: str, *, list_item_id: str | None = None, size: int | None = None) -> None:
         name = Path(rel).name
         parent = str(Path(rel).parent).replace("\\", "/")
         if parent == ".":
             parent = ""
-        self.children.setdefault(parent, []).append(
-            {
-                "id": f"file-{rel}",
-                "name": name,
-                "file": {},
-                "sharepointIds": {"listItemId": list_item_id, "listId": LIST_ID},
-            }
-        )
+        if list_item_id is None:
+            list_item_id = str(self._next_list_item)
+            self._next_list_item += 1
+        row = {
+            "id": f"file-{rel}",
+            "name": name,
+            "file": {},
+            "size": 0 if size is None else size,
+            "sharepointIds": {"listItemId": list_item_id, "listId": LIST_ID},
+        }
+        self.children.setdefault(parent, []).append(row)
         folder = parent
         while folder:
             grand = str(Path(folder).parent).replace("\\", "/")
@@ -94,6 +106,16 @@ class GraphFixture:
                     {"id": f"dir-{folder}", "name": Path(folder).name, "folder": {}}
                 )
             folder = grand
+
+    def _find(self, rel: str) -> dict | None:
+        parent = str(Path(rel).parent).replace("\\", "/")
+        if parent == ".":
+            parent = ""
+        name = Path(rel).name
+        for child in self.children.get(parent, []):
+            if child.get("name") == name:
+                return child
+        return None
 
     def handler(self, request: httpx.Request) -> httpx.Response:
         url = str(request.url)
@@ -136,6 +158,60 @@ class GraphFixture:
             )
         if method == "POST" and "/contentTypes/" in path and path.endswith("/columns"):
             return httpx.Response(201, json={"name": "added"})
+        if method == "POST" and "/root:/" in path and path.endswith(":/children"):
+            rel = _root_path(path, suffix=":/children")
+            body = json.loads(request.content or b"{}")
+            name = str(body.get("name") or "")
+            child_rel = f"{rel}/{name}" if rel else name
+            if self._find(child_rel) is None:
+                self.children.setdefault(rel, []).append(
+                    {"id": f"dir-{child_rel}", "name": name, "folder": {}}
+                )
+            return httpx.Response(201, json={"id": f"dir-{child_rel}", "name": name, "folder": {}})
+        if method == "POST" and path.endswith(f"/drives/{DRIVE_ID}/root/children"):
+            body = json.loads(request.content or b"{}")
+            name = str(body.get("name") or "")
+            if self._find(name) is None:
+                self.children.setdefault("", []).append(
+                    {"id": f"dir-{name}", "name": name, "folder": {}}
+                )
+            return httpx.Response(201, json={"id": f"dir-{name}", "name": name, "folder": {}})
+        if method == "PUT" and "/root:/" in path and path.endswith(":/content"):
+            rel = _root_path(path, suffix=":/content")
+            blob = request.content or b""
+            self.blobs[rel] = blob
+            parent = str(Path(rel).parent).replace("\\", "/")
+            if parent == ".":
+                parent = ""
+            found = self._find(rel)
+            if found is None:
+                self.children.setdefault(parent, []).append(
+                    {
+                        "id": f"file-{rel}",
+                        "name": Path(rel).name,
+                        "file": {},
+                        "size": len(blob),
+                        "sharepointIds": {"listItemId": LIST_ITEM_ID, "listId": LIST_ID},
+                    }
+                )
+            else:
+                found["size"] = len(blob)
+            return httpx.Response(
+                201,
+                json={"id": f"file-{rel}", "name": Path(rel).name, "size": len(blob), "file": {}},
+            )
+        if method == "POST" and "/root:/" in path and path.endswith(":/createUploadSession"):
+            return httpx.Response(200, json={"uploadUrl": self.upload_url})
+        if method == "PUT" and str(request.url).startswith(self.upload_url):
+            self.session_buf.extend(request.content or b"")
+            rng = request.headers.get("Content-Range", "")
+            total = int(rng.rsplit("/", 1)[-1]) if "/" in rng else 0
+            if total and len(self.session_buf) >= total:
+                return httpx.Response(
+                    201,
+                    json={"id": "session-file", "size": len(self.session_buf), "file": {}},
+                )
+            return httpx.Response(202, json={})
         if method == "GET" and "/root:/" in path and path.endswith(":/children"):
             rel = _root_path(path, suffix=":/children")
             return httpx.Response(200, json={"value": list(self.children.get(rel, []))})
@@ -295,6 +371,9 @@ def test_live_offline_error_skips_columns(tmp_path: Path) -> None:
     )
     assert report.columns_written == 0
     assert report.columns_skipped >= 1
+    assert any("404" in row or "graph:" in row or "ConnectError" in row for row in report.skip_reasons) or any(
+        "columns_skipped" in n for n in report.notes
+    )
     journal.close()
     client.close()
 
@@ -502,3 +581,141 @@ def test_docs_record_delegated_graph_decision() -> None:
         assert "FileLeafRef" in text
     assert "app-only" in adr.lower()
     assert "graph-login" in ops
+
+
+def test_docs_record_graph_upload_decision() -> None:
+    adr = (PACKAGE_ROOT / "docs" / "adr" / "0027-graph-upload-is-the-missing-file-path.md").read_text(
+        encoding="utf-8"
+    )
+    ops = (PACKAGE_ROOT / "docs" / "ops.md").read_text(encoding="utf-8")
+    readme = (PACKAGE_ROOT / "README.md").read_text(encoding="utf-8")
+    for text in (adr, ops):
+        assert "createUploadSession" in text or "upload session" in text.lower() or "harvest" in text.lower()
+        assert "FileLeafRef" in text
+    assert "OSError 22" in adr
+    assert "--replace" in adr
+    assert "harvest" in readme
+    assert "graph-login" in ops
+
+
+def test_live_simple_upload_creates_parents_and_puts_content(tmp_path: Path) -> None:
+    root = tmp_path / "sp"
+    local = root / "05_Personal" / "Expenses" / "invoice.pdf"
+    local.parent.mkdir(parents=True)
+    local.write_bytes(b"happy-yards-bytes")
+    fixture = GraphFixture(root)
+    client = _live(tmp_path, root, fixture)
+    result = client.upload_file(local, "05_Personal/Expenses/invoice.pdf")
+    assert result["status"] == "uploaded"
+    assert result["mode"] == "simple"
+    assert fixture.blobs["05_Personal/Expenses/invoice.pdf"] == b"happy-yards-bytes"
+    urls = " ".join(url for _m, url in fixture.requests)
+    assert "/content" in urls
+    assert "FileLeafRef" not in urls
+    assert any(m == "POST" and ":/children" in u for m, u in fixture.requests)
+    client.close()
+
+
+def test_live_upload_skips_identical_and_conflicts_without_replace(tmp_path: Path) -> None:
+    root = tmp_path / "sp"
+    local = root / "05_Personal" / "a.pdf"
+    local.parent.mkdir(parents=True)
+    local.write_bytes(b"abcd")
+    fixture = GraphFixture(root)
+    fixture.add_file("05_Personal/a.pdf", size=4)
+    client = _live(tmp_path, root, fixture)
+    skipped = client.upload_file(local, "05_Personal/a.pdf")
+    assert skipped["status"] == "skipped_identical"
+    other = root / "05_Personal" / "b.pdf"
+    other.write_bytes(b"xyz-different")
+    fixture.add_file("05_Personal/b.pdf", size=3)
+    try:
+        client.upload_file(other, "05_Personal/b.pdf")
+        raised = False
+    except GraphConflictError:
+        raised = True
+    assert raised
+    replaced = client.upload_file(other, "05_Personal/b.pdf", replace=True)
+    assert replaced["status"] == "replaced"
+    client.close()
+
+
+def test_live_session_upload_chunks_when_over_4mb(tmp_path: Path, monkeypatch) -> None:
+    import harness.graph.live_client as live_mod
+
+    monkeypatch.setattr(live_mod, "SIMPLE_UPLOAD_MAX_BYTES", 8)
+    monkeypatch.setattr(live_mod, "UPLOAD_CHUNK_SIZE", 8)
+    root = tmp_path / "sp"
+    local = root / "05_Personal" / "big.bin"
+    local.parent.mkdir(parents=True)
+    local.write_bytes(b"0123456789abcdef")  # 16 bytes > 8
+    fixture = GraphFixture(root)
+    client = _live(tmp_path, root, fixture)
+    result = client.upload_file(local, "05_Personal/big.bin")
+    assert result["mode"] == "session"
+    assert result["status"] == "uploaded"
+    assert bytes(fixture.session_buf) == b"0123456789abcdef"
+    assert any("createUploadSession" in u for _m, u in fixture.requests)
+    assert not any("FileLeafRef" in u for _m, u in fixture.requests)
+    client.close()
+
+
+def test_stamp_logs_404_skip_reason_instead_of_silent_skip(tmp_path: Path) -> None:
+    root = tmp_path / "sp"
+    dest = root / "05_Personal"
+    dest.mkdir(parents=True)
+    src = dest / "2026-08-18_INV_Happy Yards Garden Clean Up Quote_v01.pdf"
+    src.write_bytes(b"%PDF-404")
+    fixture = GraphFixture(root)
+    # File exists locally only — Graph GET-by-path 404s.
+    client = _live(tmp_path, root, fixture)
+    journal = ActionJournal(tmp_path / "j.sqlite3")
+    cfg = _cfg(tmp_path, root)
+    report = run_stamp(
+        cfg=cfg,
+        journal=journal,
+        report_path=tmp_path / "stamp-404.json",
+        graph=client,
+    )
+    assert report.columns_written == 0
+    assert report.columns_skipped >= 1
+    blob = " ".join(report.skip_reasons + report.notes)
+    assert "404" in blob
+    actions = journal.list_actions(report.run_id)
+    stamp_actions = [a for a in actions if a.action_type == "stamp"]
+    assert stamp_actions
+    assert any("404" in str(a.payload.get("columns_skip_reason") or "") for a in stamp_actions)
+    journal.close()
+    client.close()
+
+
+def test_stamp_only_limits_home_and_stamps_server_only(tmp_path: Path) -> None:
+    root = tmp_path / "sp"
+    personal = root / "05_Personal"
+    clients = root / "01_Clients_Projects"
+    personal.mkdir(parents=True)
+    clients.mkdir(parents=True)
+    local = personal / "2026-08-18_GEN_Local Memo_v01.pdf"
+    local.write_bytes(b"local")
+    other = clients / "2026-08-18_GEN_Other Memo_v01.pdf"
+    other.write_bytes(b"other")
+    fixture = GraphFixture(root)
+    fixture.add_file("05_Personal/" + local.name, size=local.stat().st_size)
+    fixture.add_file("05_Personal/2026-08-18_GEN_Server Only_v01.pdf", size=4)
+    client = _live(tmp_path, root, fixture)
+    journal = ActionJournal(tmp_path / "j.sqlite3")
+    cfg = _cfg(tmp_path, root)
+    report = run_stamp(
+        cfg=cfg,
+        journal=journal,
+        report_path=tmp_path / "stamp-only.json",
+        graph=client,
+        only=["05_Personal"],
+    )
+    titles = {v.get("Title") for v in fixture.fields.values()}
+    assert "Local Memo" in titles
+    assert "Server Only" in titles
+    assert "Other Memo" not in titles
+    assert "only=05_Personal" in report.notes
+    journal.close()
+    client.close()

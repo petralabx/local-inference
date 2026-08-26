@@ -52,6 +52,7 @@ def test_stamp_cli_help_does_not_crash() -> None:
     assert proc.returncode == 0, proc.stderr
     assert "stamp" in proc.stdout.lower()
     assert "--report" in proc.stdout
+    assert "--only" in proc.stdout
 
 
 def _cfg_for_root(tmp_path: Path, root: Path):

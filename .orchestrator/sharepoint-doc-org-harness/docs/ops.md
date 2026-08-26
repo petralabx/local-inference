@@ -66,9 +66,11 @@ python -m harness.cli.main graph-login
 ```
 
 Silent cache: `data/msal_graph_cache.bin` (gitignored). Digest / relabel /
-stamp pick up `LiveGraphDriveClient` when that cache (or an Azure CLI
-session for the same UPN) exists. Scheduled jobs stay silent. Cloud Agent
-VMs stay offline unless that cache is present.
+stamp / sync-audit / harvest pick up `LiveGraphDriveClient` when that cache (or
+an Azure CLI session for the same UPN) exists. Scheduled jobs stay silent.
+`stamp` walks Graph folders as well as local files that resolve, and logs the
+Graph skip/404 reason instead of a silent `columns_skipped`. Cloud Agent VMs
+stay offline unless that cache is present.
 
 Locked site-column contract: display names Party / Prefix / Home; internal
 names `OrganizerParty` / `OrganizerPrefix` / `OrganizerHome`; site columns on
@@ -172,28 +174,43 @@ Hash compare when Graph provides `sha256Hash` (ignored with `--dry-run`):
 python -m harness.cli.main sync-audit --hashes --report data/reports/sync-audit.json
 ```
 
-Live listing on VTA (delegated token). Graph:
+Live listing on VTA uses the same delegated MSAL cache as `stamp` (`harness
+graph-login`). Do not paste a Graph token.
 
 ```powershell
-$env:HARNESS_GRAPH_TOKEN = "<delegated token>"
-$env:HARNESS_GRAPH_DRIVE_ID = "<Vince Personal Documents drive id>"
+python -m harness.cli.main graph-login
 python -m harness.cli.main sync-audit --dry-run --backend graph
+python -m harness.cli.main sync-audit --dry-run --only 05_Personal --report data/reports/sync-audit-personal.json
 ```
 
-SharePoint REST:
+`--cassette` stays for fixture tests. REST backend still accepts
+`HARNESS_SP_TOKEN` when MSAL is not used; Graph default does not require an
+env token.
 
-```powershell
-$env:HARNESS_SP_TOKEN = "<delegated token>"
-$env:HARNESS_SP_SITE_URL = "https://<tenant>.sharepoint.com/sites/<VincePersonal>"
-$env:HARNESS_SP_SERVER_RELATIVE_ROOT = "/sites/<VincePersonal>/Shared Documents"
-python -m harness.cli.main sync-audit --dry-run --backend rest
-```
-
-Cloud Agent VMs cannot see `C:\Users\vince\OneDrive - Petra Hygienic Systems Int Ltd\Vince Personal - Documents`. Do not treat a cloud cassette run as the live audit. Fixture tests use `--cassette`.
+Cloud Agent VMs cannot see `C:\Users\vince\OneDrive - Petra Hygienic Systems Int Ltd\Vince Personal - Documents`. Do not treat a cloud cassette run as the live audit.
 
 The JSON report lists `local_only` (on disk, no server item), `server_only`,
 `path_mismatches` (same name, different relative path — the rehome/sync-drop
 case), and optional `hash_mismatches`.
+
+## Harvest (Graph upload missing files, then stamp)
+
+OneDrive Explorer moves are forbidden for this job (2026-08-23 OSError 22
+deleted cloud originals). Graph upload is additive and is the only allowed
+missing-file path. Files under 4MB use `PUT /content`; larger files use
+`createUploadSession` plus chunked PUT. Missing parent folders are created.
+Secrets and code trees are skipped. A server item with a different size fails
+unless `--replace` is explicit; identical size is skipped.
+
+```powershell
+python -m harness.cli.main harvest --report data/reports/harvest.json --dry-run --only 05_Personal
+python -m harness.cli.main harvest --report data/reports/harvest.json --apply --only 05_Personal
+python -m harness.cli.main harvest --report data/reports/harvest.json --apply --audit-report data/reports/sync-audit.json
+```
+
+`--apply` from VTA (or any host) is allowed when the job only talks to Graph.
+It is refused on non-Windows only if it would move local OneDrive files.
+Default stays dry-run. Fold leftover trees only after stamp (ADR 0026).
 
 ## Windows Task Scheduler (VTA)
 

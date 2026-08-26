@@ -390,6 +390,7 @@ def test_cli_help_documents_dry_run(capsys: pytest.CaptureFixture[str]) -> None:
 def test_cli_refuses_without_lister(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:
     monkeypatch.delenv("HARNESS_GRAPH_TOKEN", raising=False)
     monkeypatch.delenv("HARNESS_SP_TOKEN", raising=False)
+    monkeypatch.delenv("HARNESS_GRAPH_DRIVE_ID", raising=False)
     root = tmp_path / "sp"
     root.mkdir()
     _, cfg_path = _cfg_for_root(tmp_path, root)
@@ -398,6 +399,70 @@ def test_cli_refuses_without_lister(tmp_path: Path, monkeypatch: pytest.MonkeyPa
     err = capsys.readouterr().err
     assert "folder lister" in err
     assert "never uploads" in err
+    assert "graph-login" in err
+    assert "paste" in err.lower()
+
+
+def test_cli_sync_audit_uses_msal_client_not_env_token(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from harness.graph.folder_lister import FolderTree
+    from harness.jobs.sync_audit import SyncAuditReport
+
+    root = tmp_path / "Vince Personal - Documents"
+    _build_fixture(root)
+    _, cfg_path = _cfg_for_root(tmp_path, root)
+    tree = FolderTree()
+    tree.add_file("06_Reference/server-only.pdf", size=4)
+    captured: dict = {}
+
+    class _MsalClient:
+        def list_folder_children(self, folder_rel: str):
+            listing = tree.listing(folder_rel)
+            rows = []
+            for item in listing.folders:
+                rows.append({"name": item.name, "folder": {}})
+            for item in listing.files:
+                rows.append({"name": item.name, "size": item.size, "file": {}})
+            return rows
+
+        def close(self) -> None:
+            return None
+
+    def fake_resolve(_cfg, **_kwargs):
+        return _MsalClient()
+
+    def fake_audit(**kwargs):
+        captured.update(kwargs)
+        report = SyncAuditReport(
+            run_id="msal",
+            started_at="t",
+            finished_at="t",
+            backend="graph",
+            sync_root=str(root),
+            dry_run=True,
+            hashes=False,
+        )
+        report.write(kwargs["report_path"])
+        return report
+
+    monkeypatch.delenv("HARNESS_GRAPH_TOKEN", raising=False)
+    monkeypatch.setattr("harness.cli.main.resolve_graph_client", fake_resolve)
+    monkeypatch.setattr("harness.jobs.sync_audit.run_sync_audit", fake_audit)
+    rc = main(
+        [
+            "--config",
+            str(cfg_path),
+            "sync-audit",
+            "--dry-run",
+            "--report",
+            str(tmp_path / "msal.json"),
+        ]
+    )
+    assert rc == 0
+    assert captured["lister"].backend == "graph"
+    assert captured["lister"].client.__class__.__name__ == "_MsalClient"
+    # Cassette still preferred when provided — covered by test_cli_dry_run_with_cassette.
 
 
 def test_lister_from_cassette_roundtrip(tmp_path: Path) -> None:

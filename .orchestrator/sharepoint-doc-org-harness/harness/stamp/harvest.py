@@ -11,6 +11,7 @@ from harness.config import match_exclude
 from harness.graph.drive_client import (
     DOCUMENT_CONTENT_TYPE,
     GraphDriveClient,
+    GraphNotFoundError,
     GraphOfflineError,
     ORGANIZER_COLUMNS,
 )
@@ -92,6 +93,7 @@ class StampResult:
     sha256_before: str
     sha256_after: str
     skipped: str = ""
+    columns_skip_reason: str = ""
 
 
 class HarvestStamp:
@@ -158,6 +160,7 @@ class HarvestStamp:
                 sha256_before="",
                 sha256_after="",
                 skipped="not a file",
+                columns_skip_reason="not a file",
             )
         if is_secret_file(path):
             return self._skip(path, prefix, home, "secret", run_id=run_id)
@@ -183,9 +186,12 @@ class HarvestStamp:
 
         columns_written = False
         columns_skipped = True
+        skip_reason = "graph_unavailable"
         if self.graph is not None:
             ensured = self.ensure_site_columns()
-            if ensured:
+            if not ensured:
+                skip_reason = "graph_columns_unready"
+            else:
                 fields = {
                     "Title": readable,
                     "OrganizerParty": party_value,
@@ -196,12 +202,19 @@ class HarvestStamp:
                     self.graph.patch_list_item_fields(str(path), fields)
                     columns_written = True
                     columns_skipped = False
-                except GraphOfflineError:
+                    skip_reason = ""
+                except GraphNotFoundError as exc:
                     columns_written = False
                     columns_skipped = True
-                except Exception:
+                    skip_reason = f"404:{exc}"
+                except GraphOfflineError as exc:
                     columns_written = False
                     columns_skipped = True
+                    skip_reason = f"graph:{exc}"
+                except Exception as exc:  # noqa: BLE001 — stamp must keep walking
+                    columns_written = False
+                    columns_skipped = True
+                    skip_reason = f"{exc.__class__.__name__}:{exc}"
 
         result = StampResult(
             path=path,
@@ -214,6 +227,7 @@ class HarvestStamp:
             embedded=embedded,
             sha256_before=before,
             sha256_after=after,
+            columns_skip_reason=skip_reason,
         )
         self.journal.record(
             run_id,
@@ -226,10 +240,93 @@ class HarvestStamp:
                 "home": home,
                 "columns_written": columns_written,
                 "columns_skipped": columns_skipped,
+                "columns_skip_reason": skip_reason,
                 "embedded": embedded,
                 "sha256_before": before,
                 "sha256_after": after,
                 "content_type": DOCUMENT_CONTENT_TYPE,
+            },
+        )
+        return result
+
+    def apply_remote(
+        self,
+        library_path: str,
+        *,
+        run_id: str,
+        prefix: str,
+        home: str,
+        title: str | None = None,
+        party: str | None = None,
+    ) -> StampResult:
+        """Stamp Title + Party/Prefix/Home on a server item with no local file."""
+        rel = library_path.replace("\\", "/").strip("/")
+        name = Path(rel).name
+        readable = title or readable_title_from_filename(name)
+        readable = peel_organizer_title(readable) or readable
+        prefix = normalize_organizer_prefix(prefix)
+        party_value = party if party is not None else party_for_document(
+            filename=name, title=readable, rules=self.rules
+        )
+        path = Path(rel)
+        if is_secret_file(path) or match_exclude(path, self.exclude_globs):
+            reason = "secret" if is_secret_file(path) else "code_or_exclude"
+            return self._skip(path, prefix, home, reason, run_id=run_id)
+
+        columns_written = False
+        columns_skipped = True
+        skip_reason = "graph_unavailable"
+        if self.graph is not None:
+            ensured = self.ensure_site_columns()
+            if not ensured:
+                skip_reason = "graph_columns_unready"
+            else:
+                fields = {
+                    "Title": readable,
+                    "OrganizerParty": party_value,
+                    "OrganizerPrefix": prefix,
+                    "OrganizerHome": home,
+                }
+                try:
+                    self.graph.patch_list_item_fields(rel, fields)
+                    columns_written = True
+                    columns_skipped = False
+                    skip_reason = ""
+                except GraphNotFoundError as exc:
+                    skip_reason = f"404:{exc}"
+                except GraphOfflineError as exc:
+                    skip_reason = f"graph:{exc}"
+                except Exception as exc:  # noqa: BLE001 — stamp must keep walking
+                    skip_reason = f"{exc.__class__.__name__}:{exc}"
+
+        result = StampResult(
+            path=path,
+            title=readable,
+            party=party_value,
+            prefix=prefix,
+            home=home,
+            columns_written=columns_written,
+            columns_skipped=columns_skipped,
+            embedded={"written": False, "reason": "remote_only"},
+            sha256_before="",
+            sha256_after="",
+            columns_skip_reason=skip_reason,
+        )
+        self.journal.record(
+            run_id,
+            "stamp",
+            {
+                "path": rel,
+                "title": readable,
+                "party": party_value,
+                "prefix": prefix,
+                "home": home,
+                "columns_written": columns_written,
+                "columns_skipped": columns_skipped,
+                "columns_skip_reason": skip_reason,
+                "embedded": result.embedded,
+                "content_type": DOCUMENT_CONTENT_TYPE,
+                "remote_only": True,
             },
         )
         return result
@@ -255,6 +352,7 @@ class HarvestStamp:
             sha256_before="",
             sha256_after="",
             skipped=reason,
+            columns_skip_reason=reason,
         )
         self.journal.record(
             run_id,
@@ -293,4 +391,15 @@ def identity_from_path(
             home = path.relative_to(root).parts[0]
         except ValueError:
             home = "00_Inbox"
+    return title, normalize_organizer_prefix(prefix), home
+
+
+def identity_from_library_path(library_path: str) -> tuple[str, str, str]:
+    """Title, prefix, home from a server-relative library path (no local bytes)."""
+    rel = library_path.replace("\\", "/").strip("/")
+    name = Path(rel).name
+    parsed = ORGANIZER_NAME_RE.match(name)
+    title = readable_title_from_filename(name)
+    prefix = parsed.group("prefix") if parsed else "GEN"
+    home = rel.split("/", 1)[0] if rel else "00_Inbox"
     return title, normalize_organizer_prefix(prefix), home

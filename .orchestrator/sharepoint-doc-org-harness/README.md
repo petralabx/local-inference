@@ -23,6 +23,10 @@ python -m harness.cli.main digest --dry-run --report data/reports/digest.json
 python -m harness.cli.main graph-login
 python -m harness.cli.main relabel --report data/reports/relabel.json --limit 20
 python -m harness.cli.main stamp --report data/reports/stamp.json --limit 20
+python -m harness.cli.main stamp --report data/reports/stamp.json --only 05_Personal
+python -m harness.cli.main stamp --report data/reports/stamp.json
+python -m harness.cli.main harvest --report data/reports/harvest.json --dry-run --only 05_Personal
+python -m harness.cli.main harvest --report data/reports/harvest.json --apply --only 05_Personal
 python -m harness.cli.main inventory --report data/reports/inventory.json --root "<leftover-root>"
 python -m harness.cli.main sync-audit --dry-run
 python -m harness.cli.main fold --report data/reports/fold.json
@@ -38,8 +42,14 @@ Do not scan real VTA paths from a Cloud Agent VM. Code trees, secrets, and
 `local-inference-canonical` stay off SharePoint. Never hide Vince Personal.
 
 `sync-audit` is report-only (no upload, rename, or stamp). Dry-run walks local +
-SharePoint folder-by-folder and writes `data/reports/sync-audit.json`. The cloud
-VM cannot see VTA OneDrive; run the live audit on Dell-VTA.
+SharePoint folder-by-folder and writes `data/reports/sync-audit.json`. Live VTA
+uses the same MSAL cache as `graph-login` / `stamp`. `--cassette` is for
+fixture tests. The cloud VM cannot see VTA OneDrive.
+
+`harvest` Graph-uploads `local_only` files (PUT `/content` under 4MB, upload
+session above) then stamps Title + Party/Prefix/Home. Default is dry-run.
+`--apply` is additive Graph upload and does not delete or move via OneDrive.
+`--replace` is required to overwrite a server item with a different size.
 
 ## Operator notes
 

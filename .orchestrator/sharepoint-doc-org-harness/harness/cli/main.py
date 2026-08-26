@@ -89,6 +89,12 @@ def main(argv: list[str] | None = None) -> int:
     stmp.add_argument("--report", required=True, help="Path to write stamp JSON report")
     stmp.add_argument("--journal", default=None)
     stmp.add_argument("--limit", type=int, default=None, help="Max files this run")
+    stmp.add_argument(
+        "--only",
+        action="append",
+        default=None,
+        help="Home folder to stamp (repeatable), e.g. 05_Personal. Default: 00-06.",
+    )
 
     sub.add_parser(
         "graph-login",
@@ -143,7 +149,7 @@ def main(argv: list[str] | None = None) -> int:
     audit.add_argument(
         "--cassette",
         default=None,
-        help="JSON remote tree for tests/offline. Live VTA omits this and uses env tokens.",
+        help="JSON remote tree for tests/offline. Live VTA uses MSAL cache from graph-login.",
     )
     audit.add_argument(
         "--only",
@@ -176,6 +182,47 @@ def main(argv: list[str] | None = None) -> int:
         help="Leftover tree relative path (repeatable). Default: discovered leftovers.",
     )
     fld.add_argument("--limit", type=int, default=None, help="Max files to classify this run")
+
+    hv = sub.add_parser(
+        "harvest",
+        help="Graph-upload local_only files then stamp (additive; does not delete or fold)",
+    )
+    hv.add_argument("--report", required=True, help="Path to write harvest JSON report")
+    hv.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Plan Graph uploads only. Default when --apply is omitted.",
+    )
+    hv.add_argument(
+        "--apply",
+        action="store_true",
+        default=False,
+        help="Perform Graph uploads (additive). Does not delete or move local OneDrive files.",
+    )
+    hv.add_argument(
+        "--replace",
+        action="store_true",
+        default=False,
+        help="Overwrite a server item that exists with a different size. Default: fail that file.",
+    )
+    hv.add_argument(
+        "--audit-report",
+        default=None,
+        help="Existing sync-audit JSON (uses local_only). Otherwise live-compare via MSAL.",
+    )
+    hv.add_argument("--journal", default=None)
+    hv.add_argument(
+        "--only",
+        action="append",
+        default=None,
+        help="Relative folder to harvest (repeatable), e.g. 05_Personal.",
+    )
+    hv.add_argument("--limit", type=int, default=None, help="Max files this run")
+    hv.add_argument(
+        "--cassette",
+        default=None,
+        help="JSON remote tree for tests/offline live-compare. Live VTA omits this.",
+    )
 
     args = parser.parse_args(argv)
     if args.version or args.cmd == "version":
@@ -323,6 +370,7 @@ def main(argv: list[str] | None = None) -> int:
                 journal=journal,
                 report_path=Path(args.report),
                 limit=args.limit,
+                only=args.only,
                 graph=graph,
             )
         finally:
@@ -334,6 +382,8 @@ def main(argv: list[str] | None = None) -> int:
             f"columns_skipped={report.columns_skipped} embedded={report.embedded} "
             f"errors={report.errors}"
         )
+        if report.skip_reasons:
+            print("skip_reasons=" + " | ".join(report.skip_reasons[:10]))
         return 1 if report.errors else 0
 
     if args.cmd == "inventory":
@@ -371,44 +421,59 @@ def main(argv: list[str] | None = None) -> int:
         return 0
 
     if args.cmd == "sync-audit":
-        from harness.graph.folder_lister import build_live_lister, lister_from_cassette
+        from harness.graph.folder_lister import (
+            build_live_lister,
+            lister_from_cassette,
+            lister_from_live_client,
+        )
         from harness.jobs.sync_audit import default_report_path, run_sync_audit
 
         cfg = load_config(cfg_path)
+        lister = None
         try:
             if args.cassette:
                 lister = lister_from_cassette(Path(args.cassette), backend=args.backend)
             else:
-                token = os.environ.get("HARNESS_GRAPH_TOKEN") or os.environ.get("HARNESS_SP_TOKEN")
-                lister = build_live_lister(
-                    backend=args.backend,
-                    token=token,
-                    drive_id=os.environ.get("HARNESS_GRAPH_DRIVE_ID"),
-                    site_url=os.environ.get("HARNESS_SP_SITE_URL"),
-                    server_relative_root=os.environ.get("HARNESS_SP_SERVER_RELATIVE_ROOT"),
-                    graph_base_url=os.environ.get(
-                        "HARNESS_GRAPH_BASE_URL", "https://graph.microsoft.com/v1.0"
-                    ),
-                )
+                graph = resolve_graph_client(cfg)
+                if graph is not None and args.backend == "graph" and hasattr(graph, "list_folder_children"):
+                    lister = lister_from_live_client(graph)
+                else:
+                    token = os.environ.get("HARNESS_GRAPH_TOKEN") or os.environ.get("HARNESS_SP_TOKEN")
+                    lister = build_live_lister(
+                        backend=args.backend,
+                        token=token,
+                        drive_id=os.environ.get("HARNESS_GRAPH_DRIVE_ID"),
+                        site_url=os.environ.get("HARNESS_SP_SITE_URL") or cfg.graph.site_url,
+                        server_relative_root=os.environ.get("HARNESS_SP_SERVER_RELATIVE_ROOT"),
+                        graph_base_url=os.environ.get(
+                            "HARNESS_GRAPH_BASE_URL", "https://graph.microsoft.com/v1.0"
+                        ),
+                    )
+                    _close_graph(graph)
+                    graph = None
         except ValueError as exc:
             print(
                 f"sync-audit needs a folder lister ({exc}). "
-                "On VTA set HARNESS_GRAPH_TOKEN and HARNESS_GRAPH_DRIVE_ID "
-                "(graph) or HARNESS_SP_SITE_URL, HARNESS_SP_SERVER_RELATIVE_ROOT, "
-                "and HARNESS_SP_TOKEN (rest). Cloud VMs cannot see Vince Personal — "
-                "use --cassette for fixture tests. This job never uploads, renames, or stamps.",
+                "On VTA run `python -m harness.cli.main graph-login` so MSAL can "
+                "reuse data/msal_graph_cache.bin. Do not paste a Graph token. "
+                "Use --cassette for fixture tests. This job never uploads, renames, or stamps.",
                 file=sys.stderr,
             )
             return 1
         report_path = Path(args.report) if args.report else default_report_path()
-        report = run_sync_audit(
-            cfg=cfg,
-            lister=lister,
-            report_path=report_path,
-            dry_run=bool(args.dry_run),
-            hashes=bool(args.hashes),
-            only=args.only,
-        )
+        try:
+            report = run_sync_audit(
+                cfg=cfg,
+                lister=lister,
+                report_path=report_path,
+                dry_run=bool(args.dry_run),
+                hashes=bool(args.hashes),
+                only=args.only,
+            )
+        finally:
+            closer = getattr(lister, "client", None)
+            if closer is not None:
+                _close_graph(closer)
         print(
             f"run_id={report.run_id} backend={report.backend} dry_run={report.dry_run} "
             f"folders_walked={report.folders_walked} local_files={report.local_files} "
@@ -445,6 +510,48 @@ def main(argv: list[str] | None = None) -> int:
             f"run_id={report.run_id} apply={report.apply} dry_run={report.dry_run} "
             f"planned={report.planned} moved={report.moved} "
             f"skipped_secret={report.skipped_secret} skipped_code={report.skipped_code} "
+            f"errors={report.errors}"
+        )
+        return 1 if report.errors else 0
+
+    if args.cmd == "harvest":
+        from harness.graph.folder_lister import lister_from_cassette, lister_from_live_client
+        from harness.jobs.harvest import HarvestApplyBlocked, run_harvest
+
+        cfg = load_config(cfg_path)
+        journal_path = Path(args.journal) if args.journal else cfg.resolve_path(cfg.journal_path)
+        journal = ActionJournal(journal_path)
+        graph = resolve_graph_client(cfg)
+        lister = None
+        if args.cassette:
+            lister = lister_from_cassette(Path(args.cassette), backend="graph")
+        elif graph is not None and hasattr(graph, "list_folder_children"):
+            lister = lister_from_live_client(graph)
+        try:
+            report = run_harvest(
+                cfg=cfg,
+                journal=journal,
+                report_path=Path(args.report),
+                graph=graph,
+                apply=bool(args.apply),
+                replace=bool(args.replace),
+                only=args.only,
+                limit=args.limit,
+                audit_report=Path(args.audit_report) if args.audit_report else None,
+                lister=lister,
+            )
+        except HarvestApplyBlocked as exc:
+            print(f"harvest_blocked: {exc}")
+            return 2
+        finally:
+            journal.close()
+            _close_graph(graph)
+        print(
+            f"run_id={report.run_id} apply={report.apply} dry_run={report.dry_run} "
+            f"planned={report.planned} uploaded={report.uploaded} "
+            f"skipped_identical={report.skipped_identical} "
+            f"skipped_secret={report.skipped_secret} skipped_code={report.skipped_code} "
+            f"stamped={report.stamped} columns_written={report.columns_written} "
             f"errors={report.errors}"
         )
         return 1 if report.errors else 0
