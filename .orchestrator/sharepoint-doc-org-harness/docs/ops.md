@@ -145,6 +145,56 @@ Dry run (no moves):
 python -m harness.cli.main digest --dry-run --report data/reports/digest-dry.json
 ```
 
+## Sync audit (local vs SharePoint)
+
+OneDrive Explorer can show files the library no longer has (2026-08-23
+rule-rehome: OSError 22, then folder-name compare missed local-only files).
+SharePoint `ItemCount` is not a recursive file count, and Vince Personal is
+over the 5k list-view threshold, so this job walks **one folder at a time**.
+Graph drive `children` or SharePoint REST
+`GetFolderByServerRelativeUrl` Files/Folders — never a library-wide unindexed
+`$filter`, and never the search API (not a completeness check).
+
+Report-only. Same digest skip rules (code trees, secrets, exclude globs). Does
+not upload, rename, or stamp.
+
+Dry-run (path inventory, no content hashes) — default report
+`data/reports/sync-audit.json`:
+
+```bash
+python -m harness.cli.main sync-audit --dry-run
+python -m harness.cli.main sync-audit --dry-run --only 05_Personal --report data/reports/sync-audit-personal.json
+```
+
+Hash compare when Graph provides `sha256Hash` (ignored with `--dry-run`):
+
+```bash
+python -m harness.cli.main sync-audit --hashes --report data/reports/sync-audit.json
+```
+
+Live listing on VTA (delegated token). Graph:
+
+```powershell
+$env:HARNESS_GRAPH_TOKEN = "<delegated token>"
+$env:HARNESS_GRAPH_DRIVE_ID = "<Vince Personal Documents drive id>"
+python -m harness.cli.main sync-audit --dry-run --backend graph
+```
+
+SharePoint REST:
+
+```powershell
+$env:HARNESS_SP_TOKEN = "<delegated token>"
+$env:HARNESS_SP_SITE_URL = "https://<tenant>.sharepoint.com/sites/<VincePersonal>"
+$env:HARNESS_SP_SERVER_RELATIVE_ROOT = "/sites/<VincePersonal>/Shared Documents"
+python -m harness.cli.main sync-audit --dry-run --backend rest
+```
+
+Cloud Agent VMs cannot see `C:\Users\vince\OneDrive - Petra Hygienic Systems Int Ltd\Vince Personal - Documents`. Do not treat a cloud cassette run as the live audit. Fixture tests use `--cassette`.
+
+The JSON report lists `local_only` (on disk, no server item), `server_only`,
+`path_mismatches` (same name, different relative path — the rehome/sync-drop
+case), and optional `hash_mismatches`.
+
 ## Windows Task Scheduler (VTA)
 
 Until proven, install once daily at 06:00 America/Toronto:
