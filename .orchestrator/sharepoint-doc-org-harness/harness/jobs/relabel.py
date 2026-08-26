@@ -34,9 +34,13 @@ SKIP_DIR_NAMES = {
 HELPER_FILE_NAMES = {"_redirect_state.json"}
 
 
-def _homes_for_relabel() -> list[str]:
+def homes_for_relabel() -> list[str]:
     homes = sorted(ALLOWED_HOMES)
     return [h for h in homes if h != "00_Inbox"] + [h for h in homes if h == "00_Inbox"]
+
+
+def _homes_for_relabel() -> list[str]:
+    return homes_for_relabel()
 
 
 def walk_files_tolerant(folder: Path) -> Iterator[Path]:

@@ -20,6 +20,7 @@ python -m pytest -q
 ```bash
 python -m harness.cli.main version
 python -m harness.cli.main digest --dry-run --report data/reports/digest.json
+python -m harness.cli.main graph-login
 python -m harness.cli.main stamp --report data/reports/stamp.json --limit 20
 python -m harness.cli.main where --name trafilea
 python -m harness.cli.main reverse --run-id <id>

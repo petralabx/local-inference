@@ -1,18 +1,51 @@
 from __future__ import annotations
 
 import json
+from collections.abc import Iterator
 from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from harness.actions.drain import is_noise_file, is_secret_file
 from harness.classify.router import ALLOWED_HOMES
-from harness.config import HarnessConfig, load_correction_rules
+from harness.config import HarnessConfig, load_correction_rules, match_exclude
 from harness.graph.drive_client import GraphDriveClient
-from harness.jobs.relabel import iter_relabel_files
+from harness.jobs.relabel import (
+    CAPTURE_DIR_NAMES,
+    HELPER_FILE_NAMES,
+    SKIP_DIR_NAMES,
+    homes_for_relabel,
+    walk_files_tolerant,
+)
 from harness.journal.store import ActionJournal
 from harness.ledger.documents import DocumentLedger
 from harness.stamp.harvest import HarvestStamp, identity_from_path
+
+
+def iter_stamp_files(root: Path, exclude_globs: list[str]) -> Iterator[Path]:
+    """Walk 00–06 homes one folder at a time. Leftover trees are not folded."""
+    for home in homes_for_relabel():
+        folder = root / home
+        if not folder.is_dir():
+            continue
+        for src in walk_files_tolerant(folder):
+            try:
+                if not src.is_file():
+                    continue
+                if src.name.lower() in HELPER_FILE_NAMES or is_noise_file(src):
+                    continue
+                if is_secret_file(src):
+                    continue
+                if any(part.lower() in SKIP_DIR_NAMES for part in src.parts):
+                    continue
+                if any(part in CAPTURE_DIR_NAMES for part in src.parts):
+                    continue
+                if match_exclude(src, exclude_globs):
+                    continue
+                yield src
+            except OSError:
+                continue
 
 
 @dataclass
@@ -62,11 +95,11 @@ def run_stamp(
         report.notes.append("graph_offline")
     elif not stamper.ensure_site_columns():
         report.notes.append("graph_columns_skipped")
-    sources = iter_relabel_files(root, cfg.exclude_globs)
     if limit is not None:
-        sources = sources[: max(0, limit)]
         report.notes.append(f"limit={limit}")
-    for src in sources:
+    for src in iter_stamp_files(root, cfg.exclude_globs):
+        if limit is not None and report.scanned >= max(0, limit):
+            break
         report.scanned += 1
         try:
             try:

@@ -40,9 +40,25 @@ python -m harness.cli.main stamp --report data/reports/stamp.json --limit 20
 python -m harness.cli.main stamp --report data/reports/stamp.json
 ```
 
-Skips `_from_*` capture, secrets, and code trees. Graph listItem fields when
-online; Office/PDF Title/Subject/Keywords on the sync-root even when Graph is
-offline (journal `columns_skipped`).
+Skips `_from_*` capture, secrets, and code trees. Walks `00`–`06` homes one
+folder at a time (the library is over the 5k view threshold; do not
+`$filter=FileLeafRef`). Leftover root trees are not folded. Graph listItem
+fields when a delegated token exists; Office/PDF Title/Subject/Keywords on
+the sync-root even when Graph is offline (journal `columns_skipped`).
+
+### Delegated Graph login (VTA, ADR 0026)
+
+First interactive login as `vince@petrasoap.com` (device-code; no pasted
+token, no app-only secret, no cookie scrape):
+
+```powershell
+python -m harness.cli.main graph-login
+```
+
+Silent cache: `data/msal_graph_cache.bin` (gitignored). Digest / relabel /
+stamp pick up `LiveGraphDriveClient` when that cache (or an Azure CLI
+session for the same UPN) exists. Scheduled jobs stay silent. Cloud Agent
+VMs stay offline unless that cache is present.
 
 Locked site-column contract: display names Party / Prefix / Home; internal
 names `OrganizerParty` / `OrganizerPrefix` / `OrganizerHome`; site columns on

@@ -6,7 +6,14 @@ from pathlib import Path
 
 from harness import __version__
 from harness.config import load_config
+from harness.graph.factory import resolve_graph_client
 from harness.journal.store import ActionJournal, reverse_actions
+
+
+def _close_graph(graph) -> None:
+    closer = getattr(graph, "close", None)
+    if callable(closer):
+        closer()
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -82,6 +89,12 @@ def main(argv: list[str] | None = None) -> int:
     stmp.add_argument("--journal", default=None)
     stmp.add_argument("--limit", type=int, default=None, help="Max files this run")
 
+    sub.add_parser(
+        "graph-login",
+        help="delegated MSAL device-code login for Vince Personal Graph writes",
+        description="Delegated MSAL device-code login for Vince Personal Graph writes.",
+    )
+
     args = parser.parse_args(argv)
     if args.version or args.cmd == "version":
         print(__version__)
@@ -129,12 +142,21 @@ def main(argv: list[str] | None = None) -> int:
             print(h)
         return 0
 
+    if args.cmd == "graph-login":
+        from harness.graph.auth import login_delegated
+
+        cfg = load_config(cfg_path)
+        login_delegated(cfg.graph)
+        print(f"graph_login_ok upn={cfg.graph.upn}")
+        return 0
+
     if args.cmd == "digest":
         from harness.jobs.digest import run_digest
 
         cfg = load_config(cfg_path)
         journal_path = Path(args.journal) if args.journal else cfg.resolve_path(cfg.journal_path)
         journal = ActionJournal(journal_path)
+        graph = resolve_graph_client(cfg)
         try:
             report = run_digest(
                 cfg=cfg,
@@ -143,9 +165,11 @@ def main(argv: list[str] | None = None) -> int:
                 dry_run=bool(args.dry_run),
                 only=args.only,
                 limit=args.limit,
+                graph=graph,
             )
         finally:
             journal.close()
+            _close_graph(graph)
         print(
             f"run_id={report.run_id} moved={report.moved} held={report.held} "
             f"archived={report.archived} inbox_active={report.inbox_active} "
@@ -185,15 +209,18 @@ def main(argv: list[str] | None = None) -> int:
         cfg = load_config(cfg_path)
         journal_path = Path(args.journal) if args.journal else cfg.resolve_path(cfg.journal_path)
         journal = ActionJournal(journal_path)
+        graph = resolve_graph_client(cfg)
         try:
             report = run_relabel(
                 cfg=cfg,
                 journal=journal,
                 report_path=Path(args.report),
                 limit=args.limit,
+                graph=graph,
             )
         finally:
             journal.close()
+            _close_graph(graph)
         print(
             f"run_id={report.run_id} scanned={report.scanned} renamed={report.renamed} "
             f"ledger_only={report.ledger_only} held={report.held} skipped={report.skipped} "
@@ -207,15 +234,18 @@ def main(argv: list[str] | None = None) -> int:
         cfg = load_config(cfg_path)
         journal_path = Path(args.journal) if args.journal else cfg.resolve_path(cfg.journal_path)
         journal = ActionJournal(journal_path)
+        graph = resolve_graph_client(cfg)
         try:
             report = run_stamp(
                 cfg=cfg,
                 journal=journal,
                 report_path=Path(args.report),
                 limit=args.limit,
+                graph=graph,
             )
         finally:
             journal.close()
+            _close_graph(graph)
         print(
             f"run_id={report.run_id} scanned={report.scanned} stamped={report.stamped} "
             f"skipped={report.skipped} columns_written={report.columns_written} "

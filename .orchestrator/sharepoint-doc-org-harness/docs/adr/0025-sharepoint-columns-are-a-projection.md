@@ -27,10 +27,11 @@ not enable SharePoint Autofill / Copilot-in-SharePoint autofill on
 ledger projections. Autofill, if ever used, would be a separate Summary-style
 column only. See [Set up and manage autofill columns](https://learn.microsoft.com/en-us/microsoft-365/documentprocessing/autofill-setup).
 
-Python stamps Graph listItem fields when online and still writes Office/PDF
-Title/Subject/Keywords on the sync-root when Graph is offline. A tenant-admin
-search-schema mapping is required before the columns become refiners; the
-harness cannot finish that step. See `docs/ops.md`.
+Python stamps Graph listItem fields when a delegated VTA token is available
+(ADR 0026) and still writes Office/PDF Title/Subject/Keywords on the
+sync-root when Graph is offline. A tenant-admin search-schema mapping is
+required before the columns become refiners; the harness cannot finish that
+step. See `docs/ops.md`.
 
 ## Copilot and search (do not weaken)
 
