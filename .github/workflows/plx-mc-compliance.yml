@@ -8,6 +8,7 @@ name: PLX MC Compliance Gate
 on:
   pull_request:
     types: [opened, synchronize, reopened]
+  workflow_dispatch:
 
 permissions:
   contents: read
