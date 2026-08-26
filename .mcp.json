@@ -1,0 +1,14 @@
+{
+  "mcpServers": {
+    "PLX-MC-Hub": {
+      "type": "http",
+      "url": "https://mc.plxcustomer.io/api/cursor/mcp",
+      "headers": {
+        "x-api-key": "${MC_MCP_API_KEY}",
+        "x-mc-operator-email": "${MC_OPERATOR_EMAIL:-vince@petrasoap.com}",
+        "x-mc-repo": "petralabx/local-inference",
+        "x-mc-runtime": "claude-code"
+      }
+    }
+  }
+}
