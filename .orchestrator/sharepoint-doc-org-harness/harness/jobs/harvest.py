@@ -8,11 +8,12 @@ from pathlib import Path
 from typing import Any
 
 from harness.actions.drain import is_noise_file, is_secret_file
-from harness.config import HarnessConfig, load_correction_rules, match_exclude
+from harness.actions.fold import is_code_path
+from harness.config import HarnessConfig, load_correction_rules
 from harness.graph.drive_client import GraphConflictError, GraphDriveClient, GraphOfflineError
 from harness.graph.folder_lister import FolderLister
 from harness.jobs.relabel import CAPTURE_DIR_NAMES, HELPER_FILE_NAMES, SKIP_DIR_NAMES
-from harness.jobs.stamp import homes_for_stamp
+from harness.jobs.stamp import UnsafeOnlyPath, safe_rel
 from harness.jobs.sync_audit import (
     default_report_path,
     run_sync_audit,
@@ -82,27 +83,35 @@ class HarvestReport:
         path.write_text(json.dumps(self.to_dict(), indent=2), encoding="utf-8")
 
 
-def _skip_entry(rel: str, *, exclude_globs: list[str]) -> str:
+def _skip_entry(rel: str, *, exclude_globs: list[str], root: Path) -> str:
     path = Path(_posix(rel))
     if any(part in CAPTURE_DIR_NAMES for part in path.parts):
         return "capture"
+    local = root.joinpath(*_posix(rel).split("/")) if _posix(rel) else root
+    if is_secret_file(path) or is_secret_file(local):
+        return "secret"
+    if is_code_path(local, exclude_globs, root=root) or is_code_path(path, exclude_globs, root=None):
+        return "code"
     if should_skip_relative(rel, exclude_globs=exclude_globs, is_dir=False):
-        if is_secret_file(path):
-            return "secret"
-        if match_exclude(path, exclude_globs) or any(
-            part.lower() in {"node_modules", ".git", "agentic-swarm"} for part in path.parts
-        ):
-            return "code"
         if path.name.lower() in HELPER_FILE_NAMES or is_noise_file(path):
             return "noise"
         if any(part.lower() in SKIP_DIR_NAMES for part in path.parts):
             return "noise"
         return "exclude"
-    if is_secret_file(path):
-        return "secret"
-    if match_exclude(path, exclude_globs):
-        return "code"
     return ""
+
+
+def resolve_library_file(root: Path, rel: str) -> Path | None:
+    try:
+        cleaned = safe_rel(rel)
+    except UnsafeOnlyPath:
+        return None
+    local = (root.joinpath(*cleaned.split("/"))).resolve()
+    try:
+        local.relative_to(root.resolve())
+    except ValueError:
+        return None
+    return local
 
 
 def _record(report: HarvestReport, row: dict[str, Any]) -> None:
@@ -145,8 +154,6 @@ def run_harvest(
     )
     if dry_run:
         report.notes.append("dry_run")
-    if only:
-        report.notes.append("only=" + ",".join(homes_for_stamp(only)))
     if limit is not None:
         report.notes.append(f"limit={limit}")
 
@@ -172,7 +179,16 @@ def run_harvest(
         rows = list(audit.local_only)
         report.notes.append(f"live_compare={audit_path}")
 
-    prefixes = [_posix(item) for item in (only or []) if item]
+    try:
+        prefixes = [safe_rel(item) for item in (only or []) if item]
+    except UnsafeOnlyPath as exc:
+        report.errors += 1
+        report.notes.append(str(exc))
+        report.finished_at = _utc_now()
+        report.write(report_path)
+        return report
+    if prefixes:
+        report.notes.append("only=" + ",".join(prefixes))
     ledger = DocumentLedger(Path(journal.path))
     stamper = HarvestStamp(
         journal=journal,
@@ -190,7 +206,7 @@ def run_harvest(
         if prefixes and not any(rel == p or rel.startswith(p + "/") for p in prefixes):
             continue
         report.scanned += 1
-        reason = _skip_entry(rel, exclude_globs=cfg.exclude_globs)
+        reason = _skip_entry(rel, exclude_globs=cfg.exclude_globs, root=cfg.sync_root)
         if reason == "secret":
             report.skipped_secret += 1
             _record(report, {"path": rel, "status": "skipped_secret"})
@@ -202,7 +218,11 @@ def run_harvest(
         if reason:
             _record(report, {"path": rel, "status": f"skipped_{reason}"})
             continue
-        local = cfg.sync_root.joinpath(*rel.split("/"))
+        local = resolve_library_file(cfg.sync_root, rel)
+        if local is None:
+            report.errors += 1
+            _record(report, {"path": rel, "status": "unsafe_path"})
+            continue
         if not local.is_file():
             report.errors += 1
             _record(report, {"path": rel, "status": "missing_local"})
@@ -225,6 +245,14 @@ def run_harvest(
             _record(report, {"path": rel, "status": "plan", "size": local.stat().st_size})
             continue
         try:
+            title, prefix, home = identity_from_path(local, root=cfg.sync_root, ledger=ledger)
+            stamped = stamper.apply(
+                local,
+                run_id=run_id,
+                prefix=prefix,
+                home=home,
+                title=title,
+            )
             result = graph.upload_file(local, rel, replace=replace)  # type: ignore[union-attr]
             status = str(result.get("status") or "uploaded")
             if status == "skipped_identical":
@@ -236,14 +264,14 @@ def run_harvest(
                 "upload",
                 {"path": rel, "status": status, "size": result.get("size"), "mode": result.get("mode")},
             )
-            title, prefix, home = identity_from_path(local, root=cfg.sync_root, ledger=ledger)
-            stamped = stamper.apply(
-                local,
-                run_id=run_id,
-                prefix=prefix,
-                home=home,
-                title=title,
-            )
+            if not stamped.columns_written:
+                stamped = stamper.apply(
+                    local,
+                    run_id=run_id,
+                    prefix=prefix,
+                    home=home,
+                    title=title,
+                )
             if not stamped.skipped:
                 report.stamped += 1
             if stamped.columns_written:

@@ -438,7 +438,9 @@ def main(argv: list[str] | None = None) -> int:
                 if graph is not None and args.backend == "graph" and hasattr(graph, "list_folder_children"):
                     lister = lister_from_live_client(graph)
                 else:
-                    token = os.environ.get("HARNESS_GRAPH_TOKEN") or os.environ.get("HARNESS_SP_TOKEN")
+                    if args.backend == "graph":
+                        raise ValueError("MSAL cache missing; run graph-login (do not paste a token)")
+                    token = os.environ.get("HARNESS_SP_TOKEN")
                     lister = build_live_lister(
                         backend=args.backend,
                         token=token,
@@ -517,6 +519,11 @@ def main(argv: list[str] | None = None) -> int:
     if args.cmd == "harvest":
         from harness.graph.folder_lister import lister_from_cassette, lister_from_live_client
         from harness.jobs.harvest import HarvestApplyBlocked, run_harvest
+        from harness.jobs.stamp import UnsafeOnlyPath
+
+        if bool(args.dry_run) and bool(args.apply):
+            print("harvest: refuse --dry-run with --apply; pick one")
+            return 2
 
         cfg = load_config(cfg_path)
         journal_path = Path(args.journal) if args.journal else cfg.resolve_path(cfg.journal_path)
@@ -541,6 +548,9 @@ def main(argv: list[str] | None = None) -> int:
                 lister=lister,
             )
         except HarvestApplyBlocked as exc:
+            print(f"harvest_blocked: {exc}")
+            return 2
+        except UnsafeOnlyPath as exc:
             print(f"harvest_blocked: {exc}")
             return 2
         finally:

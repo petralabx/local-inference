@@ -230,10 +230,10 @@ class LiveGraphDriveClient:
         self.ensure_folder_path(parent)
         if size < SIMPLE_UPLOAD_MAX_BYTES:
             mode = "simple"
-            self._put_content(rel, src)
+            self._put_content(rel, src, replace=(status == "replaced"))
         else:
             mode = "session"
-            self._upload_session(rel, src, size=size)
+            self._upload_session(rel, src, size=size, replace=(status == "replaced"))
         return {"path": rel, "status": status, "size": size, "mode": mode}
 
     def _create_folder(self, parent_rel: str, name: str) -> None:
@@ -254,20 +254,25 @@ class LiveGraphDriveClient:
                 return
             raise
 
-    def _put_content(self, rel: str, src: Path) -> dict[str, Any]:
+    def _put_content(self, rel: str, src: Path, *, replace: bool) -> dict[str, Any]:
         encoded = encode_drive_path(rel)
-        url = f"{GRAPH_ROOT}/drives/{self.drive_id()}/root:/{encoded}:/content"
+        behavior = "replace" if replace else "fail"
+        url = (
+            f"{GRAPH_ROOT}/drives/{self.drive_id()}/root:/{encoded}:/content"
+            f"?@microsoft.graph.conflictBehavior={behavior}"
+        )
         data = src.read_bytes()
         return self._request_bytes(
             "PUT", url, content=data, content_type="application/octet-stream"
         )
 
-    def _upload_session(self, rel: str, src: Path, *, size: int) -> dict[str, Any]:
+    def _upload_session(self, rel: str, src: Path, *, size: int, replace: bool) -> dict[str, Any]:
         encoded = encode_drive_path(rel)
+        behavior = "replace" if replace else "fail"
         session = self._request_json(
             "POST",
             f"/drives/{self.drive_id()}/root:/{encoded}:/createUploadSession",
-            json={"item": {"@microsoft.graph.conflictBehavior": "replace"}},
+            json={"item": {"@microsoft.graph.conflictBehavior": behavior}},
         )
         upload_url = str(session.get("uploadUrl") or "")
         if not upload_url:
@@ -446,7 +451,7 @@ class LiveGraphDriveClient:
         if resp.status_code == 404:
             raise GraphNotFoundError(f"404 {method} {url}")
         if resp.status_code == 409:
-            raise GraphOfflineError(f"graph 409 nameAlreadyExists {method} {url}")
+            raise GraphConflictError(f"graph 409 conflict {method} {url}")
         if resp.status_code >= 400:
             raise GraphOfflineError(f"graph {resp.status_code}")
         if resp.status_code == 204 or not resp.content:
@@ -483,6 +488,8 @@ class LiveGraphDriveClient:
             raise GraphOfflineError(f"graph auth {resp.status_code}")
         if resp.status_code == 404:
             raise GraphNotFoundError(f"404 {method} {url}")
+        if resp.status_code == 409:
+            raise GraphConflictError(f"graph 409 conflict {method}")
         if resp.status_code >= 400:
             raise GraphOfflineError(f"graph {resp.status_code}")
         if resp.status_code == 204 or not resp.content:

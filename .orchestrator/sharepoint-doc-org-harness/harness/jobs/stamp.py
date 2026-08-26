@@ -23,10 +23,37 @@ from harness.ledger.documents import DocumentLedger
 from harness.stamp.harvest import HarvestStamp, identity_from_library_path, identity_from_path
 
 
+class UnsafeOnlyPath(ValueError):
+    """--only path would escape the sync root."""
+
+
+def safe_rel(rel: str) -> str:
+    raw = rel.replace("\\", "/")
+    if Path(rel).is_absolute() or raw.startswith("/") or raw.startswith("~"):
+        raise UnsafeOnlyPath(f"unsafe relative path: {rel}")
+    cleaned = raw.strip("/")
+    if not cleaned or ".." in Path(cleaned).parts:
+        raise UnsafeOnlyPath(f"unsafe relative path: {rel}")
+    return cleaned
+
+
 def homes_for_stamp(only: list[str] | None = None) -> list[str]:
     if not only:
         return homes_for_relabel()
-    return [item.replace("\\", "/").strip("/") for item in only if item]
+    return [safe_rel(item) for item in only if item]
+
+
+def folder_under_root(root: Path, rel: str) -> Path | None:
+    try:
+        cleaned = safe_rel(rel)
+    except UnsafeOnlyPath:
+        return None
+    folder = (root / cleaned).resolve()
+    try:
+        folder.relative_to(root.resolve())
+    except ValueError:
+        return None
+    return folder
 
 
 def iter_stamp_files(
@@ -37,8 +64,8 @@ def iter_stamp_files(
 ) -> Iterator[Path]:
     """Walk 00–06 homes (or --only) one folder at a time. Leftover trees are not folded."""
     for home in homes_for_stamp(only):
-        folder = root / home
-        if not folder.is_dir():
+        folder = folder_under_root(root, home)
+        if folder is None or not folder.is_dir():
             continue
         for src in walk_files_tolerant(folder):
             try:
@@ -136,7 +163,14 @@ def run_stamp(
         ledger=ledger,
         exclude_globs=cfg.exclude_globs,
     )
-    homes = homes_for_stamp(only)
+    try:
+        homes = homes_for_stamp(only)
+    except UnsafeOnlyPath as exc:
+        report.errors += 1
+        report.notes.append(str(exc))
+        report.finished_at = datetime.now(timezone.utc).isoformat()
+        report.write(report_path)
+        return report
     if graph is None:
         report.notes.append("graph_offline")
     elif not stamper.ensure_site_columns():
@@ -234,12 +268,13 @@ def run_stamp(
                     report.skipped += 1
                     _record_skip(report, rel, result.skipped)
                     continue
-                report.stamped += 1
                 if result.columns_written:
+                    report.stamped += 1
                     report.columns_written += 1
-                if result.columns_skipped:
+                else:
+                    report.skipped += 1
                     report.columns_skipped += 1
-                    _record_skip(report, rel, result.columns_skip_reason)
+                    _record_skip(report, rel, result.columns_skip_reason or "columns_unwritten")
     report.finished_at = datetime.now(timezone.utc).isoformat()
     report.write(report_path)
     return report

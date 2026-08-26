@@ -22,7 +22,7 @@ from harness.graph.live_client import (
     library_relative_path,
     parse_site_url,
 )
-from harness.jobs.stamp import StampReport, iter_stamp_files, run_stamp
+from harness.jobs.stamp import StampReport, UnsafeOnlyPath, homes_for_stamp, iter_stamp_files, run_stamp
 from harness.journal.store import ActionJournal
 
 
@@ -78,6 +78,7 @@ class GraphFixture:
         self.session_buf = bytearray()
         self.upload_url = "https://example.test/upload-session/unit"
         self._next_list_item = 1
+        self.session_behavior: str | None = None
 
     def add_file(self, rel: str, *, list_item_id: str | None = None, size: int | None = None) -> None:
         name = Path(rel).name
@@ -201,6 +202,9 @@ class GraphFixture:
                 json={"id": f"file-{rel}", "name": Path(rel).name, "size": len(blob), "file": {}},
             )
         if method == "POST" and "/root:/" in path and path.endswith(":/createUploadSession"):
+            body = json.loads(request.content or b"{}")
+            item = body.get("item") if isinstance(body.get("item"), dict) else {}
+            self.session_behavior = str(item.get("@microsoft.graph.conflictBehavior") or "")
             return httpx.Response(200, json={"uploadUrl": self.upload_url})
         if method == "PUT" and str(request.url).startswith(self.upload_url):
             self.session_buf.extend(request.content or b"")
@@ -609,8 +613,9 @@ def test_live_simple_upload_creates_parents_and_puts_content(tmp_path: Path) -> 
     assert result["status"] == "uploaded"
     assert result["mode"] == "simple"
     assert fixture.blobs["05_Personal/Expenses/invoice.pdf"] == b"happy-yards-bytes"
-    urls = " ".join(url for _m, url in fixture.requests)
+    urls = " ".join(url for _m, u in fixture.requests for url in [u])
     assert "/content" in urls
+    assert "conflictBehavior=fail" in urls
     assert "FileLeafRef" not in urls
     assert any(m == "POST" and ":/children" in u for m, u in fixture.requests)
     client.close()
@@ -655,6 +660,7 @@ def test_live_session_upload_chunks_when_over_4mb(tmp_path: Path, monkeypatch) -
     assert result["mode"] == "session"
     assert result["status"] == "uploaded"
     assert bytes(fixture.session_buf) == b"0123456789abcdef"
+    assert fixture.session_behavior == "fail"
     assert any("createUploadSession" in u for _m, u in fixture.requests)
     assert not any("FileLeafRef" in u for _m, u in fixture.requests)
     client.close()
@@ -719,3 +725,18 @@ def test_stamp_only_limits_home_and_stamps_server_only(tmp_path: Path) -> None:
     assert "only=05_Personal" in report.notes
     journal.close()
     client.close()
+
+
+def test_homes_for_stamp_rejects_parent_escape() -> None:
+    try:
+        homes_for_stamp(["../../etc"])
+        raised = False
+    except UnsafeOnlyPath:
+        raised = True
+    assert raised
+    try:
+        homes_for_stamp(["/05_Personal"])
+        raised = False
+    except UnsafeOnlyPath:
+        raised = True
+    assert raised

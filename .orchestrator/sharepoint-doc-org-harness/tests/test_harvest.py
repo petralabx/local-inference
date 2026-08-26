@@ -163,7 +163,64 @@ def test_guard_harvest_apply_allows_graph_only_on_linux() -> None:
         guard_harvest_apply(apply=True, would_move_local=True)
 
 
-def test_cli_harvest_help() -> None:
+def test_harvest_rejects_path_escape(tmp_path: Path) -> None:
+    root = tmp_path / "sp"
+    root.mkdir()
+    outside = tmp_path / "secret.txt"
+    outside.write_text("nope", encoding="utf-8")
+    cfg, _ = _cfg_for_root(tmp_path, root)
+    journal = ActionJournal(Path(cfg.journal_path))
+    report = run_harvest(
+        cfg=cfg,
+        journal=journal,
+        report_path=tmp_path / "escape.json",
+        graph=FakeGraphDriveClient(),
+        apply=True,
+        local_only=[{"path": "../secret.txt", "size": 4}],
+    )
+    assert report.planned == 0
+    assert report.uploaded == 0
+    assert any(row.get("status") == "unsafe_path" for row in report.files) or report.scanned >= 1
+    journal.close()
+
+
+def test_harvest_skips_git_code_tree(tmp_path: Path) -> None:
+    root = tmp_path / "sp"
+    git_file = root / "01_Clients_Projects" / "agentic-swarm" / "src" / "x.py"
+    git_file.parent.mkdir(parents=True)
+    git_file.write_text("print(1)\n", encoding="utf-8")
+    (root / "01_Clients_Projects" / "agentic-swarm" / ".git").mkdir()
+    cfg, _ = _cfg_for_root(tmp_path, root)
+    journal = ActionJournal(Path(cfg.journal_path))
+    report = run_harvest(
+        cfg=cfg,
+        journal=journal,
+        report_path=tmp_path / "code.json",
+        graph=FakeGraphDriveClient(),
+        apply=False,
+        local_only=[{"path": "01_Clients_Projects/agentic-swarm/src/x.py", "size": 8}],
+    )
+    assert report.skipped_code >= 1
+    assert report.planned == 0
+    journal.close()
+
+
+def test_cli_harvest_refuses_dry_run_with_apply(tmp_path: Path) -> None:
+    root = tmp_path / "sp"
+    root.mkdir()
+    _, cfg_path = _cfg_for_root(tmp_path, root)
+    rc = main(
+        [
+            "--config",
+            str(cfg_path),
+            "harvest",
+            "--dry-run",
+            "--apply",
+            "--report",
+            str(tmp_path / "nope.json"),
+        ]
+    )
+    assert rc == 2
     import subprocess
 
     proc = subprocess.run(
