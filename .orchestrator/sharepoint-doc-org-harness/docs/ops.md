@@ -20,15 +20,25 @@ ledger first. Vince Node projection is fail-open (`VMC_API_KEY` +
 Digest skips already-hashed files unless a correction rule matches and the
 file is not already in that rule's `target_folder`. Relabel keeps the current
 folder for LLM/heuristic names; a correction-rule match still rehomes.
-Already-filed homes with no rule hit stay on the hash/ledger skip. Relabel
-the rest:
+Already-filed homes with no rule hit stay on the hash/ledger skip unless the
+filename fails `is_organizer_name` (stacked dates, leftover folder prefixes
+such as `01_CLIENTS_PROJECTS` / `BUSINESS_OPS` / `PERSONAL`, or visual
+`vNN_vNN`). Those law failures are peeled first — `peel_organizer_title` plus
+`normalize_organizer_prefix` — with no model call. Correction rules stay
+first-class for prefix and rehome. Relabel does not walk leftover VincePersonal
+roots (`artifacts`, `Projects`, …) and still skips secrets and code trees.
+
+`--limit` applies after that priority, so a proof walk spends its budget on
+stacked leftovers, not on already-law files from the H3 GEN rerun.
+
+Proof (VTA only), then full:
 
 ```powershell
 powershell -NoProfile -ExecutionPolicy Bypass -File scripts/run-organizer-relabel.ps1 -Limit 20
 powershell -NoProfile -ExecutionPolicy Bypass -File scripts/run-organizer-relabel.ps1
 ```
 
-VTA is the only writer. The laptop mount is the same VincePersonal site — verify sync; do not run a second relabel there. Capture folders (`_from_*`) are skipped so a live mail pass is not stolen.
+VTA is the only writer. The laptop mount is the same VincePersonal site — verify sync; do not run a second relabel there. Capture folders (`_from_*`) are skipped so a live mail pass is not stolen. Do not run this walk to fold leftover trees.
 
 ## Harvest stamp (Title + Party/Prefix/Home)
 
@@ -40,9 +50,25 @@ python -m harness.cli.main stamp --report data/reports/stamp.json --limit 20
 python -m harness.cli.main stamp --report data/reports/stamp.json
 ```
 
-Skips `_from_*` capture, secrets, and code trees. Graph listItem fields when
-online; Office/PDF Title/Subject/Keywords on the sync-root even when Graph is
-offline (journal `columns_skipped`).
+Skips `_from_*` capture, secrets, and code trees. Walks `00`–`06` homes one
+folder at a time (the library is over the 5k view threshold; do not
+`$filter=FileLeafRef`). Leftover root trees are not folded. Graph listItem
+fields when a delegated token exists; Office/PDF Title/Subject/Keywords on
+the sync-root even when Graph is offline (journal `columns_skipped`).
+
+### Delegated Graph login (VTA, ADR 0026)
+
+First interactive login as `vince@petrasoap.com` (device-code; no pasted
+token, no app-only secret, no cookie scrape):
+
+```powershell
+python -m harness.cli.main graph-login
+```
+
+Silent cache: `data/msal_graph_cache.bin` (gitignored). Digest / relabel /
+stamp pick up `LiveGraphDriveClient` when that cache (or an Azure CLI
+session for the same UPN) exists. Scheduled jobs stay silent. Cloud Agent
+VMs stay offline unless that cache is present.
 
 Locked site-column contract: display names Party / Prefix / Home; internal
 names `OrganizerParty` / `OrganizerPrefix` / `OrganizerHome`; site columns on

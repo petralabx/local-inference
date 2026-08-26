@@ -14,4 +14,4 @@ wait until Vince is at the machine.
 
 Inference stays on Dell LiteLLM `local-driver` / `local-coder`. Paid hosts stay forbidden.
 
-Open follow-ups: TASK-1063 (every-4h after daily proof), TASK-1064 (mail remainder), TASK-1071 (relabel already-filed homes). TASK-1065, TASK-1068, and TASK-1070 (PR #32) are done.
+Open follow-ups: TASK-1063 (every-4h after daily proof), TASK-1064 (mail remainder), TASK-1071 (relabel already-filed homes — peel-first walk is in code; live VTA proof is `scripts/run-organizer-relabel.ps1 -Limit 20` then full). TASK-1065, TASK-1068, and TASK-1070 (PR #32) are done.
