@@ -205,6 +205,35 @@ def test_harvest_skips_git_code_tree(tmp_path: Path) -> None:
     journal.close()
 
 
+def test_harvest_skips_loose_code_and_expanded_secrets(tmp_path: Path) -> None:
+    root = tmp_path / "sp"
+    py = root / "04_Admin" / "tool.py"
+    npmrc = root / "04_Admin" / ".npmrc"
+    csv = root / "04_Admin" / "passwords.csv"
+    py.parent.mkdir(parents=True)
+    py.write_text("print(1)\n", encoding="utf-8")
+    npmrc.write_text("//registry", encoding="utf-8")
+    csv.write_text("password,x\n", encoding="utf-8")
+    cfg, _ = _cfg_for_root(tmp_path, root)
+    journal = ActionJournal(Path(cfg.journal_path))
+    report = run_harvest(
+        cfg=cfg,
+        journal=journal,
+        report_path=tmp_path / "loose.json",
+        graph=FakeGraphDriveClient(),
+        apply=False,
+        local_only=[
+            {"path": "04_Admin/tool.py", "size": 8},
+            {"path": "04_Admin/.npmrc", "size": 10},
+            {"path": "04_Admin/passwords.csv", "size": 12},
+        ],
+    )
+    assert report.skipped_code >= 1
+    assert report.skipped_secret >= 1
+    assert report.planned == 0
+    journal.close()
+
+
 def test_cli_harvest_refuses_dry_run_with_apply(tmp_path: Path) -> None:
     root = tmp_path / "sp"
     root.mkdir()
@@ -221,6 +250,9 @@ def test_cli_harvest_refuses_dry_run_with_apply(tmp_path: Path) -> None:
         ]
     )
     assert rc == 2
+
+
+def test_cli_harvest_help() -> None:
     import subprocess
 
     proc = subprocess.run(

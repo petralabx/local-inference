@@ -9,6 +9,7 @@ from typing import Any
 
 from harness.actions.drain import is_noise_file, is_secret_file
 from harness.actions.fold import is_code_path
+from harness.actions.inventory import _looks_like_code, _looks_like_secret
 from harness.config import HarnessConfig, load_correction_rules
 from harness.graph.drive_client import GraphConflictError, GraphDriveClient, GraphOfflineError
 from harness.graph.folder_lister import FolderLister
@@ -83,14 +84,30 @@ class HarvestReport:
         path.write_text(json.dumps(self.to_dict(), indent=2), encoding="utf-8")
 
 
-def _skip_entry(rel: str, *, exclude_globs: list[str], root: Path) -> str:
+def _skip_entry(
+    rel: str,
+    *,
+    exclude_globs: list[str],
+    root: Path,
+    extra_tokens: list[str],
+) -> str:
     path = Path(_posix(rel))
     if any(part in CAPTURE_DIR_NAMES for part in path.parts):
         return "capture"
     local = root.joinpath(*_posix(rel).split("/")) if _posix(rel) else root
-    if is_secret_file(path) or is_secret_file(local):
+    if (
+        is_secret_file(path)
+        or is_secret_file(local)
+        or _looks_like_secret(path)
+        or _looks_like_secret(local)
+    ):
         return "secret"
-    if is_code_path(local, exclude_globs, root=root) or is_code_path(path, exclude_globs, root=None):
+    if (
+        is_code_path(local, exclude_globs, root=root)
+        or is_code_path(path, exclude_globs, root=None)
+        or _looks_like_code(local, exclude_globs, extra_tokens)
+        or _looks_like_code(path, exclude_globs, extra_tokens)
+    ):
         return "code"
     if should_skip_relative(rel, exclude_globs=exclude_globs, is_dir=False):
         if path.name.lower() in HELPER_FILE_NAMES or is_noise_file(path):
@@ -206,7 +223,12 @@ def run_harvest(
         if prefixes and not any(rel == p or rel.startswith(p + "/") for p in prefixes):
             continue
         report.scanned += 1
-        reason = _skip_entry(rel, exclude_globs=cfg.exclude_globs, root=cfg.sync_root)
+        reason = _skip_entry(
+            rel,
+            exclude_globs=cfg.exclude_globs,
+            root=cfg.sync_root,
+            extra_tokens=list(cfg.skip_code_path_tokens),
+        )
         if reason == "secret":
             report.skipped_secret += 1
             _record(report, {"path": rel, "status": "skipped_secret"})
