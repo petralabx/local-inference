@@ -223,8 +223,8 @@ def main(argv: list[str] | None = None) -> int:
             _close_graph(graph)
         print(
             f"run_id={report.run_id} scanned={report.scanned} renamed={report.renamed} "
-            f"ledger_only={report.ledger_only} held={report.held} skipped={report.skipped} "
-            f"errors={report.errors}"
+            f"peeled={report.peeled} ledger_only={report.ledger_only} held={report.held} "
+            f"skipped={report.skipped} errors={report.errors}"
         )
         return 1 if report.errors else 0
 

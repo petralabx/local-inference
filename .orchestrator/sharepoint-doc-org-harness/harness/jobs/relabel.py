@@ -10,13 +10,18 @@ from typing import Any, Callable
 
 from harness.actions.drain import is_noise_file, is_secret_file
 from harness.actions.inbox import InboxSorter
-from harness.classify.router import ALLOWED_HOMES, correction_rule_rehome
+from harness.classify.router import ALLOWED_HOMES, correction_rule_rehome, match_correction_rules
 from harness.config import HarnessConfig, load_correction_rules, load_taxonomy, match_exclude
 from harness.graph.drive_client import GraphDriveClient
 from harness.identity import content_hash
-from harness.journal.store import ActionJournal
+from harness.journal.store import ActionJournal, apply_move
 from harness.ledger.documents import DocumentLedger, DocumentRecord
-from harness.naming import ORGANIZER_NAME_RE, is_organizer_name
+from harness.naming import (
+    ORGANIZER_NAME_RE,
+    is_organizer_name,
+    next_organizer_version,
+    peel_rebuild_organizer_name,
+)
 from harness.stamp.harvest import HarvestStamp
 
 CAPTURE_DIR_NAMES = {
@@ -93,6 +98,106 @@ def iter_relabel_files(root: Path, exclude_globs: list[str]) -> list[Path]:
     return files
 
 
+def prioritize_relabel_sources(
+    sources: list[Path],
+    *,
+    root: Path,
+    rules: list[dict[str, Any]],
+    ledger: DocumentLedger,
+) -> list[Path]:
+    """Law failures first so a proof --limit hits stacked leftovers, not already-law names."""
+    broken: list[Path] = []
+    rehome: list[Path] = []
+    ledger_fill: list[Path] = []
+    for src in sources:
+        if not is_organizer_name(src.name):
+            broken.append(src)
+            continue
+        if correction_rule_rehome(src, root=root, rules=rules) is not None:
+            rehome.append(src)
+            continue
+        try:
+            digest = content_hash(src)
+        except OSError:
+            continue
+        if ledger.get(digest) is None:
+            ledger_fill.append(src)
+    return broken + rehome + ledger_fill
+
+
+def _commit_relabel(
+    src: Path,
+    *,
+    dest_dir: Path,
+    candidate: str,
+    root: Path,
+    run_id: str,
+    journal: ActionJournal,
+    ledger: DocumentLedger,
+    type_by_prefix: dict[str, str],
+    stamper: HarvestStamp,
+    source: str,
+    prefix: str,
+    title: str,
+) -> Path:
+    dest_dir.mkdir(parents=True, exist_ok=True)
+    existing = {p.name for p in dest_dir.iterdir()} if dest_dir.exists() else set()
+    name = next_organizer_version(existing, candidate)
+    dest = dest_dir / name
+    while dest.exists() and dest.resolve() != src.resolve():
+        existing.add(dest.name)
+        name = next_organizer_version(existing, candidate)
+        dest = dest_dir / name
+    digest = content_hash(src)
+    if dest.resolve() != src.resolve():
+        apply_move(src, dest)
+        action = "move"
+    else:
+        action = "relabel"
+    parsed = ORGANIZER_NAME_RE.match(dest.name)
+    version = int(parsed.group("ver")) if parsed else 1
+    doc_date = parsed.group("date") if parsed else ""
+    try:
+        home = dest.relative_to(root).parts[0]
+    except ValueError:
+        home = dest_dir.parts[0] if dest_dir.parts else "00_Inbox"
+    journal.record(
+        run_id,
+        action,
+        {
+            "from": str(src),
+            "to": str(dest),
+            "sha256": digest,
+            "classification": source,
+            "prefix": prefix,
+            "title": title,
+            "doc_date": doc_date,
+            "version": version,
+        },
+    )
+    ledger.upsert(
+        DocumentRecord(
+            sha256=digest,
+            title=title,
+            prefix=prefix,
+            doc_type=type_by_prefix.get(prefix, prefix),
+            doc_date=doc_date,
+            version=version,
+            home=home,
+            current_path=str(dest),
+            source=source,
+        )
+    )
+    stamper.apply(
+        dest,
+        run_id=run_id,
+        prefix=prefix,
+        home=home,
+        title=title,
+    )
+    return dest
+
+
 @dataclass
 class RelabelReport:
     run_id: str
@@ -100,6 +205,7 @@ class RelabelReport:
     finished_at: str
     scanned: int = 0
     renamed: int = 0
+    peeled: int = 0
     ledger_only: int = 0
     held: int = 0
     skipped: int = 0
@@ -163,12 +269,51 @@ def run_relabel(
         report.finished_at = datetime.now(timezone.utc).isoformat()
         report.write(report_path)
         raise
+    sources = prioritize_relabel_sources(
+        sources, root=root, rules=rules, ledger=ledger
+    )
+    report.notes.append("peel_first=1")
     if limit is not None:
         sources = sources[: max(0, limit)]
         report.notes.append(f"limit={limit}")
     for src in sources:
         report.scanned += 1
         try:
+            if not is_organizer_name(src.name):
+                hit = match_correction_rules(src.name, rules)
+                prefix_override = None
+                if hit and hit.get("prefix"):
+                    prefix_override = str(hit.get("prefix"))
+                rebuilt = peel_rebuild_organizer_name(src.name, prefix=prefix_override)
+                if rebuilt is not None:
+                    rehome = correction_rule_rehome(src, root=root, rules=rules)
+                    dest_dir = (
+                        root / str(rehome["target_folder"]).replace("\\", "/")
+                        if rehome is not None
+                        else src.parent
+                    )
+                    parsed = ORGANIZER_NAME_RE.match(rebuilt)
+                    assert parsed is not None
+                    dest = _commit_relabel(
+                        src,
+                        dest_dir=dest_dir,
+                        candidate=rebuilt,
+                        root=root,
+                        run_id=run_id,
+                        journal=journal,
+                        ledger=ledger,
+                        type_by_prefix=type_by_prefix,
+                        stamper=stamper,
+                        source="organizer_peel",
+                        prefix=parsed.group("prefix"),
+                        title=parsed.group("title"),
+                    )
+                    report.peeled += 1
+                    if dest.resolve() != src.resolve():
+                        report.renamed += 1
+                    else:
+                        report.ledger_only += 1
+                    continue
             if is_organizer_name(src.name) and correction_rule_rehome(
                 src, root=root, rules=sorter.rules
             ) is None:

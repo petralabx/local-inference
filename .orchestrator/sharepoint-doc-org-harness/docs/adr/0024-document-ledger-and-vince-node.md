@@ -9,5 +9,9 @@ The Vince Node is a projection, not a second SoT. Each ledger upsert may ingest 
 `harness where` reads the ledger first, then the journal path trail.
 
 Already-filed homes are not picked up by digest (hash manifest). `harness relabel`
-applies the same name law and ledger write to files already in `00`–`06`. It skips
-capture folders (`_from_*`) so a live mail pass is not stolen.
+applies the same name law and ledger write to files already in `00`–`06`. Names
+that fail `is_organizer_name` (stacked dates, leftover folder prefixes, visual
+`vNN_vNN`) are peeled to a single-law name before classify. `--limit` is applied
+after that priority so a proof walk hits leftovers first. It skips capture
+folders (`_from_*`) so a live mail pass is not stolen. It does not fold leftover
+VincePersonal roots.
