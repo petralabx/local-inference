@@ -95,6 +95,25 @@ def main(argv: list[str] | None = None) -> int:
         description="Delegated MSAL device-code login for Vince Personal Graph writes.",
     )
 
+    inv = sub.add_parser(
+        "inventory",
+        help="report-only leftover document inventory (no copy/upload)",
+    )
+    inv.add_argument("--report", required=True, help="Path to write inventory JSON report")
+    inv.add_argument(
+        "--root",
+        action="append",
+        default=None,
+        help="Local root to scan (repeatable). Use machine-local leftover paths.",
+    )
+    inv.add_argument(
+        "--roots-file",
+        default=None,
+        help="YAML list of roots (config/inventory_roots.example.yaml). Merged with --root.",
+    )
+    inv.add_argument("--journal", default=None)
+    inv.add_argument("--limit", type=int, default=None, help="Max files to classify this run")
+
     args = parser.parse_args(argv)
     if args.version or args.cmd == "version":
         print(__version__)
@@ -253,6 +272,40 @@ def main(argv: list[str] | None = None) -> int:
             f"errors={report.errors}"
         )
         return 1 if report.errors else 0
+
+    if args.cmd == "inventory":
+        from harness.jobs.inventory import run_inventory
+
+        cfg = load_config(cfg_path)
+        journal_path = Path(args.journal) if args.journal else cfg.resolve_path(cfg.journal_path)
+        journal = ActionJournal(journal_path)
+        try:
+            report = run_inventory(
+                cfg=cfg,
+                journal=journal,
+                report_path=Path(args.report),
+                roots=args.root,
+                roots_file=Path(args.roots_file) if args.roots_file else None,
+                limit=args.limit,
+            )
+        except ValueError as exc:
+            print(exc)
+            return 2
+        finally:
+            journal.close()
+        print(
+            f"run_id={report.run_id} scanned={report.scanned} "
+            f"candidate_to_consume={report.candidate_to_consume} "
+            f"skip_code={report.skip_code} skip_secret={report.skip_secret} "
+            f"already_in_vince_personal={report.already_in_vince_personal} "
+            f"copied={report.copied} uploaded={report.uploaded} "
+            f"missing_roots={len(report.missing_roots)}"
+        )
+        if report.missing_roots:
+            print("missing_roots=" + ",".join(report.missing_roots))
+        if report.missing_roots and len(report.missing_roots) == len(report.roots):
+            return 1
+        return 0
 
     parser.print_help()
     return 0

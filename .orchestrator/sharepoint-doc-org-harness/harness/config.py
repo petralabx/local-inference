@@ -63,6 +63,9 @@ class HarnessConfig(BaseModel):
     drain_map_path: str = "config/drain_map.yaml"
     delete_duplicates: bool = False
     exclude_globs: list[str] = Field(default_factory=list)
+    skip_code_path_tokens: list[str] = Field(
+        default_factory=lambda: ["local-inference-canonical"]
+    )
     journal_path: str = "data/journal.sqlite3"
     taxonomy_path: str = "config/taxonomy_prefixes.yaml"
     correction_rules_path: str = "config/correction_rules.json"

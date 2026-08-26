@@ -174,6 +174,24 @@ python -m harness.cli.main drain --report data/reports/drain-archive.json --only
 python -m harness.cli.main drain --report data/reports/fold-roots.json --source-root "<VincePersonal>" --map config/legacy_roots.yaml
 ```
 
+Leftover personal-OneDrive / old Petra OneDrive / a second real Downloads /
+laptop leftovers (report-only inventory; no copy or upload). VTA Desktop,
+Documents, and Downloads already redirect into `00_Inbox/_from_*`. Pass the
+roots that still sit outside Vince Personal on the machine you are standing at.
+Laptop stays query-only for digest/drain; inventory is safe there because it
+does not mutate:
+
+```powershell
+python -m harness.cli.main inventory --report data/reports/inventory.json --root "C:\Users\vince\OneDrive" --root "C:\Users\vince\Downloads"
+python -m harness.cli.main inventory --report data/reports/inventory.json --roots-file config/inventory_roots.example.yaml
+```
+
+Hits classify as `candidate-to-consume`, `skip-code`, `skip-secret`, or
+`already-in-VincePersonal`. Code trees, secrets, and
+`C:\Users\vince\local-inference-canonical` stay off SharePoint. Files already
+under the Vince Personal sync root are `already-in-VincePersonal` — never hide
+that library. Do not run those Windows paths from a Cloud Agent VM.
+
 Hide drained Petra sources only after unique files are gone. Never hides Vince Personal:
 
 ```powershell
