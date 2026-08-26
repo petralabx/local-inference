@@ -8,6 +8,8 @@ from urllib.parse import quote
 
 import httpx
 
+from harness.graph.drive_client import GraphNotFoundError
+
 
 @dataclass(frozen=True)
 class RemoteItem:
@@ -392,6 +394,65 @@ def normalize_graph_sha256(value: str) -> str:
     if len(decoded) == 32:
         return decoded.hex()
     return raw.lower()
+
+
+def listing_from_graph_children(folder_rel: str, rows: list[dict[str, Any]]) -> FolderListing:
+    """Map Graph /children rows onto FolderListing. Empty folder/file dicts are truthy via `in`."""
+    rel = posix_rel(folder_rel)
+    files: list[RemoteItem] = []
+    folders: list[RemoteItem] = []
+    for row in rows:
+        name = str(row.get("name") or "")
+        if not name:
+            continue
+        child = child_rel(rel, name)
+        if "folder" in row:
+            folders.append(
+                RemoteItem(
+                    relative_path=child,
+                    name=name,
+                    is_folder=True,
+                    item_id=str(row["id"]) if row.get("id") else None,
+                )
+            )
+            continue
+        file_meta = row.get("file") or {}
+        hashes = file_meta.get("hashes") or {}
+        sha = hashes.get("sha256Hash") or hashes.get("sha256")
+        files.append(
+            RemoteItem(
+                relative_path=child,
+                name=name,
+                is_folder=False,
+                size=int(row["size"]) if row.get("size") is not None else None,
+                sha256=normalize_graph_sha256(sha) if sha else None,
+                item_id=str(row["id"]) if row.get("id") else None,
+            )
+        )
+    return FolderListing(files=files, folders=folders)
+
+
+class LiveGraphFolderLister:
+    """FolderLister adapter over LiveGraphDriveClient (MSAL token + drive id)."""
+
+    backend = "graph"
+
+    def __init__(self, client: Any) -> None:
+        self.client = client
+        self.calls: list[str] = []
+
+    def list_children(self, folder_rel: str) -> FolderListing:
+        rel = posix_rel(folder_rel)
+        self.calls.append(rel)
+        try:
+            rows = self.client.list_folder_children(rel)
+        except GraphNotFoundError:
+            return FolderListing(missing=True)
+        return listing_from_graph_children(rel, rows)
+
+
+def lister_from_live_client(client: Any) -> LiveGraphFolderLister:
+    return LiveGraphFolderLister(client)
 
 
 def build_live_lister(

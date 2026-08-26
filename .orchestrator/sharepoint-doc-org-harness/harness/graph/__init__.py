@@ -1,6 +1,8 @@
 from harness.graph.drive_client import (
     FakeGraphDriveClient,
+    GraphConflictError,
     GraphDriveClient,
+    GraphNotFoundError,
     GraphOfflineError,
     OrganizerColumn,
     ORGANIZER_COLUMNS,
@@ -12,6 +14,7 @@ from harness.graph.folder_lister import (
     FolderLister,
     FolderListing,
     GraphDriveFolderLister,
+    LiveGraphFolderLister,
     RemoteItem,
     SharePointRestFolderLister,
 )
@@ -23,8 +26,11 @@ __all__ = [
     "FakeSharePointRestLister",
     "FolderLister",
     "FolderListing",
+    "GraphConflictError",
     "GraphDriveClient",
     "GraphDriveFolderLister",
+    "LiveGraphFolderLister",
+    "GraphNotFoundError",
     "GraphOfflineError",
     "LiveGraphDriveClient",
     "OrganizerColumn",

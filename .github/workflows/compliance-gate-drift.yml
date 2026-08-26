@@ -40,6 +40,7 @@ jobs:
           done
           [ -n "$ok" ] || { echo "::error::could not fetch the pinned generator from $url"; exit 1; }
           python3 /tmp/generate-compliance-gate.py --emit downstream > /tmp/expected-gate.yml
+          python3 scripts/overlay-compliance-gate-dispatch.py /tmp/expected-gate.yml
           if ! diff -u "$GATE_FILE" /tmp/expected-gate.yml; then
             echo "::error::Compliance gate drift — $GATE_FILE no longer matches the PLX_MC source (pinned ${GEN_SHA})."
             echo "Fix: regenerate from PLX_MC, or bump GEN_SHA if the source changed intentionally."
