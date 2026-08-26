@@ -15,6 +15,7 @@ from harness.naming import (
     next_free_name,
     next_organizer_version,
     peel_organizer_title,
+    peel_rebuild_organizer_name,
 )
 
 
@@ -135,6 +136,44 @@ def test_cutover_organizer_rejects_folder_prefix_and_space_version() -> None:
     assert again == clean
     assert not is_organizer_name("2026-08-18_PERSONAL_Vacation Photos_v01.jpg")
     assert is_organizer_name("2026-08-18_IRAP_Application_v01.pdf")
+    personal = peel_rebuild_organizer_name("2026-08-18_PERSONAL_Vacation Photos_v01.jpg")
+    assert personal == "2026-08-18_GEN_Vacation Photos_v01.jpg"
+    assert is_organizer_name(personal)
+    ops = peel_rebuild_organizer_name("2026-08-18_BUSINESS_OPS_Vendor Invoice_v01_v01.pdf")
+    assert ops == "2026-08-18_GEN_Vendor Invoice_v01.pdf"
+    assert is_organizer_name(ops)
+    assert "BUSINESS_OPS" not in ops
+    stacked = (
+        "2026-08-18_INV_2026-08-18_01_CLIENTS_PROJECTS_"
+        "Happy Yards Garden Clean Up Quote_v01_v01.pdf"
+    )
+    peeled = peel_rebuild_organizer_name(stacked)
+    assert peeled == "2026-08-18_INV_Happy Yards Garden Clean Up Quote_v01.pdf"
+    assert is_organizer_name(peeled)
+    assert peel_rebuild_organizer_name("trafilea-order.pdf") is None
+    q4 = "2026-08-18_INV_Q4_Report_v01.pdf"
+    po = "2026-08-18_GEN_PO_12345_v01.pdf"
+    assert peel_organizer_title("Q4_Report") == "Q4_Report"
+    assert peel_organizer_title("PO_12345") == "PO_12345"
+    assert is_organizer_name(q4)
+    assert is_organizer_name(po)
+    assert peel_rebuild_organizer_name(q4) == q4
+    assert peel_rebuild_organizer_name(po) == po
+    sop = "2026-08-18_GEN_SOP_Template_v01.docx"
+    assert peel_organizer_title("SOP_Template") == "SOP_Template"
+    assert is_organizer_name(sop)
+    assert peel_rebuild_organizer_name(sop) == sop
+    unknown_outer = (
+        "2026-08-18_ABC_2026-08-17_INV_Project Brief_v01_v01.pdf"
+    )
+    assert not is_organizer_name(unknown_outer)
+    rebuilt_unknown = peel_rebuild_organizer_name(unknown_outer)
+    assert rebuilt_unknown == "2026-08-18_INV_Project Brief_v01.pdf"
+    assert is_organizer_name(rebuilt_unknown)
+    stacked_q4 = "2026-08-18_INV_2026-08-17_Q4_Report_v01_v01.pdf"
+    stacked_po = "2026-08-18_GEN_2026-08-17_PO_12345_v01_v01.pdf"
+    assert peel_rebuild_organizer_name(stacked_q4) == "2026-08-18_INV_Q4_Report_v01.pdf"
+    assert peel_rebuild_organizer_name(stacked_po) == "2026-08-18_GEN_PO_12345_v01.pdf"
 
 
 def test_cutover_organizer_keeps_date_in_middle_of_words() -> None:

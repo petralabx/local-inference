@@ -12,6 +12,8 @@ Do not treat this as automated acceptance. Run after Graph delegated auth is rea
 8. [ ] Mail: ensure folder/rule against test mailbox; one attachment lands in inbox
 9. [ ] Install Task Scheduler job per `docs/ops.md`; laptop stays query-only
 10. [ ] Confirm `delete_duplicates: false` until Vince enables deletes
+11. [ ] On VTA, `python -m harness.cli.main graph-login` as `vince@petrasoap.com`, then `harness stamp --limit 20` writes Party/Prefix/Home (folder walk; no FileLeafRef filter)
+12. [ ] On VTA only: `harness sync-audit --dry-run` — inspect `data/reports/sync-audit.json` for local-only / server-only / path mismatches. Cloud VMs cannot see the sync root.
 
 ## Promotion to standalone repo
 

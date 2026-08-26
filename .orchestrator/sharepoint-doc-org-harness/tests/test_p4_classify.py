@@ -14,7 +14,7 @@ from harness.classify.router import (
 )
 from harness.config import PACKAGE_ROOT, load_correction_rules
 from harness.extract.pipeline import extract_text
-from harness.naming import is_compliant
+from harness.naming import is_compliant, is_organizer_name
 
 
 FIXTURE = PACKAGE_ROOT / "tests" / "fixtures" / "extract" / "sample_invoice.txt"
@@ -98,6 +98,29 @@ def test_llm_folder_prefix_maps_to_gen() -> None:
     assert c.source == "llm"
     assert c.prefix == "GEN"
     assert c.suggested_name == "2026-08-18_GEN_Atomic Reseller Agreement_v01.docx"
+
+
+def test_correction_rule_peels_stacked_happy_yards_title() -> None:
+    rules = load_correction_rules(PACKAGE_ROOT / "config" / "correction_rules.json")
+    stacked = Path(
+        "2026-08-18_INV_2026-08-18_01_CLIENTS_PROJECTS_"
+        "Happy Yards Garden Clean Up Quote_v01_v01.pdf"
+    )
+    c = classify_file(
+        path=stacked,
+        text="",
+        rules=rules,
+        litellm_base_url="http://100.103.33.54:4000/v1",
+        model="local-fast",
+        forbid_host_substrings=["api.openai.com"],
+        organizer_names=True,
+        llm_caller=lambda **kw: (_ for _ in ()).throw(AssertionError("llm should not run")),
+    )
+    assert c.source == "correction_rule"
+    assert c.prefix == "INV"
+    assert c.description == "Happy Yards Garden Clean Up Quote"
+    assert c.suggested_name == "2026-08-18_INV_Happy Yards Garden Clean Up Quote_v01.pdf"
+    assert is_organizer_name(c.suggested_name)
 
 
 def test_missing_master_key_is_fail_visible(monkeypatch: pytest.MonkeyPatch) -> None:

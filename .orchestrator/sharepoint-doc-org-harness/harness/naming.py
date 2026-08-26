@@ -157,21 +157,110 @@ def readable_title_from_filename(name: str) -> str:
     return peel_organizer_title(stem) or stem or "Untitled"
 
 
+def _leading_prefix_token(text: str) -> str | None:
+    match = _LEADING_PREFIX_RE.match(text)
+    if not match:
+        return None
+    return match.group(0).rstrip("_")
+
+
+def _remainder_is_stacked(remainder: str) -> bool:
+    if not remainder:
+        return False
+    if _LEADING_DATE_RE.match(remainder):
+        return True
+    if _LEADING_FOLDER_RE.match(remainder):
+        return True
+    if _LEADING_NUMBERED_HOME_RE.match(remainder):
+        return True
+    token = _leading_prefix_token(remainder)
+    return bool(token and token in known_organizer_prefixes())
+
+
+def last_known_organizer_prefix(name: str) -> str | None:
+    """Last taxonomy/correction-rule PREFIX glued into a stacked filename."""
+    known = known_organizer_prefixes()
+    found: str | None = None
+    for match in re.finditer(r"(?:^|_)([A-Z][A-Z0-9]{1,7})_", name):
+        token = match.group(1)
+        if token in known:
+            found = token
+    return found
+
+
 def peel_organizer_title(title: str) -> str:
     """Strip stacked law wrappers, keeping the readable title (spaces preserved)."""
     text = title
     if _LEADING_DATE_RE.match(text) or _TRAILING_VERSION_RE.search(text):
         text = _FILENAME_EXT_RE.sub("", text)
+    after_date = False
     for _ in range(32):
-        nxt = _LEADING_DATE_RE.sub("", text, count=1)
-        nxt = _LEADING_PREFIX_RE.sub("", nxt, count=1)
-        nxt = _LEADING_FOLDER_RE.sub("", nxt, count=1)
-        nxt = _LEADING_NUMBERED_HOME_RE.sub("", nxt, count=1)
+        nxt = text
+        if _LEADING_DATE_RE.match(nxt):
+            nxt = _LEADING_DATE_RE.sub("", nxt, count=1)
+            after_date = True
+        # Folder tokens before taxonomy PREFIX so BUSINESS_OPS / PERSONAL
+        # are not split into a fake prefix plus an OPS_ leftover.
+        folded = _LEADING_FOLDER_RE.sub("", nxt, count=1)
+        if folded != nxt:
+            nxt = folded
+            after_date = False
+        if after_date:
+            token = _leading_prefix_token(nxt)
+            if token is not None:
+                remainder = nxt[len(token) + 1 :]
+                # Known PREFIX is the law slot (INV_Project Brief). Unknown
+                # tokens stay unless the remainder is still a stacked wrapper
+                # (ABC_2026-08-17_INV_... or ABC_01_CLIENTS_PROJECTS_...).
+                if token in known_organizer_prefixes() or _remainder_is_stacked(
+                    remainder
+                ):
+                    nxt = remainder
+                    after_date = False
+        numbered = _LEADING_NUMBERED_HOME_RE.sub("", nxt, count=1)
+        if numbered != nxt:
+            nxt = numbered
+            after_date = False
         nxt = _TRAILING_VERSION_RE.sub("", nxt, count=1)
         if nxt == text:
             break
         text = nxt
     return text.strip(" _")
+
+
+def peel_rebuild_organizer_name(name: str, *, prefix: str | None = None) -> str | None:
+    """Rebuild a law-shaped (possibly stacked) filename to a single-law name.
+
+    Returns None when the name is not law-shaped, so callers can fall through
+    to classify. Correction-rule prefix, when provided, wins over the token
+    glued into the filename.
+    """
+    parsed = ORGANIZER_NAME_RE.match(name)
+    if parsed is None:
+        return None
+    when = date.fromisoformat(parsed.group("date"))
+    parsed_prefix = parsed.group("prefix")
+    if prefix is not None:
+        raw_prefix = prefix
+    elif parsed_prefix in known_organizer_prefixes():
+        raw_prefix = parsed_prefix
+    else:
+        raw_prefix = last_known_organizer_prefix(name) or parsed_prefix
+    # Peel the full filename so a folder token that spans the regex
+    # prefix/title split (BUSINESS_OPS) is removed as one leftover.
+    title = peel_organizer_title(name)
+    if not title:
+        title = peel_organizer_title(parsed.group("title")) or "Untitled"
+    rebuilt = build_organizer_name(
+        when=when,
+        prefix=raw_prefix,
+        title=title,
+        version=int(parsed.group("ver")),
+        ext=parsed.group("ext"),
+    )
+    if not is_organizer_name(rebuilt):
+        return None
+    return rebuilt
 
 
 def build_organizer_name(
