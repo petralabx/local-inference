@@ -40,9 +40,7 @@ jobs:
           done
           [ -n "$ok" ] || { echo "::error::could not fetch the pinned generator from $url"; exit 1; }
           python3 /tmp/generate-compliance-gate.py --emit downstream > /tmp/expected-gate.yml
-          # Local overlay: workflow_dispatch so CIP can gh-workflow-run the
-          # compliance gate when pull_request jobs ghost (queued / startup_failure).
-          python3 -c "from pathlib import Path; import sys; p=Path('/tmp/expected-gate.yml'); t=p.read_text(); n='on:\n  pull_request:\n    types: [opened, synchronize, reopened]\n'; i=n+'  workflow_dispatch:\n'; sys.exit('generator trigger block changed; update drift overlay') if n not in t else p.write_text(t.replace(n, i, 1))"
+          python3 scripts/overlay-compliance-gate-dispatch.py /tmp/expected-gate.yml
           if ! diff -u "$GATE_FILE" /tmp/expected-gate.yml; then
             echo "::error::Compliance gate drift — $GATE_FILE no longer matches the PLX_MC source (pinned ${GEN_SHA})."
             echo "Fix: regenerate from PLX_MC, or bump GEN_SHA if the source changed intentionally."
