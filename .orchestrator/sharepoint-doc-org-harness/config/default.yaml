@@ -34,9 +34,23 @@ exclude_globs:
   - "**/agentic-swarm/**"
   - "**/agentic-swarm-*/**"
   - "**/.venv/**"
+  - "**/local-inference-canonical/**"
   - "**/$RECYCLE.BIN/**"
   - "**/System Volume Information/**"
+
+skip_code_path_tokens:
+  - "local-inference-canonical"
 
 journal_path: "data/journal.sqlite3"
 taxonomy_path: "config/taxonomy_prefixes.yaml"
 correction_rules_path: "config/correction_rules.json"
+
+# Delegated Graph (ADR 0026). No client secret. Token cache stays untracked.
+graph:
+  enabled: true
+  site_url: "https://petrasoap.sharepoint.com/sites/VincePersonal"
+  library: "Documents"
+  tenant_id: "organizations"
+  client_id: "14d82eec-204b-4c2f-b7e8-296a70dab67e"
+  cache_path: "data/msal_graph_cache.bin"
+  upn: "vince@petrasoap.com"

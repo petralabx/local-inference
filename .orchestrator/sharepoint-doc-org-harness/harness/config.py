@@ -25,6 +25,25 @@ class LiteLLMConfig(BaseModel):
         return v
 
 
+# Microsoft Graph Command Line Tools — first-party public client. Delegated
+# only (ADR 0026). Never an app-only secret.
+GRAPH_PUBLIC_CLIENT_ID = "14d82eec-204b-4c2f-b7e8-296a70dab67e"
+GRAPH_DEFAULT_SITE_URL = "https://petrasoap.sharepoint.com/sites/VincePersonal"
+GRAPH_DEFAULT_UPN = "vince@petrasoap.com"
+
+
+class GraphConfig(BaseModel):
+    """Delegated Graph surface for Vince Personal list-item stamps."""
+
+    enabled: bool = True
+    site_url: str = GRAPH_DEFAULT_SITE_URL
+    library: str = "Documents"
+    tenant_id: str = "organizations"
+    client_id: str = GRAPH_PUBLIC_CLIENT_ID
+    cache_path: str = "data/msal_graph_cache.bin"
+    upn: str = GRAPH_DEFAULT_UPN
+
+
 class HarnessConfig(BaseModel):
     sharepoint_sync_root: str
     inbox_rel: str = "00_Inbox"
@@ -44,9 +63,13 @@ class HarnessConfig(BaseModel):
     drain_map_path: str = "config/drain_map.yaml"
     delete_duplicates: bool = False
     exclude_globs: list[str] = Field(default_factory=list)
+    skip_code_path_tokens: list[str] = Field(
+        default_factory=lambda: ["local-inference-canonical"]
+    )
     journal_path: str = "data/journal.sqlite3"
     taxonomy_path: str = "config/taxonomy_prefixes.yaml"
     correction_rules_path: str = "config/correction_rules.json"
+    graph: GraphConfig = Field(default_factory=GraphConfig)
 
     @property
     def ceiling_enabled(self) -> bool:

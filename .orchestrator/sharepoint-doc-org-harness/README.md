@@ -20,11 +20,21 @@ python -m pytest -q
 ```bash
 python -m harness.cli.main version
 python -m harness.cli.main digest --dry-run --report data/reports/digest.json
+python -m harness.cli.main graph-login
+python -m harness.cli.main relabel --report data/reports/relabel.json --limit 20
 python -m harness.cli.main stamp --report data/reports/stamp.json --limit 20
+python -m harness.cli.main inventory --report data/reports/inventory.json --root "<leftover-root>"
 python -m harness.cli.main sync-audit --dry-run
 python -m harness.cli.main where --name trafilea
 python -m harness.cli.main reverse --run-id <id>
 ```
+
+`inventory` is report-only: it classifies leftover local files (`candidate-to-consume`,
+`skip-code`, `skip-secret`, `already-in-VincePersonal`) and writes JSON for a later
+digest/fold. It does not copy or upload. Pass `--root` (repeatable) and/or
+`--roots-file config/inventory_roots.example.yaml` for the machine you are on.
+Do not scan real VTA paths from a Cloud Agent VM. Code trees, secrets, and
+`local-inference-canonical` stay off SharePoint. Never hide Vince Personal.
 
 `sync-audit` is report-only (no upload, rename, or stamp). Dry-run walks local +
 SharePoint folder-by-folder and writes `data/reports/sync-audit.json`. The cloud
