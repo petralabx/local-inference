@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Iterator
 from dataclasses import dataclass, field
 from typing import Protocol
 
@@ -108,3 +109,15 @@ class FakeGraphDriveClient:
         current = dict(self.item_fields.get(item_path) or {})
         current.update({k: str(v) for k, v in fields.items()})
         self.item_fields[item_path] = current
+
+    def walk_folder(self, folder_path: str = "") -> Iterator[str]:
+        """Yield known item paths under one folder. No FileLeafRef $filter."""
+        self._require_online()
+        prefix = folder_path.replace("\\", "/").rstrip("/")
+        for item_path in sorted(self.item_fields):
+            norm = item_path.replace("\\", "/")
+            if not prefix:
+                yield item_path
+                continue
+            if norm == prefix or norm.startswith(prefix + "/"):
+                yield item_path

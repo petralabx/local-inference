@@ -246,6 +246,34 @@ def test_party_from_rule_else_conservative_empty() -> None:
     )
 
 
+def test_stamp_folder_walk_does_not_fold_leftover_trees(tmp_path: Path) -> None:
+    root = tmp_path / "sp"
+    home = root / "02_Business_Ops"
+    leftover = root / "artifacts"
+    home.mkdir(parents=True)
+    leftover.mkdir(parents=True)
+    keep = home / "2026-08-18_GEN_Alpha Memo_v01.pdf"
+    skip = leftover / "2026-08-18_GEN_Should Skip Leftover_v01.pdf"
+    keep.write_bytes(b"alpha")
+    skip.write_bytes(b"nope")
+    cfg = _cfg_for_root(tmp_path, root)
+    journal = ActionJournal(Path(cfg.journal_path))
+    graph = FakeGraphDriveClient()
+    report = run_stamp(
+        cfg=cfg,
+        journal=journal,
+        report_path=tmp_path / "stamp-leftover.json",
+        graph=graph,
+    )
+    assert keep.exists() and keep.name == "2026-08-18_GEN_Alpha Memo_v01.pdf"
+    assert skip.exists() and skip.name == "2026-08-18_GEN_Should Skip Leftover_v01.pdf"
+    assert str(keep) in graph.item_fields
+    assert str(skip) not in graph.item_fields
+    assert all("artifacts" not in Path(p).parts for p in graph.item_fields)
+    assert report.stamped >= 1
+    journal.close()
+
+
 def test_docs_name_locked_column_contract_and_copilot_constraints() -> None:
     adr = (PACKAGE_ROOT / "docs" / "adr" / "0025-sharepoint-columns-are-a-projection.md").read_text(
         encoding="utf-8"
