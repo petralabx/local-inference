@@ -65,6 +65,7 @@ PowerShell operators: `scripts/health_check_local_inference.ps1`.
 ## Audit / data boundary
 
 - No vendor API keys in this repo — local proxy master key only (`.env.local`).
+- LiteLLM traces to self-hosted Langfuse on Dell `:3100` via `callbacks: ["langfuse_otel"]`. Keys stay in gitignored `.env.langfuse` / `.env.local`.
 - Do not commit `.env*`, secrets, or live master keys.
 - Orchestrator evidence under `.orchestrator/` is committed intentionally, not by default.
 - Develop on feature branches in `petralabx/local-inference`; direct pushes to

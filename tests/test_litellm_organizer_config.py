@@ -27,6 +27,10 @@ class LiteLLMOrganizerConfigTests(unittest.TestCase):
         self.assertIn("allow_requests_on_db_unavailable: true", self.text)
         self.assertIn("background_health_checks: false", self.text)
 
+    def test_langfuse_otel_callback_is_wired(self):
+        self.assertIn('callbacks: ["langfuse_otel"]', self.text)
+        self.assertNotRegex(self.text, r"(?m)^\s*success_callback:")
+
 
 if __name__ == "__main__":
     unittest.main()

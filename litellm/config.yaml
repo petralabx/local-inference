@@ -30,6 +30,10 @@ litellm_settings:
   num_retries: 1
   # Do not background-probe Dell :8000 / Spark from the proxy process.
   background_health_checks: false
+  # Self-hosted Langfuse on Dell :3100. Keys + LANGFUSE_OTEL_HOST come from
+  # gitignored .env.langfuse / .env.local (loaded by start_proxy.sh). Never
+  # Langfuse Cloud; do not use legacy success_callback: ["langfuse"].
+  callbacks: ["langfuse_otel"]
 
 general_settings:
   # Master key is read from the environment (LOCAL_LITELLM_MASTER_KEY in
