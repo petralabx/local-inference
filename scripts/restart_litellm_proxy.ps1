@@ -8,14 +8,32 @@ if (-not (Test-Path $repo)) {
     throw "Missing repo root: $repo"
 }
 
+function Import-LiteLlmDotEnv {
+    param([string]$Path)
+    if (-not (Test-Path $Path)) { return }
+    Get-Content $Path | ForEach-Object {
+        $line = $_.Trim()
+        if (-not $line -or $line.StartsWith("#") -or $line -notmatch "=") { return }
+        $name, $value = $line -split "=", 2
+        $name = $name.Trim()
+        $value = $value.Trim().Trim('"').Trim("'")
+        if ($name) {
+            Set-Item -Path "Env:$name" -Value $value
+        }
+    }
+}
+
+# Langfuse keys stay in gitignored .env.langfuse / .env.local. Do not Write-Host them.
+Import-LiteLlmDotEnv (Join-Path $repo ".env.langfuse")
 $envFile = Join-Path $repo ".env.local"
 if (-not (Test-Path $envFile)) {
     throw "Missing $envFile"
 }
+Import-LiteLlmDotEnv $envFile
 
-$keyLine = Get-Content $envFile | Where-Object { $_ -match '^\s*LOCAL_LITELLM_MASTER_KEY=' } | Select-Object -First 1
-if (-not $keyLine) { throw "LOCAL_LITELLM_MASTER_KEY not in .env.local" }
-$key = ($keyLine -split '=', 2)[1].Trim()
+if (-not $env:LOCAL_LITELLM_MASTER_KEY) { throw "LOCAL_LITELLM_MASTER_KEY not in .env.local" }
+$key = $env:LOCAL_LITELLM_MASTER_KEY
+if (-not $env:LANGFUSE_OTEL_HOST) { $env:LANGFUSE_OTEL_HOST = "http://127.0.0.1:3100" }
 
 Write-Host "Stopping existing LiteLLM on port 4000..."
 Get-NetTCPConnection -LocalPort 4000 -ErrorAction SilentlyContinue |

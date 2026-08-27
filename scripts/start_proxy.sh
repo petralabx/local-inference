@@ -8,8 +8,14 @@ export PYTHONUTF8=1
 export NO_COLOR=1
 
 set -a
+[ ! -f .env.langfuse ] || . ./.env.langfuse
 [ ! -f .env.local ] || . ./.env.local
 set +a
+
+# Self-hosted Langfuse on Dell :3100. LiteLLM defaults to US cloud if this is
+# unset after keys load — never let traces leave the tower.
+: "${LANGFUSE_OTEL_HOST:=http://127.0.0.1:3100}"
+export LANGFUSE_OTEL_HOST
 
 HOST_BIND="${LITELLM_HOST:-0.0.0.0}"
 PORT="${LITELLM_PORT:-4000}"
