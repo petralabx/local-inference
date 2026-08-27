@@ -5,8 +5,6 @@ import subprocess
 import unittest
 from pathlib import Path
 
-import yaml
-
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 CONFIG = REPO_ROOT / "litellm" / "config.yaml"
@@ -27,7 +25,6 @@ class LangfuseOtelWiringTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.config = CONFIG.read_text(encoding="utf-8")
-        cls.parsed = yaml.safe_load(cls.config)
         cls.start_proxy = START_PROXY.read_text(encoding="utf-8")
         cls.restart_proxy = RESTART_PROXY.read_text(encoding="utf-8")
         cls.ensure_proxy = ENSURE_PROXY.read_text(encoding="utf-8")
@@ -35,24 +32,14 @@ class LangfuseOtelWiringTests(unittest.TestCase):
         cls.env_example = ENV_EXAMPLE.read_text(encoding="utf-8")
 
     def test_live_config_uses_langfuse_otel_callback_only(self):
-        settings = self.parsed["litellm_settings"]
-        self.assertEqual(settings.get("callbacks"), ["langfuse_otel"])
-        self.assertNotIn("success_callback", settings)
+        self.assertRegex(self.config, r'(?m)^\s*callbacks:\s*\["langfuse_otel"\]\s*$')
         self.assertNotRegex(self.config, r"(?m)^\s*success_callback:")
 
     def test_live_config_does_not_hardcode_langfuse_secrets_or_host(self):
-        settings = self.parsed["litellm_settings"]
-        general = self.parsed["general_settings"]
-        for key in (
-            "LANGFUSE_PUBLIC_KEY",
-            "LANGFUSE_SECRET_KEY",
-            "LANGFUSE_OTEL_HOST",
-            "langfuse_public_key",
-            "langfuse_secret_key",
-            "langfuse_otel_host",
-        ):
-            self.assertNotIn(key, settings)
-            self.assertNotIn(key, general)
+        self.assertNotRegex(
+            self.config,
+            r"(?m)^\s*(LANGFUSE_PUBLIC_KEY|LANGFUSE_SECRET_KEY|LANGFUSE_OTEL_HOST|langfuse_public_key|langfuse_secret_key|langfuse_otel_host)\s*:",
+        )
         self.assertNotRegex(self.config, r"pk-lf-|sk-lf-")
         lowered = self.config.lower()
         for host in CLOUD_HOSTS:
