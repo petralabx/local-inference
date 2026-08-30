@@ -23,13 +23,20 @@ folder for LLM/heuristic names; a correction-rule match still rehomes.
 Already-filed homes with no rule hit stay on the hash/ledger skip unless the
 filename fails `is_organizer_name` (stacked dates, leftover folder prefixes
 such as `01_CLIENTS_PROJECTS` / `BUSINESS_OPS` / `PERSONAL`, or visual
-`vNN_vNN`). Those law failures are peeled first — `peel_organizer_title` plus
-`normalize_organizer_prefix` — with no model call. Correction rules stay
-first-class for prefix and rehome. Relabel does not walk leftover VincePersonal
-roots (`artifacts`, `Projects`, …) and still skips secrets and code trees.
+`vNN_vNN`) or the peeled title is missing an entity or a topic. A single
+generic word (`Untitled`, `Document`, `Scan`, `File`, `Image`) or a topic-only
+title (`Invoice`, `Contract`) is a miss and is re-picked. The title slot is
+always `Entity Topic` (Happy Yards Invoice, K18 Stability Quote); PREFIX stays
+the taxonomy code. If the entity cannot be named, hold in
+`00_Inbox/_Unsorted_Imports` — do not invent a party. OrganizerParty equals
+that entity. Stacked law failures with a good Entity Topic title are still
+peeled first — `peel_organizer_title` plus `normalize_organizer_prefix` — with
+no model call. Correction rules stay first-class for prefix, optional party,
+and rehome. Relabel does not walk leftover VincePersonal roots (`artifacts`,
+`Projects`, …) and still skips secrets and code trees.
 
 `--limit` applies after that priority, so a proof walk spends its budget on
-stacked leftovers, not on already-law files from the H3 GEN rerun.
+stacked leftovers, then weak titles, not on already-law Entity Topic files.
 
 Proof (VTA only), then full:
 

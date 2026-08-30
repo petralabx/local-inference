@@ -245,6 +245,30 @@ def test_party_from_rule_else_conservative_empty() -> None:
         )
         == ""
     )
+    assert (
+        party_for_document(
+            filename="2026-08-18_PRO_K18 Stability Quote_v01.pdf",
+            title="K18 Stability Quote",
+            rules=rules,
+        )
+        == "K18"
+    )
+    assert (
+        party_for_document(
+            filename="2026-08-18_GEN_CRA Notice of Assessment_v01.pdf",
+            title="CRA Notice of Assessment",
+            rules=[],
+        )
+        == "CRA"
+    )
+    assert (
+        party_for_document(
+            filename="2026-08-18_CTR_HR Employee Contract_v01.pdf",
+            title="HR Employee Contract",
+            rules=[],
+        )
+        == "HR"
+    )
 
 
 def test_stamp_folder_walk_does_not_fold_leftover_trees(tmp_path: Path) -> None:
