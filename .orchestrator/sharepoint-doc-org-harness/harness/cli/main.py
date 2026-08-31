@@ -81,6 +81,12 @@ def main(argv: list[str] | None = None) -> int:
     rel.add_argument("--report", required=True, help="Path to write relabel JSON report")
     rel.add_argument("--journal", default=None)
     rel.add_argument("--limit", type=int, default=None, help="Max files this run")
+    rel.add_argument(
+        "--only",
+        action="append",
+        default=None,
+        help="Home folder to relabel (repeatable), e.g. 05_Personal. Default: 00-06.",
+    )
 
     stmp = sub.add_parser(
         "stamp",
@@ -94,6 +100,29 @@ def main(argv: list[str] | None = None) -> int:
         action="append",
         default=None,
         help="Home folder to stamp (repeatable), e.g. 05_Personal. Default: 00-06.",
+    )
+    stmp.add_argument(
+        "--backfill",
+        action="store_true",
+        help="Retry journal stamp 404s by current path or Graph item id. No rename.",
+    )
+
+    uns = sub.add_parser(
+        "unstall",
+        help="decide whether a harvest/relabel report is DONE or should restart remaining homes",
+    )
+    uns.add_argument("--report", required=True, help="Existing harvest/relabel JSON report")
+    uns.add_argument(
+        "--pid",
+        type=int,
+        default=None,
+        help="Writer pid. Omit or dead pid + unfinished report = restart remaining homes.",
+    )
+    uns.add_argument(
+        "--next-homes",
+        action="append",
+        default=None,
+        help="Homes to advance to after a completed pass (repeatable).",
     )
 
     sub.add_parser(
@@ -345,6 +374,7 @@ def main(argv: list[str] | None = None) -> int:
                 journal=journal,
                 report_path=Path(args.report),
                 limit=args.limit,
+                only=args.only,
                 graph=graph,
             )
         finally:
@@ -355,6 +385,9 @@ def main(argv: list[str] | None = None) -> int:
             f"peeled={report.peeled} ledger_only={report.ledger_only} held={report.held} "
             f"skipped={report.skipped} errors={report.errors}"
         )
+        if report.held_reasons:
+            hist = ",".join(f"{k}={v}" for k, v in sorted(report.held_reasons.items()))
+            print(f"held_reasons={hist}")
         return 1 if report.errors else 0
 
     if args.cmd == "stamp":
@@ -371,6 +404,7 @@ def main(argv: list[str] | None = None) -> int:
                 report_path=Path(args.report),
                 limit=args.limit,
                 only=args.only,
+                backfill=bool(args.backfill),
                 graph=graph,
             )
         finally:
@@ -565,6 +599,30 @@ def main(argv: list[str] | None = None) -> int:
             f"errors={report.errors}"
         )
         return 1 if report.errors else 0
+
+    if args.cmd == "unstall":
+        from harness.jobs.home_lock import pid_is_alive
+        from harness.jobs.pass_status import decide_pass, load_pass_report
+
+        report = load_pass_report(Path(args.report))
+        pid_alive = None
+        if args.pid is not None:
+            pid_alive = pid_is_alive(int(args.pid))
+        decision = decide_pass(
+            report=report,
+            pid_alive=pid_alive,
+            next_homes=args.next_homes,
+        )
+        print(
+            f"action={decision.action} reason={decision.reason} "
+            f"homes={','.join(decision.homes) or '-'} "
+            f"completed={','.join(decision.completed_homes) or '-'}"
+        )
+        if decision.action == "running":
+            return 4
+        if decision.action == "restart":
+            return 3
+        return 0
 
     parser.print_help()
     return 0

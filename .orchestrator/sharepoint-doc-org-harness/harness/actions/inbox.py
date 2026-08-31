@@ -148,13 +148,15 @@ class InboxSorter:
             and classification.confidence < 0.5
             and classification.source != "correction_rule"
         ):
-            return SortResult(src, None, "held", run_id, "low confidence")
+            return SortResult(src, None, "held", run_id, "low_confidence")
 
         # keep_folder is for LLM/heuristic relabel-in-place. A correction-rule
         # home always wins, including the stock relabel job. Unknown entity
         # holds in 00_Inbox/_Unsorted_Imports — do not invent a party.
+        hold_reason = ""
         if unknown_entity:
             dest_dir = self.root / UNSORTED_FOLDER
+            hold_reason = "unknown_entity"
         elif keep_folder and classification.source != "correction_rule":
             dest_dir = src.parent
         else:
@@ -179,6 +181,8 @@ class InboxSorter:
             existing.add(dest.name)
             name = namer(existing, candidate)
             dest = dest_dir / name
+        item_id = _graph_item_id(self.stamper, src)
+        previous_path = str(src)
         if dest.resolve() != src.resolve():
             apply_move(src, dest)
             action = "move"
@@ -230,10 +234,30 @@ class InboxSorter:
                 home=home,
                 title=classification.description,
                 party=classification.entity or None,
+                item_id=item_id,
+                previous_path=previous_path,
             )
             if stamped.sha256_after:
                 filed_hash = stamped.sha256_after
         self._processed.discard(digest)
         self._processed.add(filed_hash)
         self._save_manifest()
-        return SortResult(src, dest, "moved", run_id, classification.source)
+        status = "held" if hold_reason else "moved"
+        detail = hold_reason or classification.source
+        return SortResult(src, dest, status, run_id, detail)
+
+
+def _graph_item_id(stamper: "HarvestStamp | None", path: Path) -> str | None:
+    if stamper is None or stamper.graph is None:
+        return None
+    getter = getattr(stamper.graph, "get_item_by_path", None)
+    if getter is None:
+        return None
+    try:
+        item = getter(str(path))
+    except Exception:
+        return None
+    if not isinstance(item, dict):
+        return None
+    raw = item.get("listItemId") or item.get("id") or ""
+    return str(raw) or None

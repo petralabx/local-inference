@@ -239,6 +239,14 @@ def parse_organizer_date(token: str) -> date | None:
         return None
 
 
+def looks_like_bad_organizer_date(name: str) -> bool:
+    """Leading YYYY-MM-DD_ that is not a real calendar date (month 20, Feb 30)."""
+    match = re.match(r"^(\d{4}-\d{2}-\d{2})_", name)
+    if match is None:
+        return False
+    return parse_organizer_date(match.group(1)) is None
+
+
 def peel_rebuild_organizer_name(name: str, *, prefix: str | None = None) -> str | None:
     """Rebuild a law-shaped (possibly stacked) filename to a single-law name.
 

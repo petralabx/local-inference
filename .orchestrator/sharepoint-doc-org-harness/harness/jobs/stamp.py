@@ -149,8 +149,18 @@ def run_stamp(
     graph: GraphDriveClient | None = None,
     limit: int | None = None,
     only: list[str] | None = None,
+    backfill: bool = False,
 ) -> StampReport:
     """Metadata-only backfill of Title + Party/Prefix/Home. Does not rename."""
+    if backfill:
+        return run_stamp_backfill(
+            cfg=cfg,
+            journal=journal,
+            report_path=report_path,
+            graph=graph,
+            limit=limit,
+            only=only,
+        )
     started = datetime.now(timezone.utc).isoformat()
     run_id = journal.start_run(note="stamp")
     root = cfg.sync_root
@@ -211,7 +221,9 @@ def run_stamp(
             )
             if result.skipped:
                 report.skipped += 1
-                _record_skip(report, rel, result.skipped)
+                if result.columns_skipped:
+                    report.columns_skipped += 1
+                _record_skip(report, rel, result.skipped or result.columns_skip_reason)
                 continue
             report.stamped += 1
             if result.columns_written:
@@ -266,7 +278,9 @@ def run_stamp(
                 )
                 if result.skipped:
                     report.skipped += 1
-                    _record_skip(report, rel, result.skipped)
+                    if result.columns_skipped:
+                        report.columns_skipped += 1
+                    _record_skip(report, rel, result.skipped or result.columns_skip_reason)
                     continue
                 if result.columns_written:
                     report.stamped += 1
@@ -275,6 +289,103 @@ def run_stamp(
                     report.skipped += 1
                     report.columns_skipped += 1
                     _record_skip(report, rel, result.columns_skip_reason or "columns_unwritten")
+    report.finished_at = datetime.now(timezone.utc).isoformat()
+    report.write(report_path)
+    return report
+
+
+def run_stamp_backfill(
+    *,
+    cfg: HarnessConfig,
+    journal: ActionJournal,
+    report_path: Path,
+    graph: GraphDriveClient | None = None,
+    limit: int | None = None,
+    only: list[str] | None = None,
+) -> StampReport:
+    """Retry Graph 404 stamps by current path or stored item id. No rename."""
+    started = datetime.now(timezone.utc).isoformat()
+    run_id = journal.start_run(note="stamp-backfill")
+    root = cfg.sync_root
+    ledger = DocumentLedger(Path(journal.path))
+    report = StampReport(run_id=run_id, started_at=started, finished_at="")
+    report.notes.append("stamp_backfill")
+    stamper = HarvestStamp(
+        journal=journal,
+        graph=graph,
+        rules=load_correction_rules(cfg.resolve_path(cfg.correction_rules_path)),
+        ledger=ledger,
+        exclude_globs=cfg.exclude_globs,
+    )
+    try:
+        prefixes = homes_for_stamp(only) if only else []
+    except UnsafeOnlyPath as exc:
+        report.errors += 1
+        report.notes.append(str(exc))
+        report.finished_at = datetime.now(timezone.utc).isoformat()
+        report.write(report_path)
+        return report
+    if graph is None:
+        report.notes.append("graph_offline")
+    if only:
+        report.notes.append("only=" + ",".join(prefixes))
+    if limit is not None:
+        report.notes.append(f"limit={limit}")
+
+    seen: set[str] = set()
+    for action in journal.list_actions_by_type("stamp"):
+        if limit is not None and report.scanned >= max(0, limit):
+            break
+        payload = action.payload
+        reason = str(payload.get("columns_skip_reason") or payload.get("skipped") or "")
+        if "404" not in reason and payload.get("skipped") != "graph_404":
+            continue
+        raw_path = str(payload.get("path") or "")
+        if not raw_path:
+            continue
+        src = Path(raw_path)
+        if not src.is_file():
+            digest = str(payload.get("sha256_after") or payload.get("sha256_before") or "")
+            rec = ledger.get(digest) if digest and hasattr(ledger, "get") else None
+            if rec is not None and rec.current_path:
+                src = Path(rec.current_path)
+        if not src.is_file():
+            report.skipped += 1
+            _record_skip(report, raw_path, "missing_local")
+            continue
+        try:
+            rel = src.relative_to(root).as_posix()
+        except ValueError:
+            rel = src.as_posix()
+        if prefixes and not any(rel == p or rel.startswith(p + "/") for p in prefixes):
+            continue
+        key = str(src)
+        if key in seen:
+            continue
+        seen.add(key)
+        report.scanned += 1
+        title, prefix, home = identity_from_path(src, root=root, ledger=ledger)
+        result = stamper.apply(
+            src,
+            run_id=run_id,
+            prefix=prefix,
+            home=home,
+            title=title,
+            item_id=str(payload.get("item_id") or "") or None,
+            previous_path=str(payload.get("previous_path") or payload.get("path") or "") or None,
+        )
+        if result.skipped:
+            report.skipped += 1
+            if result.columns_skipped:
+                report.columns_skipped += 1
+            _record_skip(report, rel, result.skipped or result.columns_skip_reason)
+            continue
+        report.stamped += 1
+        if result.columns_written:
+            report.columns_written += 1
+        if result.columns_skipped:
+            report.columns_skipped += 1
+            _record_skip(report, rel, result.columns_skip_reason)
     report.finished_at = datetime.now(timezone.utc).isoformat()
     report.write(report_path)
     return report

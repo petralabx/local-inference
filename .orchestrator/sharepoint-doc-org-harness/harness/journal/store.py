@@ -96,6 +96,28 @@ class ActionJournal:
             )
         return out
 
+    def list_actions_by_type(
+        self, action_type: str, *, limit: int = 10000
+    ) -> list[JournalAction]:
+        rows = self._conn.execute(
+            "SELECT id, run_id, action_type, payload_json, created_at, reversed "
+            "FROM actions WHERE action_type = ? ORDER BY id DESC LIMIT ?",
+            (action_type, max(0, limit)),
+        ).fetchall()
+        out: list[JournalAction] = []
+        for r in rows:
+            out.append(
+                JournalAction(
+                    id=r["id"],
+                    run_id=r["run_id"],
+                    action_type=r["action_type"],
+                    payload=json.loads(r["payload_json"]),
+                    created_at=r["created_at"],
+                    reversed=r["reversed"],
+                )
+            )
+        return out
+
     def mark_reversed(self, action_id: int) -> None:
         self._conn.execute("UPDATE actions SET reversed = 1 WHERE id = ?", (action_id,))
         self._conn.commit()
