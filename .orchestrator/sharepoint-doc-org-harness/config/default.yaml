@@ -38,6 +38,9 @@ exclude_globs:
   - "**/local-inference-canonical/**"
   - "**/$RECYCLE.BIN/**"
   - "**/System Volume Information/**"
+  - "**/Telegram Desktop/**"
+  - "**/ClawdBot/**"
+  - "**/Telegram/**"
 
 skip_code_path_tokens:
   - "local-inference-canonical"

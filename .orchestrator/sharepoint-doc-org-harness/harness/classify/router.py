@@ -17,6 +17,7 @@ from harness.naming import (
     build_readable_name,
     display_title_part,
     normalize_organizer_prefix,
+    parse_organizer_date,
     peel_organizer_title,
     split_entity_topic,
     title_has_entity_and_topic,
@@ -25,6 +26,9 @@ from harness.naming import (
 
 MASTER_KEY_ENV = "LOCAL_LITELLM_MASTER_KEY"
 UNSORTED_FOLDER = "00_Inbox/_Unsorted_Imports"
+# Bound llama.cpp n_predict. Omitting max_tokens maps to n_predict=-1 (unbounded).
+CLASSIFY_MAX_TOKENS = 256
+CLASSIFY_TIMEOUT_SECONDS = 120.0
 ALLOWED_HOMES = {
     "00_Inbox",
     "01_Clients_Projects",
@@ -374,8 +378,9 @@ def _litellm_classify(
             "model": model,
             "messages": [{"role": "user", "content": prompt}],
             "temperature": 0,
+            "max_tokens": CLASSIFY_MAX_TOKENS,
         },
-        timeout=120.0,
+        timeout=CLASSIFY_TIMEOUT_SECONDS,
     )
     resp.raise_for_status()
     content = resp.json()["choices"][0]["message"]["content"]
@@ -434,7 +439,9 @@ def _desc(filename: str, *, readable: bool = False) -> str:
 def _date_from_name_or_today(filename: str) -> date:
     m = re.match(r"(\d{4}-\d{2}-\d{2})", filename)
     if m:
-        return date.fromisoformat(m.group(1))
+        parsed = parse_organizer_date(m.group(1))
+        if parsed is not None:
+            return parsed
     return datetime.now().date()
 
 
