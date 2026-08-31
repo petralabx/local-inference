@@ -22,7 +22,16 @@ def is_noise_file(path: Path) -> bool:
         return True
     return bool(ONEDRIVE_VOLUME_RE.match(path.name))
 SECRET_DIR_TOKENS = {".aws", ".ssh"}
-SECRET_NAMES = {"credentials.json", "credentials", ".env", "id_rsa", "id_ed25519", "id_dsa"}
+SECRET_NAMES = {
+    "credentials.json",
+    "credentials",
+    ".env",
+    "id_rsa",
+    "id_ed25519",
+    "id_dsa",
+    ".git-credentials",
+    ".gitconfig",
+}
 SECRET_SUFFIXES = {".pem", ".pfx", ".p12", ".key"}
 
 

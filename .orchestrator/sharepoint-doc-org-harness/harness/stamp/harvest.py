@@ -145,6 +145,8 @@ class HarvestStamp:
         title: str | None = None,
         sha256: str | None = None,
         party: str | None = None,
+        item_id: str | None = None,
+        previous_path: str | None = None,
     ) -> StampResult:
         if not path.is_file():
             return StampResult(
@@ -197,24 +199,20 @@ class HarvestStamp:
                     "OrganizerPrefix": prefix,
                     "OrganizerHome": home,
                 }
-                try:
-                    self.graph.patch_list_item_fields(str(path), fields)
-                    columns_written = True
-                    columns_skipped = False
-                    skip_reason = ""
-                except GraphNotFoundError as exc:
-                    columns_written = False
-                    columns_skipped = True
-                    skip_reason = f"404:{exc}"
-                except GraphOfflineError as exc:
-                    columns_written = False
-                    columns_skipped = True
-                    skip_reason = f"graph:{exc}"
-                except Exception as exc:  # noqa: BLE001 — stamp must keep walking
-                    columns_written = False
-                    columns_skipped = True
-                    skip_reason = f"{exc.__class__.__name__}:{exc}"
+                written, skip_reason, used_id = self._patch_with_retry(
+                    path,
+                    fields,
+                    item_id=item_id,
+                    previous_path=previous_path,
+                )
+                columns_written = written
+                columns_skipped = not written
+                if used_id:
+                    item_id = used_id
 
+        skipped = ""
+        if columns_skipped and skip_reason.startswith("404"):
+            skipped = "graph_404"
         result = StampResult(
             path=path,
             title=readable,
@@ -226,6 +224,7 @@ class HarvestStamp:
             embedded=embedded,
             sha256_before=before,
             sha256_after=after,
+            skipped=skipped,
             columns_skip_reason=skip_reason,
         )
         self.journal.record(
@@ -244,6 +243,9 @@ class HarvestStamp:
                 "sha256_before": before,
                 "sha256_after": after,
                 "content_type": DOCUMENT_CONTENT_TYPE,
+                "item_id": item_id or "",
+                "previous_path": previous_path or "",
+                "skipped": skipped,
             },
         )
         return result
@@ -286,18 +288,13 @@ class HarvestStamp:
                     "OrganizerPrefix": prefix,
                     "OrganizerHome": home,
                 }
-                try:
-                    self.graph.patch_list_item_fields(rel, fields)
-                    columns_written = True
-                    columns_skipped = False
-                    skip_reason = ""
-                except GraphNotFoundError as exc:
-                    skip_reason = f"404:{exc}"
-                except GraphOfflineError as exc:
-                    skip_reason = f"graph:{exc}"
-                except Exception as exc:  # noqa: BLE001 — stamp must keep walking
-                    skip_reason = f"{exc.__class__.__name__}:{exc}"
+                written, skip_reason, _used = self._patch_with_retry(path, fields)
+                columns_written = written
+                columns_skipped = not written
 
+        skipped = ""
+        if columns_skipped and skip_reason.startswith("404"):
+            skipped = "graph_404"
         result = StampResult(
             path=path,
             title=readable,
@@ -309,6 +306,7 @@ class HarvestStamp:
             embedded={"written": False, "reason": "remote_only"},
             sha256_before="",
             sha256_after="",
+            skipped=skipped,
             columns_skip_reason=skip_reason,
         )
         self.journal.record(
@@ -326,9 +324,74 @@ class HarvestStamp:
                 "embedded": result.embedded,
                 "content_type": DOCUMENT_CONTENT_TYPE,
                 "remote_only": True,
+                "skipped": skipped,
             },
         )
         return result
+
+    def _patch_with_retry(
+        self,
+        path: Path,
+        fields: dict[str, str],
+        *,
+        item_id: str | None = None,
+        previous_path: str | None = None,
+    ) -> tuple[bool, str, str | None]:
+        """Try current path, then item id, then previous path's Graph id."""
+        assert self.graph is not None
+        last = ""
+        used_id = item_id
+        try:
+            self.graph.patch_list_item_fields(str(path), fields)
+            return True, "", used_id
+        except GraphNotFoundError as exc:
+            last = f"404:{exc}"
+        except GraphOfflineError as exc:
+            return False, f"graph:{exc}", used_id
+        except Exception as exc:  # noqa: BLE001 — stamp must keep walking
+            return False, f"{exc.__class__.__name__}:{exc}", used_id
+
+        if item_id:
+            try:
+                self.graph.patch_list_item_fields(str(path), fields, item_id=item_id)
+                return True, "", item_id
+            except TypeError:
+                pass
+            except GraphNotFoundError as exc:
+                last = f"404:{exc}"
+            except GraphOfflineError as exc:
+                return False, f"graph:{exc}", item_id
+            except Exception as exc:  # noqa: BLE001
+                return False, f"{exc.__class__.__name__}:{exc}", item_id
+
+        for candidate in (previous_path, str(path)):
+            if not candidate:
+                continue
+            getter = getattr(self.graph, "get_item_by_path", None)
+            if getter is None:
+                continue
+            try:
+                item = getter(candidate)
+            except Exception:
+                continue
+            if not isinstance(item, dict):
+                continue
+            found = str(item.get("listItemId") or item.get("id") or "")
+            if not found:
+                continue
+            try:
+                self.graph.patch_list_item_fields(str(path), fields, item_id=found)
+                return True, "", found
+            except TypeError:
+                continue
+            except GraphNotFoundError as exc:
+                last = f"404:{exc}"
+                continue
+            except GraphOfflineError as exc:
+                return False, f"graph:{exc}", found
+            except Exception as exc:  # noqa: BLE001
+                return False, f"{exc.__class__.__name__}:{exc}", found
+        return False, last or "404:item missing", used_id
 
     def _skip(
         self,

@@ -117,7 +117,32 @@ class LiveGraphDriveClient:
             json={"sourceColumn@odata.bind": bind},
         )
 
-    def patch_list_item_fields(self, item_path: str, fields: dict[str, str]) -> None:
+    def patch_list_item_fields(
+        self, item_path: str, fields: dict[str, str], *, item_id: str | None = None
+    ) -> None:
+        body = {k: str(v) for k, v in fields.items()}
+        if item_id:
+            try:
+                self._request_json(
+                    "PATCH",
+                    f"/sites/{self.site_id()}/lists/{self.list_id()}/items/{item_id}/fields",
+                    json=body,
+                )
+                return
+            except GraphNotFoundError:
+                list_item = self._request_json(
+                    "GET",
+                    f"/drives/{self.drive_id()}/items/{item_id}/listItem",
+                )
+                list_item_id = str(list_item.get("id") or "")
+                if not list_item_id:
+                    raise
+                self._request_json(
+                    "PATCH",
+                    f"/sites/{self.site_id()}/lists/{self.list_id()}/items/{list_item_id}/fields",
+                    json=body,
+                )
+                return
         rel = library_relative_path(item_path, self.sync_root)
         if not rel:
             raise GraphOfflineError("cannot patch library root")
@@ -134,7 +159,7 @@ class LiveGraphDriveClient:
         self._request_json(
             "PATCH",
             f"/sites/{self.site_id()}/lists/{self.list_id()}/items/{list_item_id}/fields",
-            json={k: str(v) for k, v in fields.items()},
+            json=body,
         )
 
     def walk_folder(self, folder_path: str = "") -> Iterator[dict[str, Any]]:

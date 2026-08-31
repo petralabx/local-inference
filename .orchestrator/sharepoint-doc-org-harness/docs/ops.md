@@ -43,9 +43,36 @@ Proof (VTA only), then full:
 ```powershell
 powershell -NoProfile -ExecutionPolicy Bypass -File scripts/run-organizer-relabel.ps1 -Limit 20
 powershell -NoProfile -ExecutionPolicy Bypass -File scripts/run-organizer-relabel.ps1
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts/run-organizer-relabel.ps1 -Only 02_Business_Ops,03_Marketing_Creative,04_Admin,06_Reference
 ```
 
 VTA is the only writer. The laptop mount is the same VincePersonal site — verify sync; do not run a second relabel there. Capture folders (`_from_*`) are skipped so a live mail pass is not stolen. Do not run this walk to fold leftover trees.
+
+`--only` (CLI and `run-organizer-relabel.ps1 -Only`) constrains the home list
+so an unstall of 02/03/04/06 does not re-walk 05/01/00. Relabel writes
+`homes` and `completed_homes` into the JSON report. `harness unstall --report`
+treats `finished_at` plus a completed home list as DONE even when the writer
+pid is dead. Pid-dead plus an unfinished report restarts remaining homes
+only. Held files stay unsorted; the report `held_reasons` histogram
+(`unknown_entity`, `weak_title`, `already_entity_topic_llm_empty`,
+`skip_secret`, `skip_telegram`, `skip_bad_date`) is for later Vince
+correction rules — do not invent rules from it. A filename that already
+parses as Entity Topic keeps that entity; do not LLM-hold it. Secrets
+including `.git-credentials` and `.gitconfig` skip before classify.
+
+Harvest (including `--dry-run`) refuses a home that has a live relabel lock
+under `data/home_locks/`. Do not start a harvest dry-run of 02/03/04/06
+against a live Entity-Topic relabel of those same homes.
+
+Graph Title/Party/Prefix/Home 404s after a local OneDrive rename are skips,
+never stamp success. After the rename pass:
+
+```bash
+python -m harness.cli.main stamp --report data/reports/stamp-backfill.json --backfill
+```
+
+retries by current path or Graph item id. Leftover-tree fold stays dry-run
+until that backfill exists.
 
 ## Harvest stamp (Title + Party/Prefix/Home)
 

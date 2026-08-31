@@ -11,7 +11,8 @@ param(
     [string]$PythonExe = "",
     [string]$ConfigRel = "config/local.yaml",
     [string]$ReportPath = "",
-    [int]$Limit = 0
+    [int]$Limit = 0,
+    [string[]]$Only = @()
 )
 
 $ErrorActionPreference = "Stop"
@@ -83,11 +84,19 @@ Write-Output "config=$ConfigRel"
 Write-Output "report=$ReportPath"
 Write-Output "python=$PythonExe"
 if ($Limit -gt 0) { Write-Output "limit=$Limit" }
+if ($Only -and $Only.Count -gt 0) {
+    Write-Output ("only=" + ($Only -join ","))
+}
 Write-Output "action=python -m harness.cli.main relabel"
 
 $cliArgs = @("-m", "harness.cli.main", "relabel", "--report", $ReportPath)
 if ($Limit -gt 0) {
     $cliArgs += @("--limit", "$Limit")
+}
+if ($Only -and $Only.Count -gt 0) {
+    foreach ($home in $Only) {
+        if ($home) { $cliArgs += @("--only", "$home") }
+    }
 }
 $errLog = Join-Path $reportsDir ("relabel-python-{0}.err" -f (Get-Date -Format "yyyy-MM-dd-HHmmss"))
 

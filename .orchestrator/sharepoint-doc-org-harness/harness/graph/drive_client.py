@@ -71,7 +71,9 @@ class GraphDriveClient(Protocol):
 
     def add_column_to_document_content_type(self, column_name: str) -> None: ...
 
-    def patch_list_item_fields(self, item_path: str, fields: dict[str, str]) -> None: ...
+    def patch_list_item_fields(
+        self, item_path: str, fields: dict[str, str], *, item_id: str | None = None
+    ) -> None: ...
 
     def walk_folder(self, folder_path: str = "") -> Iterator: ...
 
@@ -105,6 +107,9 @@ class FakeGraphDriveClient:
     folders: set[str] = field(default_factory=lambda: {""})
     upload_calls: list[dict[str, Any]] = field(default_factory=list)
     simple_upload_max_bytes: int = 4 * 1024 * 1024
+    missing_paths: set[str] = field(default_factory=set)
+    item_ids: dict[str, str] = field(default_factory=dict)
+    fields_by_id: dict[str, dict[str, str]] = field(default_factory=dict)
 
     def _require_online(self) -> None:
         if not self.online:
@@ -135,9 +140,22 @@ class FakeGraphDriveClient:
         if column_name not in self.document_content_type_columns:
             self.document_content_type_columns.append(column_name)
 
-    def patch_list_item_fields(self, item_path: str, fields: dict[str, str]) -> None:
+    def patch_list_item_fields(
+        self, item_path: str, fields: dict[str, str], *, item_id: str | None = None
+    ) -> None:
         self._require_online()
-        current = dict(self.item_fields.get(item_path) or {})
+        rel = _posix_rel(item_path)
+        if item_id:
+            current = dict(self.fields_by_id.get(item_id) or {})
+            current.update({k: str(v) for k, v in fields.items()})
+            self.fields_by_id[item_id] = current
+            self.item_fields[item_path] = current
+            if rel:
+                self.item_fields[rel] = current
+            return
+        if item_path in self.missing_paths or rel in self.missing_paths:
+            raise GraphNotFoundError(f"404 {item_path}")
+        current = dict(self.item_fields.get(item_path) or self.item_fields.get(rel) or {})
         current.update({k: str(v) for k, v in fields.items()})
         self.item_fields[item_path] = current
 
@@ -159,6 +177,7 @@ class FakeGraphDriveClient:
         rel = _posix_rel(item_path)
         if not rel:
             return {"name": "root", "folder": {}, "size": 0}
+        item_id = self.item_ids.get(item_path) or self.item_ids.get(rel)
         stored = self.server_files.get(rel)
         if stored is not None:
             return {
@@ -166,9 +185,17 @@ class FakeGraphDriveClient:
                 "size": stored.get("size"),
                 "file": {},
                 "libraryPath": rel,
+                "id": item_id,
+                "listItemId": item_id,
             }
-        if rel in self.item_fields:
-            return {"name": Path(rel).name, "file": {}, "libraryPath": rel}
+        if rel in self.item_fields or item_path in self.item_fields or item_id:
+            return {
+                "name": Path(rel).name,
+                "file": {},
+                "libraryPath": rel,
+                "id": item_id,
+                "listItemId": item_id,
+            }
         return None
 
     def ensure_folder_path(self, folder_path: str) -> None:

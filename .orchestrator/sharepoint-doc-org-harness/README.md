@@ -22,8 +22,11 @@ python -m harness.cli.main version
 python -m harness.cli.main digest --dry-run --report data/reports/digest.json
 python -m harness.cli.main graph-login
 python -m harness.cli.main relabel --report data/reports/relabel.json --limit 20
+python -m harness.cli.main relabel --report data/reports/relabel.json --only 02_Business_Ops --only 03_Marketing_Creative
+python -m harness.cli.main unstall --report data/reports/relabel.json --next-homes 02_Business_Ops
 python -m harness.cli.main stamp --report data/reports/stamp.json --limit 20
 python -m harness.cli.main stamp --report data/reports/stamp.json --only 05_Personal
+python -m harness.cli.main stamp --report data/reports/stamp.json --backfill
 python -m harness.cli.main stamp --report data/reports/stamp.json
 python -m harness.cli.main harvest --report data/reports/harvest.json --dry-run --only 05_Personal
 python -m harness.cli.main harvest --report data/reports/harvest.json --apply --only 05_Personal
@@ -50,6 +53,18 @@ fixture tests. The cloud VM cannot see VTA OneDrive.
 session above) then stamps Title + Party/Prefix/Home. Default is dry-run.
 `--apply` is additive Graph upload and does not delete or move via OneDrive.
 `--replace` is required to overwrite a server item with a different size.
+Harvest (including `--dry-run`) refuses homes with a live relabel lock.
+`unstall` treats a report with `finished_at` plus `completed_homes` as DONE
+even when the writer pid is dead; it restarts only unfinished homes.
+Stamp Graph 404s are skips, never success; `--backfill` retries by current
+path or Graph item id. Leftover-tree fold stays dry-run until that backfill
+has been run. Relabel `--only` constrains homes so 02/03/04/06 can run
+without re-walking 05/01/00. Relabel reports include a `held_reasons`
+histogram (`unknown_entity`, `weak_title`, `already_entity_topic_llm_empty`,
+`skip_secret`, `skip_telegram`, `skip_bad_date`). Do not invent
+`correction_rules` from that histogram. Parsed Entity Topic in the current
+name is kept; leftover `_v01-VTA` / double extensions are peeled before
+match. `.git-credentials` and `.gitconfig` skip before classify.
 
 ## Operator notes
 

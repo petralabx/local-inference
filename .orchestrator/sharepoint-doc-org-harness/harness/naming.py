@@ -81,9 +81,14 @@ _LEADING_PREFIX_RE = re.compile(r"^[A-Z][A-Z0-9]{1,7}_")
 # Numbered VincePersonal homes used as a PREFIX stand-in (01, 02, …).
 # Kept off _TITLE_FOLDER_RE so mid-title "_01_" is not a false leftover.
 _LEADING_NUMBERED_HOME_RE = re.compile(r"^(?:00|01|02|03|04|05|06)(?:_|$)")
-# Trailing extra version from a stacked law name: _vNN or leftover space-vNN.
+# Trailing extra version from a stacked law name: _vNN, _vNN-VTA, or leftover space-vNN.
 # Optional .ext so a full filename (not just a stem) can be peeled.
-_TRAILING_VERSION_RE = re.compile(r"(?:_v\d+| v\d+)(?:\.[A-Za-z]{2,5})?$")
+_TRAILING_VERSION_RE = re.compile(r"(?:_v\d+(?:-[A-Za-z0-9]+)?| v\d+)(?:\.[A-Za-z]{2,5})?$")
+_STACKED_VERSION_MACHINE_RE = re.compile(
+    r"(_v\d+)-[A-Za-z][A-Za-z0-9]{0,24}(\.[A-Za-z]{2,5})$"
+)
+_STACKED_VERSION_MACHINE_NOEXT_RE = re.compile(r"(_v\d+)-[A-Za-z][A-Za-z0-9]{0,24}$")
+_DOUBLE_EXT_RE = re.compile(r"(\.[A-Za-z]{2,5})\1$", re.IGNORECASE)
 _TITLE_VERSION_RE = re.compile(r"_v\d+")
 _TITLE_SPACE_VERSION_RE = re.compile(r" v\d+$")
 _FILENAME_EXT_RE = re.compile(r"\.[A-Za-z]{2,5}$")
@@ -231,12 +236,35 @@ def peel_organizer_title(title: str) -> str:
     return text.strip(" _")
 
 
+def peel_stacked_name_suffixes(name: str) -> str:
+    """Strip leftover `_v01-VTA` machine suffixes and a doubled extension."""
+    text = name
+    peeled = _STACKED_VERSION_MACHINE_RE.sub(r"\1\2", text)
+    if peeled == text:
+        peeled = _STACKED_VERSION_MACHINE_NOEXT_RE.sub(r"\1", text)
+    peeled = _DOUBLE_EXT_RE.sub(r"\1", peeled)
+    return peeled
+
+
+def match_organizer_name(name: str):
+    """Match the law regex after peeling stacked VTA/double-ext leftovers."""
+    return ORGANIZER_NAME_RE.match(peel_stacked_name_suffixes(name))
+
+
 def parse_organizer_date(token: str) -> date | None:
     """Real calendar date, or None. Never invent a substitute date."""
     try:
         return date.fromisoformat(token)
     except ValueError:
         return None
+
+
+def looks_like_bad_organizer_date(name: str) -> bool:
+    """Leading YYYY-MM-DD_ that is not a real calendar date (month 20, Feb 30)."""
+    match = re.match(r"^(\d{4}-\d{2}-\d{2})_", name)
+    if match is None:
+        return False
+    return parse_organizer_date(match.group(1)) is None
 
 
 def peel_rebuild_organizer_name(name: str, *, prefix: str | None = None) -> str | None:
@@ -246,6 +274,7 @@ def peel_rebuild_organizer_name(name: str, *, prefix: str | None = None) -> str 
     to classify. Correction-rule prefix, when provided, wins over the token
     glued into the filename.
     """
+    name = peel_stacked_name_suffixes(name)
     parsed = ORGANIZER_NAME_RE.match(name)
     if parsed is None:
         return None
@@ -301,7 +330,7 @@ def build_organizer_name(
 
 
 def is_organizer_name(name: str) -> bool:
-    parsed = ORGANIZER_NAME_RE.match(name)
+    parsed = match_organizer_name(name)
     if not parsed:
         return False
     if parse_organizer_date(parsed.group("date")) is None:
@@ -355,6 +384,9 @@ def next_version_name(existing: set[str], candidate: str) -> str:
 
 # Title slot is Entity then Topic (two human parts). Not a fifth filename field.
 _GENERIC_TITLE_WORDS = frozenset({"untitled", "document", "scan", "file", "image"})
+_GENERIC_FIRST_WORDS = frozenset(
+    {"copy", "screenshot", "photo", "scan", "image", "untitled", "document"}
+)
 _TOPIC_PHRASES: tuple[str, ...] = (
     "notice of assessment",
     "employee contract",
@@ -494,11 +526,85 @@ def build_entity_topic_title(entity: str, topic: str) -> str:
 
 def organizer_title_from_name(name: str) -> str:
     """Peeled title slot from a law filename, else the peeled stem."""
-    parsed = ORGANIZER_NAME_RE.match(name)
+    parsed = match_organizer_name(name)
     if parsed:
         return peel_organizer_title(parsed.group("title")) or ""
-    stem = name.rsplit(".", 1)[0] if "." in name else name
+    stem = peel_stacked_name_suffixes(name)
+    stem = stem.rsplit(".", 1)[0] if "." in stem else stem
     return peel_organizer_title(stem) or stem
+
+
+def taxonomy_prefix_codes() -> frozenset[str]:
+    """Generic taxonomy PREFIX codes (INV/GEN/RPT/…). Not a vendor list."""
+    from harness.config import PACKAGE_ROOT, load_taxonomy
+
+    codes = {
+        str(key).upper().strip()
+        for key in load_taxonomy(PACKAGE_ROOT / "config" / "taxonomy_prefixes.yaml")
+        if str(key).strip()
+    }
+    codes.add(_DEFAULT_PREFIX)
+    return frozenset(codes)
+
+
+def entity_from_prefix_title_echo(name: str) -> str:
+    """PREFIX not in taxonomy and title is the same token (SEPIMAX_Sepimax)."""
+    parsed = match_organizer_name(name)
+    if parsed is None:
+        return ""
+    prefix = parsed.group("prefix")
+    if prefix in taxonomy_prefix_codes():
+        return ""
+    title = peel_organizer_title(parsed.group("title"))
+    compact = re.sub(r"[\s_-]+", "", title).lower()
+    if compact and compact == prefix.lower():
+        return display_title_part(title)
+    return ""
+
+
+def _raw_first_token_capitalized(title: str) -> bool:
+    tokens = _title_tokens(re.sub(r"[\s_-]+", " ", title).strip())
+    if not tokens:
+        return False
+    first = tokens[0]
+    return first[:1].isupper()
+
+
+def entity_topic_from_name(name: str) -> tuple[str, str]:
+    """Entity Topic already in the current name. Empty entity means unknown."""
+    title = organizer_title_from_name(name)
+    entity, topic = split_entity_topic(title)
+    first_tok = (_title_tokens(re.sub(r"[\s_-]+", " ", title).strip()) or [""])[0]
+    generic_first = first_tok.lower() in _GENERIC_FIRST_WORDS
+    if (
+        entity
+        and topic
+        and _raw_first_token_capitalized(title)
+        and not generic_first
+    ):
+        return entity, topic
+    echo = entity_from_prefix_title_echo(name)
+    if echo:
+        return echo, topic or title or echo
+    if not _raw_first_token_capitalized(title) or generic_first:
+        return "", topic
+    return entity, topic
+
+
+def held_reason_for_name(name: str) -> str:
+    """Histogram bucket when classify produced no usable entity."""
+    entity, _topic = entity_topic_from_name(name)
+    if entity:
+        return "already_entity_topic_llm_empty"
+    title = organizer_title_from_name(name)
+    if not title:
+        title = name.rsplit(".", 1)[0] if "." in name else name
+    words = [w for w in re.sub(r"[\s_-]+", " ", title).split() if w]
+    if len(words) <= 1:
+        return "weak_title"
+    if words[0].lower() in _GENERIC_FIRST_WORDS:
+        return "weak_title"
+    return "unknown_entity"
 
 
 def topic_from_blob(*parts: str) -> str:

@@ -31,14 +31,14 @@
     {"id": "rule-028", "keywords": ["paume"], "target_folder": "01_Clients_Projects/Paume", "prefix": "PRO", "confidence_boost": 2},
     {"id": "rule-029", "keywords": ["1-shoppe", "1 shoppe"], "target_folder": "01_Clients_Projects/1_Shoppe", "prefix": "PRO", "confidence_boost": 2},
     {"id": "rule-030", "keywords": ["care principle"], "target_folder": "01_Clients_Projects/The Care Principle", "prefix": "PRO", "confidence_boost": 2},
-    {"id": "rule-031", "keywords": ["for & against", "for and against"], "target_folder": "01_Clients_Projects/Private_Brands", "prefix": "PB", "confidence_boost": 2},
+    {"id": "rule-031", "keywords": ["for & against", "for and against", "for&against", "f&a", "f & a", "foragainst"], "party": "For & Against", "target_folder": "03_Marketing_Creative/Brands/FOR&AGAINST", "prefix": "PB", "confidence_boost": 3},
     {"id": "rule-032", "keywords": ["mcgill"], "target_folder": "02_Business_Ops/Government", "prefix": "GRANT", "confidence_boost": 2},
     {"id": "rule-033", "keywords": ["polo club"], "target_folder": "01_Clients_Projects/Polo Club", "prefix": "PRO", "confidence_boost": 3},
     {"id": "rule-034", "keywords": ["polo"], "target_folder": "01_Clients_Projects/Polo", "prefix": "PRO", "confidence_boost": 2},
     {"id": "rule-035", "keywords": ["aldi"], "target_folder": "01_Clients_Projects/ALDI", "prefix": "PRO", "confidence_boost": 2},
-    {"id": "rule-036", "keywords": ["diversified"], "target_folder": "01_Clients_Projects/Diversified_Hospitality", "prefix": "PRO", "confidence_boost": 2},
+    {"id": "rule-036", "keywords": ["diversified"], "party": "Diversified Hospitality", "target_folder": "01_Clients_Projects/Diversified_Hospitality", "prefix": "PRO", "confidence_boost": 4},
     {"id": "rule-037", "keywords": ["eurofina"], "target_folder": "01_Clients_Projects/Eurofina", "prefix": "PRO", "confidence_boost": 2},
-    {"id": "rule-038", "keywords": ["furgenics"], "target_folder": "01_Clients_Projects/Furgenics", "prefix": "PRO", "confidence_boost": 2},
+    {"id": "rule-038", "keywords": ["furgenics"], "party": "Furgenics", "target_folder": "03_Marketing_Creative/Brands/Furgenics", "prefix": "PB", "confidence_boost": 3},
     {"id": "rule-039", "keywords": ["onare"], "target_folder": "01_Clients_Projects/Onare", "prefix": "PRO", "confidence_boost": 2},
     {"id": "rule-040", "keywords": ["tannin"], "target_folder": "01_Clients_Projects/Tannin", "prefix": "PRO", "confidence_boost": 2},
     {"id": "rule-041", "keywords": ["jrs amenities"], "target_folder": "01_Clients_Projects/JRS_Amenities", "prefix": "PRO", "confidence_boost": 2},
@@ -46,6 +46,7 @@
     {"id": "rule-043", "keywords": ["f.miller", "f miller", "fmiller"], "target_folder": "01_Clients_Projects/FMiller", "prefix": "PRO", "confidence_boost": 2},
     {"id": "rule-044", "keywords": ["f/that", "fthat", "f-that"], "target_folder": "01_Clients_Projects/FTHAT", "prefix": "PRO", "confidence_boost": 2},
     {"id": "rule-045", "keywords": ["ryan levey"], "target_folder": "01_Clients_Projects/Ryan_Levey", "prefix": "PRO", "confidence_boost": 2},
-    {"id": "rule-046", "keywords": ["forsyth"], "target_folder": "01_Clients_Projects/Forsyth", "prefix": "PRO", "confidence_boost": 2}
+    {"id": "rule-046", "keywords": ["forsyth"], "target_folder": "01_Clients_Projects/Forsyth", "prefix": "PRO", "confidence_boost": 2},
+    {"id": "rule-047", "keywords": ["1hr-a", "1hr-after", "1hr after", "1 hour after", "1-hour after", "1hra", "1hr_a"], "party": "1 Hour After", "target_folder": "03_Marketing_Creative/Brands/1HR", "prefix": "PB", "confidence_boost": 3}
   ]
 }

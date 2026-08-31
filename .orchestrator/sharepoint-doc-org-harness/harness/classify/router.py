@@ -16,6 +16,7 @@ from harness.naming import (
     build_organizer_name,
     build_readable_name,
     display_title_part,
+    entity_topic_from_name,
     normalize_organizer_prefix,
     parse_organizer_date,
     peel_organizer_title,
@@ -188,6 +189,18 @@ def classify_file(
             suggested_name=name,
             entity=entity,
             topic=topic,
+        )
+
+    named_entity, _named_topic = entity_topic_from_name(path.name)
+    if named_entity:
+        return heuristic_classify(
+            path.name,
+            text,
+            path=path,
+            rules=rules,
+            readable_names=readable_names,
+            organizer_names=organizer_names,
+            hold_unknown_entity=True,
         )
 
     # LLM path (injectable for tests). A missing master key is fail-visible;
@@ -481,7 +494,7 @@ def entity_from_client_folder(path: Path) -> str:
 
 
 def _looks_like_organizer_title(text: str) -> bool:
-    return " " in text and title_has_entity_and_topic(text)
+    return title_has_entity_and_topic(text)
 
 
 def _resolve_entity_topic(
@@ -504,6 +517,11 @@ def _resolve_entity_topic(
     if not readable:
         return peeled, "", "", False
 
+    named_entity, named_topic = entity_topic_from_name(filename)
+    if named_entity and rule is None:
+        desc = build_entity_topic_title(named_entity, named_topic) or peeled
+        return desc, named_entity, named_topic, False
+
     blob = " ".join(
         part
         for part in (filename, peeled, text[:800], str(path) if path else "")
@@ -523,6 +541,9 @@ def _resolve_entity_topic(
         topic = topic or split_t
     if not entity and path is not None:
         entity = entity_from_client_folder(path)
+    if not entity and named_entity:
+        entity = named_entity
+        topic = topic or named_topic
     if not topic:
         _, split_t = split_entity_topic(llm_description or peeled)
         topic = topic or split_t
@@ -536,7 +557,9 @@ def _resolve_entity_topic(
             entity, topic = split_entity_topic(peeled)
         elif not topic:
             _, topic = split_entity_topic(peeled)
-        return peeled, entity, topic, False
+        built = build_entity_topic_title(entity, topic)
+        desc = peeled if " " in peeled and title_has_entity_and_topic(peeled) else (built or peeled)
+        return desc, entity, topic, False
 
     if not entity:
         return peeled, "", topic, True
