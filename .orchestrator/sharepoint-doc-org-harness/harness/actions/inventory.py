@@ -133,6 +133,7 @@ EXTRA_SECRET_NAMES = {
     ".pypirc",
     ".pgpass",
     ".git-credentials",
+    ".gitconfig",
     "nuget.config",
 }
 

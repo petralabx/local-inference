@@ -18,8 +18,10 @@ from harness.journal.store import ActionJournal, apply_move
 from harness.ledger.documents import DocumentLedger, DocumentRecord
 from harness.naming import (
     ORGANIZER_NAME_RE,
+    held_reason_for_name,
     is_organizer_name,
     looks_like_bad_organizer_date,
+    match_organizer_name,
     next_organizer_version,
     organizer_title_from_name,
     peel_rebuild_organizer_name,
@@ -172,6 +174,8 @@ def iter_relabel_files(
                 if src.name.lower() in HELPER_FILE_NAMES or is_noise_file(src):
                     continue
                 if is_secret_file(src):
+                    if reasons is not None:
+                        reasons["skip_secret"] = reasons.get("skip_secret", 0) + 1
                     continue
                 if any(part.lower() in SKIP_DIR_NAMES for part in src.parts):
                     continue
@@ -481,6 +485,8 @@ def _relabel_one_file(
     try:
         if looks_like_bad_organizer_date(src.name):
             _bump_reason(report, "skip_bad_date")
+            report.skipped += 1
+            return
         if not is_organizer_name(src.name):
             hit = match_correction_rules(src.name, rules)
             prefix_override = None
@@ -521,8 +527,6 @@ def _relabel_one_file(
         weak_title = is_organizer_name(src.name) and not title_has_entity_and_topic(
             organizer_title_from_name(src.name)
         )
-        if weak_title:
-            _bump_reason(report, "weak_title")
         if (
             is_organizer_name(src.name)
             and not weak_title
@@ -531,7 +535,7 @@ def _relabel_one_file(
             if ledger.get(content_hash(src)) is not None:
                 report.skipped += 1
                 return
-            parsed = ORGANIZER_NAME_RE.match(src.name)
+            parsed = match_organizer_name(src.name)
             digest = content_hash(src)
             home = _home_of(src, root) or "00_Inbox"
             assert parsed is not None
@@ -562,13 +566,29 @@ def _relabel_one_file(
         )
         if result.status == "held":
             report.held += 1
-            _bump_reason(report, result.detail or "unknown_entity")
+            reason = result.detail or held_reason_for_name(src.name)
+            _bump_reason(report, reason)
+            journal.record(
+                run_id,
+                "hold",
+                {"from": str(src), "reason": reason},
+            )
         elif result.status == "moved":
             dest = result.dest
             unsorted = dest is not None and "00_Inbox/_Unsorted_Imports" in dest.as_posix()
             if unsorted:
                 report.held += 1
-                _bump_reason(report, "unknown_entity")
+                reason = result.detail or held_reason_for_name(src.name)
+                _bump_reason(report, reason)
+                journal.record(
+                    run_id,
+                    "hold",
+                    {
+                        "from": str(src),
+                        "to": str(dest),
+                        "reason": reason,
+                    },
+                )
             elif dest is not None and dest.resolve() != src.resolve():
                 report.renamed += 1
             else:

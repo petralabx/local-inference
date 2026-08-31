@@ -169,6 +169,7 @@ def reverse_actions(journal: ActionJournal, run_id: str) -> int:
             "stamp",
             "error",
             "skip",
+            "hold",
         }:
             # Soft marker / ingest record — disk undo for mail is optional later
             journal.mark_reversed(action.id)

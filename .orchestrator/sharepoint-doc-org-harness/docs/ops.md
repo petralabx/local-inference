@@ -54,8 +54,11 @@ so an unstall of 02/03/04/06 does not re-walk 05/01/00. Relabel writes
 treats `finished_at` plus a completed home list as DONE even when the writer
 pid is dead. Pid-dead plus an unfinished report restarts remaining homes
 only. Held files stay unsorted; the report `held_reasons` histogram
-(`unknown_entity`, `weak_title`, `skip_telegram`, `skip_bad_date`) is for
-later Vince correction rules — do not invent rules from it.
+(`unknown_entity`, `weak_title`, `already_entity_topic_llm_empty`,
+`skip_secret`, `skip_telegram`, `skip_bad_date`) is for later Vince
+correction rules — do not invent rules from it. A filename that already
+parses as Entity Topic keeps that entity; do not LLM-hold it. Secrets
+including `.git-credentials` and `.gitconfig` skip before classify.
 
 Harvest (including `--dry-run`) refuses a home that has a live relabel lock
 under `data/home_locks/`. Do not start a harvest dry-run of 02/03/04/06

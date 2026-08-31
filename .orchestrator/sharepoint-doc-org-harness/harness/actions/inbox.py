@@ -19,6 +19,7 @@ from harness.ledger.brain import project_document
 from harness.ledger.documents import DocumentLedger, DocumentRecord
 from harness.naming import (
     ORGANIZER_NAME_RE,
+    held_reason_for_name,
     is_organizer_name,
     next_free_name,
     next_organizer_version,
@@ -156,7 +157,7 @@ class InboxSorter:
         hold_reason = ""
         if unknown_entity:
             dest_dir = self.root / UNSORTED_FOLDER
-            hold_reason = "unknown_entity"
+            hold_reason = held_reason_for_name(src.name)
         elif keep_folder and classification.source != "correction_rule":
             dest_dir = src.parent
         else:

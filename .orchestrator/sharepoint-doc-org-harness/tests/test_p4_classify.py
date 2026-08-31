@@ -17,8 +17,11 @@ from harness.config import PACKAGE_ROOT, load_correction_rules
 from harness.extract.pipeline import extract_text
 from harness.naming import (
     build_entity_topic_title,
+    entity_from_prefix_title_echo,
+    entity_topic_from_name,
     is_compliant,
     is_organizer_name,
+    peel_stacked_name_suffixes,
     split_entity_topic,
     title_has_entity_and_topic,
 )
@@ -88,7 +91,7 @@ def test_llm_classify_injectable() -> None:
 
 
 def test_llm_folder_prefix_maps_to_gen() -> None:
-    leftover = Path("2026-08-18_01_Atomic Reseller Agreement v01_v01.docx")
+    leftover = Path("2026-08-18_01_Invoice_v01.docx")
     c = classify_file(
         path=leftover,
         text="",
@@ -99,12 +102,12 @@ def test_llm_folder_prefix_maps_to_gen() -> None:
         organizer_names=True,
         llm_caller=lambda **kw: (
             '{"prefix":"01","target_folder":"01_Clients_Projects",'
-            '"description":"Atomic Reseller Agreement v01","confidence":0.9}'
+            '"description":"Invoice","confidence":0.9}'
         ),
     )
     assert c.source == "llm"
     assert c.prefix == "GEN"
-    assert c.suggested_name == "2026-08-18_GEN_Atomic Reseller Agreement_v01.docx"
+    assert c.suggested_name == "2026-08-18_GEN_Invoice_v01.docx"
 
 
 def test_correction_rule_peels_stacked_happy_yards_title() -> None:
@@ -286,6 +289,75 @@ def test_classify_builds_entity_topic_from_rule_and_llm() -> None:
     assert llm.entity == "Happy Yards"
     assert llm.description == "Happy Yards Invoice"
     assert is_organizer_name(llm.suggested_name)
+
+
+def test_classify_uses_filename_entity_topic_instead_of_llm_hold() -> None:
+    called = {"n": 0}
+
+    def boom(**_kw):
+        called["n"] += 1
+        return (
+            '{"prefix":"GEN","target_folder":"00_Inbox/_Unsorted_Imports",'
+            '"entity":"","topic":"","confidence":0.2}'
+        )
+
+    c = classify_file(
+        path=Path("2026-08-18_INV_Happy Yards Invoice_v01.pdf"),
+        text="",
+        rules=[],
+        litellm_base_url="http://100.103.33.54:4000/v1",
+        model="local-fast",
+        forbid_host_substrings=["api.openai.com"],
+        organizer_names=True,
+        llm_caller=boom,
+    )
+    assert called["n"] == 0
+    assert c.source == "heuristic"
+    assert c.entity == "Happy Yards"
+    assert c.target_folder != UNSORTED_FOLDER
+    assert title_has_entity_and_topic(c.description)
+
+
+def test_prefix_title_echo_is_party_without_vendor_list() -> None:
+    name = "2026-08-18_SEPIMAX_Sepimax_v01.pdf"
+    assert entity_from_prefix_title_echo(name) == "Sepimax"
+    assert entity_topic_from_name(name)[0] == "Sepimax"
+    called = {"n": 0}
+
+    def boom(**_kw):
+        called["n"] += 1
+        return (
+            '{"prefix":"GEN","target_folder":"00_Inbox/_Unsorted_Imports",'
+            '"entity":"","topic":"","confidence":0.2}'
+        )
+
+    c = classify_file(
+        path=Path(name),
+        text="",
+        rules=[],
+        litellm_base_url="http://100.103.33.54:4000/v1",
+        model="local-fast",
+        forbid_host_substrings=["api.openai.com"],
+        organizer_names=True,
+        llm_caller=boom,
+    )
+    assert called["n"] == 0
+    assert c.entity == "Sepimax"
+    assert c.description == "Sepimax"
+    assert c.source == "heuristic"
+
+
+def test_peel_stacked_vta_suffix_and_double_extension() -> None:
+    assert (
+        peel_stacked_name_suffixes("2026-08-18_INV_Happy Yards Invoice_v01-VTA.pdf")
+        == "2026-08-18_INV_Happy Yards Invoice_v01.pdf"
+    )
+    assert (
+        peel_stacked_name_suffixes("2026-08-18_INV_Happy Yards Invoice_v01.pdf.pdf")
+        == "2026-08-18_INV_Happy Yards Invoice_v01.pdf"
+    )
+    assert is_organizer_name("2026-08-18_INV_Happy Yards Invoice_v01-VTA.pdf")
+    assert is_organizer_name("2026-08-18_INV_Happy Yards Invoice_v01.pdf.pdf")
 
 
 def test_classify_holds_unsorted_when_entity_unknown() -> None:

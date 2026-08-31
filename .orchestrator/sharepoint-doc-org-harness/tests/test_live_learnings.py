@@ -18,7 +18,7 @@ from harness.jobs.pass_status import decide_pass
 from harness.jobs.relabel import homes_for_relabel, iter_relabel_files, run_relabel
 from harness.jobs.stamp import run_stamp
 from harness.journal.store import ActionJournal
-from harness.naming import looks_like_bad_organizer_date
+from harness.naming import held_reason_for_name, looks_like_bad_organizer_date
 HAPPY_YARDS_LAW = "2026-08-18_INV_Happy Yards Garden Clean Up Quote_v01.pdf"
 INVALID_MONTH_NAME = "2022-20-03_PRO_Related_Items_Import_v01.xls"
 
@@ -275,6 +275,9 @@ def test_relabel_held_reason_histogram(tmp_path: Path) -> None:
     clients.mkdir(parents=True)
     (personal / INVALID_MONTH_NAME).write_bytes(b"bad-date")
     (personal / "untitled-scan.pdf").write_bytes(b"no-entity")
+    (personal / ".git-credentials").write_text("https://x:y@github.com\n", encoding="utf-8")
+    (personal / ".gitconfig").write_text("[user]\n", encoding="utf-8")
+    (personal / "2026-08-18_INV_Happy Yards Invoice_v01.pdf").write_bytes(b"entity-topic")
     (clients / "photo.jpg").write_bytes(b"telegram-cache")
     cfg, _ = _cfg_for_root(tmp_path, root)
     journal = ActionJournal(Path(cfg.journal_path))
@@ -291,9 +294,26 @@ def test_relabel_held_reason_histogram(tmp_path: Path) -> None:
     hist = report.held_reasons
     assert hist.get("skip_telegram", 0) >= 1
     assert hist.get("skip_bad_date", 0) >= 1
+    assert hist.get("skip_secret", 0) >= 2
     assert hist.get("unknown_entity", 0) >= 1 or hist.get("weak_title", 0) >= 1
+    assert hist.get("already_entity_topic_llm_empty", 0) == 0
     assert looks_like_bad_organizer_date(INVALID_MONTH_NAME)
+    hold_rows = [a for a in journal.list_actions(report.run_id) if a.action_type == "hold"]
+    assert hold_rows
+    assert all(a.payload.get("reason") for a in hold_rows)
+    still = personal / "2026-08-18_INV_Happy Yards Invoice_v01.pdf"
+    assert still.is_file()
     journal.close()
+
+
+def test_held_reason_buckets_from_filename_shape() -> None:
+    assert (
+        held_reason_for_name("2026-08-18_INV_Happy Yards Invoice_v01.pdf")
+        == "already_entity_topic_llm_empty"
+    )
+    assert held_reason_for_name("2026-08-18_GEN_Invoice_v01.pdf") == "weak_title"
+    assert held_reason_for_name("Copy of Invoice.pdf") == "weak_title"
+    assert held_reason_for_name("random-bytes.bin") == "unknown_entity"
 
 
 def os_getpid() -> int:

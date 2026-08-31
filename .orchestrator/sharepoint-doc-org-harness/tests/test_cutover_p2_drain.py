@@ -57,6 +57,8 @@ def test_cutover_dest_keeps_remainder_and_skips_secrets() -> None:
     assert dest_relative("00_INBOX/note.txt", "00_Inbox") == Path("00_Inbox/note.txt")
     assert is_secret_file(Path("07_Admin/.aws/credentials"))
     assert is_secret_file(Path("vault/id_ed25519"))
+    assert is_secret_file(Path(".git-credentials"))
+    assert is_secret_file(Path("05_Personal/.gitconfig"))
     assert not is_secret_file(Path("01_Projects/A1/one.pdf"))
 
 

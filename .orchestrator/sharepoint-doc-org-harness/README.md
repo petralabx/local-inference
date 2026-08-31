@@ -60,7 +60,11 @@ Stamp Graph 404s are skips, never success; `--backfill` retries by current
 path or Graph item id. Leftover-tree fold stays dry-run until that backfill
 has been run. Relabel `--only` constrains homes so 02/03/04/06 can run
 without re-walking 05/01/00. Relabel reports include a `held_reasons`
-histogram. Do not invent `correction_rules` from that histogram.
+histogram (`unknown_entity`, `weak_title`, `already_entity_topic_llm_empty`,
+`skip_secret`, `skip_telegram`, `skip_bad_date`). Do not invent
+`correction_rules` from that histogram. Parsed Entity Topic in the current
+name is kept; leftover `_v01-VTA` / double extensions are peeled before
+match. `.git-credentials` and `.gitconfig` skip before classify.
 
 ## Operator notes
 
