@@ -32,11 +32,21 @@ CAPTURE_DIR_NAMES = {
     "_from_downloads",
     "_from_mail",
 }
+# Client caches under 00-06 (e.g. 01/.../ClawdBot/Telegram Desktop).
+# Skip at walk time so a multi-hour tree walk never starts.
+JUNK_CACHE_DIR_NAMES = frozenset(
+    {
+        "telegram desktop",
+        "clawdbot",
+        "telegram",
+    }
+)
 SKIP_DIR_NAMES = {
     "$recycle.bin",
     "system volume information",
     ".trash",
     ".trashes",
+    *JUNK_CACHE_DIR_NAMES,
 }
 HELPER_FILE_NAMES = {"_redirect_state.json"}
 
@@ -380,8 +390,17 @@ def run_relabel(
                     report.ledger_only += 1
             else:
                 report.skipped += 1
-        except OSError as exc:
+        except Exception as exc:
             report.errors += 1
+            journal.record(
+                run_id,
+                "error",
+                {
+                    "from": str(src),
+                    "error": exc.__class__.__name__,
+                    "detail": str(exc)[:500],
+                },
+            )
             if len(report.notes) < 20:
                 report.notes.append(f"{src.name}:{exc.__class__.__name__}")
     report.finished_at = datetime.now(timezone.utc).isoformat()

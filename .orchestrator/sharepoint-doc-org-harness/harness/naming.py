@@ -65,8 +65,11 @@ def next_free_name(existing: set[str], candidate: str) -> str:
         n += 1
 
 
+# Month 01–12 and day 01–31 only. Calendar validity is checked separately
+# so 2022-02-30 is not law-shaped and never reaches date.fromisoformat.
 ORGANIZER_NAME_RE = re.compile(
-    r"^(?P<date>\d{4}-\d{2}-\d{2})_(?P<prefix>[A-Z0-9]+)_(?P<title>.+)_v(?P<ver>\d+)\.(?P<ext>[^.]+)$"
+    r"^(?P<date>\d{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12]\d|3[01]))_"
+    r"(?P<prefix>[A-Z0-9]+)_(?P<title>.+)_v(?P<ver>\d+)\.(?P<ext>[^.]+)$"
 )
 
 # Leading law date token: YYYY-MM-DD_
@@ -228,6 +231,14 @@ def peel_organizer_title(title: str) -> str:
     return text.strip(" _")
 
 
+def parse_organizer_date(token: str) -> date | None:
+    """Real calendar date, or None. Never invent a substitute date."""
+    try:
+        return date.fromisoformat(token)
+    except ValueError:
+        return None
+
+
 def peel_rebuild_organizer_name(name: str, *, prefix: str | None = None) -> str | None:
     """Rebuild a law-shaped (possibly stacked) filename to a single-law name.
 
@@ -238,7 +249,9 @@ def peel_rebuild_organizer_name(name: str, *, prefix: str | None = None) -> str 
     parsed = ORGANIZER_NAME_RE.match(name)
     if parsed is None:
         return None
-    when = date.fromisoformat(parsed.group("date"))
+    when = parse_organizer_date(parsed.group("date"))
+    if when is None:
+        return None
     parsed_prefix = parsed.group("prefix")
     if prefix is not None:
         raw_prefix = prefix
@@ -290,6 +303,8 @@ def build_organizer_name(
 def is_organizer_name(name: str) -> bool:
     parsed = ORGANIZER_NAME_RE.match(name)
     if not parsed:
+        return False
+    if parse_organizer_date(parsed.group("date")) is None:
         return False
     if parsed.group("prefix") not in known_organizer_prefixes():
         return False
