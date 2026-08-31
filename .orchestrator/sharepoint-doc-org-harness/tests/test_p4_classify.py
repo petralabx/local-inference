@@ -391,3 +391,112 @@ def test_rejects_paid_base_url() -> None:
             forbid_host_substrings=["api.openai.com"],
             llm_caller=lambda **kw: "{}",
         )
+
+
+def _brand_rules() -> list:
+    return load_correction_rules(PACKAGE_ROOT / "config" / "correction_rules.json")
+
+
+def test_petra_brands_file_to_marketing_not_clients() -> None:
+    rules = _brand_rules()
+    cases = [
+        (
+            "F&A label proof.pdf",
+            "rule-031",
+            "03_Marketing_Creative/Brands/FOR&AGAINST",
+            "For & Against",
+        ),
+        (
+            "foragainst-brief.pdf",
+            "rule-031",
+            "03_Marketing_Creative/Brands/FOR&AGAINST",
+            "For & Against",
+        ),
+        (
+            "furgenics-stability-quote.pdf",
+            "rule-038",
+            "03_Marketing_Creative/Brands/Furgenics",
+            "Furgenics",
+        ),
+        (
+            "1hr-after-label.pdf",
+            "rule-047",
+            "03_Marketing_Creative/Brands/1HR",
+            "1 Hour After",
+        ),
+        (
+            "1 Hour After brief.pdf",
+            "rule-047",
+            "03_Marketing_Creative/Brands/1HR",
+            "1 Hour After",
+        ),
+    ]
+    for name, rule_id, folder, party in cases:
+        hit = match_correction_rules(name, rules)
+        assert hit is not None, name
+        assert hit["id"] == rule_id
+        assert hit["target_folder"] == folder
+        assert hit["prefix"] == "PB"
+        assert hit["confidence_boost"] == 3
+        assert "01_Clients_Projects" not in hit["target_folder"]
+        assert "Private_Brands" not in hit["target_folder"]
+        c = classify_file(
+            path=Path(name),
+            text="",
+            rules=rules,
+            litellm_base_url="http://100.103.33.54:4000/v1",
+            model="local-fast",
+            forbid_host_substrings=["api.openai.com"],
+            organizer_names=True,
+            llm_caller=lambda **kw: (_ for _ in ()).throw(AssertionError("llm should not run")),
+        )
+        assert c.source == "correction_rule"
+        assert c.entity == party
+        assert c.prefix == "PB"
+        assert c.target_folder == folder
+        assert is_organizer_name(c.suggested_name)
+        assert party.replace("&", "") in c.suggested_name.replace("&", "") or party in c.suggested_name
+
+
+def test_furgenics_does_not_match_bare_fur() -> None:
+    rules = _brand_rules()
+    fur = next(r for r in rules if r["id"] == "rule-038")
+    assert fur["keywords"] == ["furgenics"]
+    assert match_correction_rules("fur-coat-invoice.pdf", rules) is None
+
+
+def test_diversified_stays_customer_when_sku_is_furgenics() -> None:
+    rules = _brand_rules()
+    hit = match_correction_rules("Diversified Hospitality Furgenics PO.pdf", rules)
+    assert hit is not None
+    assert hit["id"] == "rule-036"
+    assert hit["target_folder"] == "01_Clients_Projects/Diversified_Hospitality"
+    assert hit["prefix"] == "PRO"
+    c = classify_file(
+        path=Path("Diversified Hospitality Furgenics PO.pdf"),
+        text="",
+        rules=rules,
+        litellm_base_url="http://100.103.33.54:4000/v1",
+        model="local-fast",
+        forbid_host_substrings=["api.openai.com"],
+        organizer_names=True,
+        llm_caller=lambda **kw: (_ for _ in ()).throw(AssertionError("llm should not run")),
+    )
+    assert c.source == "correction_rule"
+    assert c.target_folder == "01_Clients_Projects/Diversified_Hospitality"
+    assert c.entity == "Diversified Hospitality"
+    assert c.prefix == "PRO"
+
+
+def test_no_invented_fthat_or_lubed_brand_rules() -> None:
+    rules = _brand_rules()
+    ids = {r["id"] for r in rules}
+    assert "rule-044" in ids
+    fthat = next(r for r in rules if r["id"] == "rule-044")
+    assert fthat["target_folder"] == "01_Clients_Projects/FTHAT"
+    assert not any("lubed" in str(k).lower() for r in rules for k in r.get("keywords") or [])
+    assert not any(
+        "03_Marketing_Creative/Brands/FTHAT" in str(r.get("target_folder") or "")
+        or "03_Marketing_Creative/Brands/LUBED" in str(r.get("target_folder") or "")
+        for r in rules
+    )
