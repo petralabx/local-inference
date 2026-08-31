@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING, Any, Callable
 
 from harness.actions.drain import NOISE_NAMES, is_secret_file
 from harness.classify.router import (
+    UNSORTED_FOLDER,
     Classification,
     classify_file,
     correction_rule_rehome,
@@ -139,12 +140,22 @@ class InboxSorter:
                 self._save_manifest()
                 return SortResult(src, None, "skipped", run_id, "already in ledger")
             return SortResult(src, None, "skipped", run_id, "already processed hash")
-        if classification.confidence < 0.5 and classification.source != "correction_rule":
+        unknown_entity = (self.organizer_names or self.readable_names) and not (
+            classification.entity or ""
+        ).strip()
+        if (
+            not unknown_entity
+            and classification.confidence < 0.5
+            and classification.source != "correction_rule"
+        ):
             return SortResult(src, None, "held", run_id, "low confidence")
 
         # keep_folder is for LLM/heuristic relabel-in-place. A correction-rule
-        # home always wins, including the stock relabel job.
-        if keep_folder and classification.source != "correction_rule":
+        # home always wins, including the stock relabel job. Unknown entity
+        # holds in 00_Inbox/_Unsorted_Imports — do not invent a party.
+        if unknown_entity:
+            dest_dir = self.root / UNSORTED_FOLDER
+        elif keep_folder and classification.source != "correction_rule":
             dest_dir = src.parent
         else:
             dest_dir = self.root / classification.target_folder
@@ -217,6 +228,8 @@ class InboxSorter:
                 run_id=run_id,
                 prefix=classification.prefix,
                 home=home,
+                title=classification.description,
+                party=classification.entity or None,
             )
             if stamped.sha256_after:
                 filed_hash = stamped.sha256_after

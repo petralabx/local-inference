@@ -5,6 +5,7 @@ from pathlib import Path
 import pytest
 
 from harness.classify.router import (
+    UNSORTED_FOLDER,
     MissingLiteLLMKey,
     classify_file,
     constrain_target_folder,
@@ -14,7 +15,13 @@ from harness.classify.router import (
 )
 from harness.config import PACKAGE_ROOT, load_correction_rules
 from harness.extract.pipeline import extract_text
-from harness.naming import is_compliant, is_organizer_name
+from harness.naming import (
+    build_entity_topic_title,
+    is_compliant,
+    is_organizer_name,
+    split_entity_topic,
+    title_has_entity_and_topic,
+)
 
 
 FIXTURE = PACKAGE_ROOT / "tests" / "fixtures" / "extract" / "sample_invoice.txt"
@@ -199,6 +206,106 @@ def test_invented_folder_and_meta_description_are_constrained() -> None:
         "Binary file with unparsed content, identified by UUID filename.",
         readable=True,
     )
+
+
+def test_entity_topic_title_helpers() -> None:
+    assert title_has_entity_and_topic("Happy Yards Invoice")
+    assert title_has_entity_and_topic("K18 Stability Quote")
+    assert title_has_entity_and_topic("HR Employee Contract")
+    assert title_has_entity_and_topic("CRA Notice of Assessment")
+    assert split_entity_topic("Happy Yards Invoice") == ("Happy Yards", "Invoice")
+    assert split_entity_topic("K18 Stability Quote") == ("K18", "Stability Quote")
+    assert split_entity_topic("HR Employee Contract") == ("HR", "Employee Contract")
+    assert split_entity_topic("CRA Notice of Assessment") == ("CRA", "Notice of Assessment")
+    assert build_entity_topic_title("Happy Yards", "Invoice") == "Happy Yards Invoice"
+    assert build_entity_topic_title("K18", "Stability Quote") == "K18 Stability Quote"
+    assert not title_has_entity_and_topic("Invoice")
+    assert not title_has_entity_and_topic("Contract")
+    assert not title_has_entity_and_topic("Untitled")
+    assert not title_has_entity_and_topic("Document")
+    assert not title_has_entity_and_topic("Scan")
+    assert not title_has_entity_and_topic("File")
+    assert not title_has_entity_and_topic("Image")
+    assert not title_has_entity_and_topic("Notice of Assessment")
+
+
+def test_classify_builds_entity_topic_from_rule_and_llm() -> None:
+    rules = load_correction_rules(PACKAGE_ROOT / "config" / "correction_rules.json")
+    ruled = classify_file(
+        path=Path("k18-stability-quote.pdf"),
+        text="",
+        rules=rules,
+        litellm_base_url="http://100.103.33.54:4000/v1",
+        model="local-fast",
+        forbid_host_substrings=["api.openai.com"],
+        organizer_names=True,
+        llm_caller=lambda **kw: (_ for _ in ()).throw(AssertionError("llm should not run")),
+    )
+    assert ruled.source == "correction_rule"
+    assert ruled.entity == "K18"
+    assert ruled.description == "K18 Stability Quote"
+    assert title_has_entity_and_topic(ruled.description)
+    assert is_organizer_name(ruled.suggested_name)
+    assert "K18 Stability Quote" in ruled.suggested_name
+
+    optional = classify_file(
+        path=Path("acme-invoice.pdf"),
+        text="invoice",
+        rules=[
+            {
+                "keywords": ["acme"],
+                "party": "Acme Roofing",
+                "target_folder": "02_Business_Ops/Finance/Invoices_Receivable",
+                "prefix": "INV",
+                "confidence_boost": 2,
+            }
+        ],
+        litellm_base_url="http://100.103.33.54:4000/v1",
+        model="local-fast",
+        forbid_host_substrings=["api.openai.com"],
+        organizer_names=True,
+        llm_caller=lambda **kw: (_ for _ in ()).throw(AssertionError("llm should not run")),
+    )
+    assert optional.entity == "Acme Roofing"
+    assert optional.description == "Acme Roofing Invoice"
+
+    llm = classify_file(
+        path=Path("scan.pdf"),
+        text="Happy Yards landscaping invoice",
+        rules=[],
+        litellm_base_url="http://100.103.33.54:4000/v1",
+        model="local-fast",
+        forbid_host_substrings=["api.openai.com"],
+        organizer_names=True,
+        llm_caller=lambda **kw: (
+            '{"prefix":"INV","target_folder":"05_Personal/Expenses",'
+            '"entity":"Happy Yards","topic":"Invoice","confidence":0.8}'
+        ),
+    )
+    assert llm.source == "llm"
+    assert llm.entity == "Happy Yards"
+    assert llm.description == "Happy Yards Invoice"
+    assert is_organizer_name(llm.suggested_name)
+
+
+def test_classify_holds_unsorted_when_entity_unknown() -> None:
+    c = classify_file(
+        path=Path("Invoice.pdf"),
+        text="",
+        rules=[],
+        litellm_base_url="http://100.103.33.54:4000/v1",
+        model="local-fast",
+        forbid_host_substrings=["api.openai.com"],
+        organizer_names=True,
+        llm_caller=lambda **kw: (
+            '{"prefix":"INV","target_folder":"02_Business_Ops/Finance/Invoices_Receivable",'
+            '"entity":"","topic":"Invoice","confidence":0.7}'
+        ),
+    )
+    assert c.target_folder == UNSORTED_FOLDER
+    assert c.entity == ""
+    assert not title_has_entity_and_topic(c.description)
+    assert "Invoice" in c.suggested_name
 
 
 def test_rejects_paid_base_url() -> None:

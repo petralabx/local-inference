@@ -336,3 +336,162 @@ def next_version_name(existing: set[str], candidate: str) -> str:
             f"{m.group('date')}_{m.group('prefix')}_{m.group('desc')}_v{ver:02d}.{m.group('ext')}"
         )
     return candidate
+
+
+# Title slot is Entity then Topic (two human parts). Not a fifth filename field.
+_GENERIC_TITLE_WORDS = frozenset({"untitled", "document", "scan", "file", "image"})
+_TOPIC_PHRASES: tuple[str, ...] = (
+    "notice of assessment",
+    "employee contract",
+    "cost analysis",
+    "credit note",
+    "packing list",
+    "stability quote",
+    "invoices",
+    "invoice",
+    "quotes",
+    "quote",
+    "receipts",
+    "receipt",
+    "contracts",
+    "contract",
+    "agreements",
+    "agreement",
+    "proposals",
+    "proposal",
+    "estimates",
+    "estimate",
+    "statements",
+    "statement",
+    "orders",
+    "order",
+    "ndas",
+    "nda",
+    "memos",
+    "memo",
+    "minutes",
+    "agendas",
+    "agenda",
+    "reports",
+    "report",
+    "credit notes",
+    "packing lists",
+    "notices",
+    "notice",
+    "assessments",
+    "assessment",
+    "analysis",
+    "stability",
+)
+_TOPIC_WORDS = frozenset(p for p in _TOPIC_PHRASES if " " not in p)
+# Conservative document-kind tokens for Party / title splits. Not NLP.
+_KIND_ALTERNATION = "|".join(
+    re.escape(p) for p in sorted(_TOPIC_PHRASES, key=len, reverse=True)
+)
+PARTY_KIND_RE = re.compile(rf"\b({_KIND_ALTERNATION})\b", re.I)
+
+
+def display_title_part(text: str) -> str:
+    """Preserve mixed/acronym case; title-case a fully lower/upper phrase."""
+    cleaned = re.sub(r"[\s_-]+", " ", text).strip(" -_,./")
+    if not cleaned:
+        return ""
+    tokens = cleaned.split()
+    if len(tokens) == 1 and tokens[0].isupper() and 2 <= len(tokens[0]) <= 4:
+        return tokens[0]
+    if cleaned.islower() or cleaned.isupper():
+        return cleaned.title()
+    return cleaned
+
+
+def _title_tokens(text: str) -> list[str]:
+    return [tok for tok in re.split(r"[\s_-]+", text.strip()) if tok]
+
+
+def _all_generic_tokens(text: str) -> bool:
+    tokens = _title_tokens(text)
+    return bool(tokens) and all(tok.lower() in _GENERIC_TITLE_WORDS for tok in tokens)
+
+
+def _topic_span(text: str) -> tuple[int, int] | None:
+    low = text.lower()
+    best: tuple[int, int] | None = None
+    for phrase in sorted(_TOPIC_PHRASES, key=len, reverse=True):
+        start = 0
+        while True:
+            idx = low.find(phrase, start)
+            if idx < 0:
+                break
+            end = idx + len(phrase)
+            left_ok = idx == 0 or not low[idx - 1].isalnum()
+            right_ok = end == len(low) or not low[end].isalnum()
+            if left_ok and right_ok:
+                if best is None or idx < best[0] or (idx == best[0] and end > best[1]):
+                    best = (idx, end)
+                break
+            start = idx + 1
+    return best
+
+
+def split_entity_topic(title: str) -> tuple[str, str]:
+    """Split a peeled title into (entity, topic). Empty entity means unknown."""
+    text = peel_organizer_title(title).strip()
+    if not text:
+        return "", ""
+    spaced = re.sub(r"[\s_-]+", " ", text).strip()
+    if not spaced or _all_generic_tokens(spaced):
+        return "", ""
+    span = _topic_span(spaced)
+    if span is not None:
+        start, _end = span
+        entity = display_title_part(spaced[:start])
+        topic = display_title_part(spaced[start:])
+        if not entity or entity.lower() in _GENERIC_TITLE_WORDS:
+            return "", topic
+        return entity, topic
+    tokens = _title_tokens(spaced)
+    head = tokens[0].lower()
+    if (
+        len(tokens) >= 2
+        and head not in _GENERIC_TITLE_WORDS
+        and head not in _TOPIC_WORDS
+    ):
+        return display_title_part(tokens[0]), display_title_part(" ".join(tokens[1:]))
+    return "", ""
+
+
+def title_has_entity_and_topic(title: str) -> bool:
+    """True when the title slot has a named entity and a topic (not topic-only)."""
+    entity, topic = split_entity_topic(title)
+    return bool(entity and topic)
+
+
+def build_entity_topic_title(entity: str, topic: str) -> str:
+    """Join Entity then Topic without duplicating a title that already has both."""
+    entity_part = display_title_part(entity)
+    topic_part = display_title_part(topic)
+    if not entity_part or not topic_part:
+        return ""
+    if topic_part.lower().startswith(entity_part.lower()):
+        return topic_part
+    return f"{entity_part} {topic_part}"
+
+
+def organizer_title_from_name(name: str) -> str:
+    """Peeled title slot from a law filename, else the peeled stem."""
+    parsed = ORGANIZER_NAME_RE.match(name)
+    if parsed:
+        return peel_organizer_title(parsed.group("title")) or ""
+    stem = name.rsplit(".", 1)[0] if "." in name else name
+    return peel_organizer_title(stem) or stem
+
+
+def topic_from_blob(*parts: str) -> str:
+    """First known topic phrase in filename/text. Empty when none is named."""
+    blob = re.sub(r"[\s_-]+", " ", " ".join(p for p in parts if p)).strip()
+    if not blob:
+        return ""
+    span = _topic_span(blob)
+    if span is None:
+        return ""
+    return display_title_part(blob[span[0] : span[1]])

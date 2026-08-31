@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import re
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -20,20 +19,14 @@ from harness.journal.store import ActionJournal
 from harness.ledger.documents import DocumentLedger
 from harness.naming import (
     ORGANIZER_NAME_RE,
+    PARTY_KIND_RE,
+    display_title_part,
     normalize_organizer_prefix,
     peel_organizer_title,
     readable_title_from_filename,
+    split_entity_topic,
 )
 from harness.stamp.embed import write_embedded_properties
-
-# Conservative document-kind tokens for Party fallback. Not NLP: split on these
-# words and keep the short leading phrase, or leave Party empty.
-_KIND_RE = (
-    r"quotes?|invoices?|receipts?|contracts?|agreements?|proposals?|"
-    r"estimates?|statements?|orders?|ndas?|memos?|minutes|"
-    r"agendas?|sops?|reports?|pos?|credit notes?|packing lists?"
-)
-_PARTY_KIND_RE = re.compile(rf"\b({_KIND_RE})\b", re.I)
 
 
 def party_for_document(
@@ -42,22 +35,28 @@ def party_for_document(
     title: str,
     rules: list[dict[str, Any]],
 ) -> str:
-    """Party from the matching correction-rule keyword, else a conservative peel.
+    """Party is the title-slot entity. Rule party/keyword wins; else a peel.
 
-    Empty Party is allowed. Does not invent NLP.
+    Empty Party is allowed. Does not invent an entity.
     """
     blob = f"{filename} {title}"
     hit = match_correction_rules(blob, rules) or match_correction_rules(filename, rules)
     if hit:
+        explicit = str(hit.get("party") or hit.get("entity") or "").strip()
+        if explicit:
+            return explicit
         keywords = sorted((str(k) for k in (hit.get("keywords") or [])), key=len, reverse=True)
         low = blob.lower()
         for kw in keywords:
             needle = kw.lower()
             idx = low.find(needle)
             if idx >= 0:
-                return blob[idx : idx + len(kw)].strip() or kw.title()
+                return blob[idx : idx + len(kw)].strip() or display_title_part(kw)
         if keywords:
-            return keywords[0].title()
+            return display_title_part(keywords[0])
+    entity, _topic = split_entity_topic(title)
+    if entity:
+        return entity
     return conservative_party_from_title(title)
 
 
@@ -65,7 +64,7 @@ def conservative_party_from_title(title: str) -> str:
     text = peel_organizer_title(title).strip()
     if not text:
         return ""
-    match = _PARTY_KIND_RE.search(text)
+    match = PARTY_KIND_RE.search(text)
     if not match or match.start() == 0:
         return ""
     head = text[: match.start()].strip(" -_,./")

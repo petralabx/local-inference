@@ -20,7 +20,9 @@ from harness.naming import (
     ORGANIZER_NAME_RE,
     is_organizer_name,
     next_organizer_version,
+    organizer_title_from_name,
     peel_rebuild_organizer_name,
+    title_has_entity_and_topic,
 )
 from harness.stamp.harvest import HarvestStamp
 
@@ -105,13 +107,23 @@ def prioritize_relabel_sources(
     rules: list[dict[str, Any]],
     ledger: DocumentLedger,
 ) -> list[Path]:
-    """Law failures first so a proof --limit hits stacked leftovers, not already-law names."""
+    """Law failures first so a proof --limit hits stacked leftovers, not already-law names.
+
+    Organizer-law names whose peeled title is missing an entity or a topic are
+    re-picked after stacked leftovers. A single generic word or a topic-only
+    title is a miss; already-law names with Entity Topic stay on the skip/fill
+    path.
+    """
     broken: list[Path] = []
+    weak_title: list[Path] = []
     rehome: list[Path] = []
     ledger_fill: list[Path] = []
     for src in sources:
         if not is_organizer_name(src.name):
             broken.append(src)
+            continue
+        if not title_has_entity_and_topic(organizer_title_from_name(src.name)):
+            weak_title.append(src)
             continue
         if correction_rule_rehome(src, root=root, rules=rules) is not None:
             rehome.append(src)
@@ -122,7 +134,7 @@ def prioritize_relabel_sources(
             continue
         if ledger.get(digest) is None:
             ledger_fill.append(src)
-    return broken + rehome + ledger_fill
+    return broken + weak_title + rehome + ledger_fill
 
 
 def _commit_relabel(
@@ -285,7 +297,9 @@ def run_relabel(
                 if hit and hit.get("prefix"):
                     prefix_override = str(hit.get("prefix"))
                 rebuilt = peel_rebuild_organizer_name(src.name, prefix=prefix_override)
-                if rebuilt is not None:
+                if rebuilt is not None and title_has_entity_and_topic(
+                    organizer_title_from_name(rebuilt)
+                ):
                     rehome = correction_rule_rehome(src, root=root, rules=rules)
                     dest_dir = (
                         root / str(rehome["target_folder"]).replace("\\", "/")
@@ -314,9 +328,14 @@ def run_relabel(
                     else:
                         report.ledger_only += 1
                     continue
-            if is_organizer_name(src.name) and correction_rule_rehome(
-                src, root=root, rules=sorter.rules
-            ) is None:
+            weak_title = is_organizer_name(src.name) and not title_has_entity_and_topic(
+                organizer_title_from_name(src.name)
+            )
+            if (
+                is_organizer_name(src.name)
+                and not weak_title
+                and correction_rule_rehome(src, root=root, rules=sorter.rules) is None
+            ):
                 if ledger.get(content_hash(src)) is not None:
                     report.skipped += 1
                     continue

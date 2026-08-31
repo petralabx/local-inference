@@ -426,3 +426,70 @@ def test_relabel_proof_limit_prefers_stacked_names(tmp_path: Path) -> None:
     assert law
     assert law[0].name == HAPPY_YARDS_LAW
     journal.close()
+
+
+def test_relabel_prioritizes_weak_organizer_titles(tmp_path: Path) -> None:
+    from harness.jobs.relabel import prioritize_relabel_sources, run_relabel
+    from harness.naming import title_has_entity_and_topic
+
+    root = tmp_path / "sp"
+    home = root / "02_Business_Ops" / "Finance"
+    home.mkdir(parents=True)
+    weak = home / "2026-08-18_INV_Invoice_v01.pdf"
+    generic = home / "2026-08-18_GEN_Untitled_v01.pdf"
+    good = home / "2026-08-18_INV_Happy Yards Invoice_v01.pdf"
+    weak.write_bytes(b"weak-invoice")
+    generic.write_bytes(b"generic-untitled")
+    good.write_bytes(b"good-entity-topic")
+    journal_path = tmp_path / "j.sqlite3"
+    ledger = DocumentLedger(journal_path)
+    for src, title in (
+        (weak, "Invoice"),
+        (generic, "Untitled"),
+        (good, "Happy Yards Invoice"),
+    ):
+        ledger.upsert(
+            DocumentRecord(
+                sha256=content_hash(src),
+                title=title,
+                prefix="INV" if "INV" in src.name else "GEN",
+                doc_type="INV",
+                doc_date="2026-08-18",
+                version=1,
+                home="02_Business_Ops",
+                current_path=str(src),
+                source="relabel_parse",
+            )
+        )
+    ledger.close()
+    assert not title_has_entity_and_topic("Invoice")
+    assert title_has_entity_and_topic("Happy Yards Invoice")
+    ordered = prioritize_relabel_sources(
+        [good, weak, generic],
+        root=root,
+        rules=[],
+        ledger=DocumentLedger(journal_path),
+    )
+    assert ordered[:2] == [weak, generic]
+    assert good not in ordered
+
+    cfg = _relabel_cfg(tmp_path, root)
+    journal = ActionJournal(journal_path)
+    report = run_relabel(
+        cfg=cfg,
+        journal=journal,
+        report_path=tmp_path / "relabel-weak.json",
+        llm_caller=lambda **_: (
+            '{"prefix":"INV","target_folder":"02_Business_Ops/Finance",'
+            '"entity":"","topic":"Invoice","confidence":0.7}'
+        ),
+        limit=2,
+    )
+    assert report.scanned == 2
+    assert weak.exists() is False or (root / "00_Inbox" / "_Unsorted_Imports").exists()
+    unsorted = root / "00_Inbox" / "_Unsorted_Imports"
+    held = list(unsorted.glob("*.pdf")) if unsorted.is_dir() else []
+    assert len(held) >= 1
+    assert good.exists()
+    assert good.name == "2026-08-18_INV_Happy Yards Invoice_v01.pdf"
+    journal.close()
