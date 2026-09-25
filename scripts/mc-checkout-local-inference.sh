@@ -54,6 +54,13 @@ case "$MC_RUNTIME" in
         ;;
     esac
     ;;
+  claude-code)
+    EXPECTED_SERVICE_PRINCIPAL="sp_mcp_claude_code"
+    if [[ "${MC_MCP_PRINCIPAL_ID+x}" == "x" && "$MC_MCP_PRINCIPAL_ID" != "sp_mcp_claude_code" ]]; then
+      printf 'refusing MC request: claude-code requires sp_mcp_claude_code\n' >&2
+      exit 1
+    fi
+    ;;
   cursor-cloud)
     if [[ -n "${MC_MCP_PRINCIPAL_ID:-}" && "$MC_MCP_PRINCIPAL_ID" != "sp_mcp_cursor" ]]; then
       printf 'refusing MC request: cursor-cloud requires sp_mcp_cursor\n' >&2
@@ -62,7 +69,7 @@ case "$MC_RUNTIME" in
     EXPECTED_SERVICE_PRINCIPAL="sp_mcp_cursor"
     ;;
   *)
-    printf 'refusing MC request: MC_RUNTIME must be local or cursor-cloud\n' >&2
+    printf 'refusing MC request: MC_RUNTIME must be local, cursor-cloud or claude-code\n' >&2
     exit 1
     ;;
 esac
@@ -93,7 +100,9 @@ fi
 
 API_KEY="${MC_MCP_API_KEY:-${PLX_MC_MCP_API_KEY:-}}"
 if [[ -z "$API_KEY" ]]; then
-  if [[ "$MC_RUNTIME" == "local" ]]; then
+  if [[ "$MC_RUNTIME" == "claude-code" ]]; then
+    printf 'MISSING: set MC_MCP_API_KEY in the Claude environment\n' >&2
+  elif [[ "$MC_RUNTIME" == "local" ]]; then
     printf 'MISSING: set MC_MCP_API_KEY in the local agent environment\n' >&2
   else
     printf 'MISSING: set PLX_MC_MCP_API_KEY (or hydrate from prod/ec2-secrets)\n' >&2
