@@ -1,0 +1,32 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "enabledMcpjsonServers": [
+    "PLX-MC-Hub"
+  ],
+  "permissions": {
+    "allow": [
+      "mcp__PLX-MC-Hub__mc_self_check",
+      "mcp__PLX-MC-Hub__mc_get_context",
+      "mcp__PLX-MC-Hub__mc_search_tasks",
+      "mcp__PLX-MC-Hub__mc_suggest_work",
+      "mcp__PLX-MC-Hub__mc_list_buckets",
+      "mcp__PLX-MC-Hub__mc_create_task",
+      "mcp__PLX-MC-Hub__mc_checkout_task",
+      "mcp__PLX-MC-Hub__mc_report_progress",
+      "mcp__PLX-MC-Hub__mc_complete_task",
+      "Bash(node scripts/compliance-checkout.mjs*)",
+      "Bash(COMPLIANCE_CAPTURE=1 * node scripts/compliance-checkout.mjs*)",
+      "Bash(node scripts/compliance-pr-verify.mjs*)",
+      "Bash(bash scripts/mc-checkout-local-inference.sh*)"
+    ],
+    "ask": [
+      "mcp__PLX-MC-Hub__mc_create_project",
+      "mcp__PLX-MC-Hub__mc_create_bucket",
+      "mcp__PLX-MC-Hub__mc_create_routed_task"
+    ],
+    "deny": [
+      "Read(**/.env)",
+      "Read(**/.env.local)"
+    ]
+  }
+}
