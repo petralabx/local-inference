@@ -1,0 +1,120 @@
+# Fleet proxy config (agent fleet spec P1, decision D5).
+#
+# The fleet proxy is a separate LiteLLM instance on its own EC2 host,
+# fleet-proxy, bound to <fleet-proxy>:4001 on the tailnet. It is not the
+# trading gateway. The trading gateway on the Dell reads only
+# litellm/config.yaml; it never reads this file.
+#
+# Rules this file keeps (checked by deploy/fleet-proxy/check_fleet_config.py,
+# which the systemd unit runs before every start):
+# - Cloud aliases only. P1b adds local-primary and local-fast.
+# - Never a local-driver or local-coder alias (D23, SC-13).
+# - Every key comes from the environment as os.environ/<PROVIDER>_API_KEY.
+#   The keys live only in prod/fleet-proxy and in /etc/litellm-fleet/fleet.env
+#   on fleet-proxy (D11, SC-6). This repo is public: never put a key here.
+# - No trace callback. The fleet never sends traces to trading's Langfuse,
+#   and never to Langfuse Cloud (F37). Request and spend logs go to the
+#   fleet's own Postgres (litellm_fleet on localhost).
+# - allow_requests_on_db_unavailable stays false (fail closed). Without the
+#   database the proxy does not start, and it refuses virtual-key requests
+#   during an outage. LiteLLM does not look up the master key in the
+#   database, so the master key stays with the operator; agents get
+#   virtual keys.
+#
+# Alias names: cloud-<family>-<tier> for a strong and a fast alias per
+# D11 provider. An agent names an alias, never a vendor model id.
+# Model ids are the ones the pinned LiteLLM (deploy/fleet-proxy/requirements.txt)
+# prices, so each call gets a cost in the spend logs.
+
+model_list:
+  # Anthropic
+  - model_name: cloud-claude-sonnet          # strong
+    litellm_params:
+      model: anthropic/claude-sonnet-5
+      api_key: os.environ/ANTHROPIC_API_KEY
+  - model_name: cloud-claude-haiku           # fast; LiteLLM lists a retirement date of 2026-10-15
+    litellm_params:
+      model: anthropic/claude-haiku-4-5
+      api_key: os.environ/ANTHROPIC_API_KEY
+
+  # OpenAI
+  - model_name: cloud-gpt                    # strong
+    litellm_params:
+      model: openai/gpt-5.6
+      api_key: os.environ/OPENAI_API_KEY
+  - model_name: cloud-gpt-mini               # fast
+    litellm_params:
+      model: openai/gpt-5.4-mini
+      api_key: os.environ/OPENAI_API_KEY
+
+  # Google (Gemini API)
+  - model_name: cloud-gemini-pro             # strong
+    litellm_params:
+      model: gemini/gemini-2.5-pro
+      api_key: os.environ/GEMINI_API_KEY
+  - model_name: cloud-gemini-flash           # fast
+    litellm_params:
+      model: gemini/gemini-3.5-flash
+      api_key: os.environ/GEMINI_API_KEY
+
+  # xAI
+  - model_name: cloud-grok                   # strong
+    litellm_params:
+      model: xai/grok-4.6
+      api_key: os.environ/XAI_API_KEY
+  - model_name: cloud-grok-fast              # fast
+    litellm_params:
+      model: xai/grok-4.3
+      api_key: os.environ/XAI_API_KEY
+
+  # Mistral
+  - model_name: cloud-mistral-large          # strong
+    litellm_params:
+      model: mistral/mistral-large-2512
+      api_key: os.environ/MISTRAL_API_KEY
+  - model_name: cloud-mistral-small          # fast
+    litellm_params:
+      model: mistral/mistral-small-2603
+      api_key: os.environ/MISTRAL_API_KEY
+
+  # DeepSeek
+  - model_name: cloud-deepseek-pro           # strong
+    litellm_params:
+      model: deepseek/deepseek-v4-pro
+      api_key: os.environ/DEEPSEEK_API_KEY
+  - model_name: cloud-deepseek-flash         # fast
+    litellm_params:
+      model: deepseek/deepseek-v4-flash
+      api_key: os.environ/DEEPSEEK_API_KEY
+
+  # OpenRouter (open-weight models)
+  - model_name: cloud-openrouter-kimi        # strong
+    litellm_params:
+      model: openrouter/moonshotai/kimi-k2.6
+      api_key: os.environ/OPENROUTER_API_KEY
+  - model_name: cloud-openrouter-qwen-flash  # fast
+    litellm_params:
+      model: openrouter/qwen/qwen3.8-flash
+      api_key: os.environ/OPENROUTER_API_KEY
+
+litellm_settings:
+  drop_params: true
+  set_verbose: false
+  request_timeout: 600
+  num_retries: 1
+  # No callbacks, success_callback or failure_callback: no traces leave
+  # fleet-proxy.
+
+general_settings:
+  master_key: os.environ/FLEET_LITELLM_MASTER_KEY
+  database_url: os.environ/DATABASE_URL
+  # Fail closed: without the database the proxy does not start and refuses
+  # virtual keys (see the header).
+  allow_requests_on_db_unavailable: false
+  # Aliases come from this file only, not from the database.
+  store_model_in_db: false
+  # Spend logs hold metadata and cost, not prompt or response text.
+  disable_spend_logs: false
+  store_prompts_in_spend_logs: false
+  # Do not probe the providers in the background.
+  background_health_checks: false

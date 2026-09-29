@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+# Test stub for tailscale (fleet proxy integration test only).
+# `tailscale ip -4` prints the test tailnet address, which run.sh puts on lo.
+set -euo pipefail
+if [ "${1:-} ${2:-}" = "ip -4" ]; then
+  cat /srv/fleet-it/tailnet-ip
+else
+  echo "stub: unsupported tailscale call: $*" >&2
+  exit 2
+fi

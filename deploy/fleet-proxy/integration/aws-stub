@@ -1,0 +1,32 @@
+#!/usr/bin/env bash
+# Test stub for the AWS CLI (fleet proxy integration test only).
+# It makes no AWS call. get-secret-value prints the dummy secret for
+# prod/fleet-proxy and refuses every other secret id. s3 cp copies the file
+# into /srv/fleet-it/s3 (not /tmp: the backup unit has PrivateTmp).
+set -euo pipefail
+root=/srv/fleet-it
+echo "aws $*" >> "$root/aws-calls.log"
+case "${1:-} ${2:-}" in
+  "secretsmanager get-secret-value")
+    case " $* " in
+      *" --secret-id prod/fleet-proxy "*) cat "$root/secret.json" ;;
+      *) echo "An error occurred (AccessDeniedException) (stub)" >&2; exit 254 ;;
+    esac
+    ;;
+  "s3 cp")
+    shift 2
+    files=()
+    while [ "$#" -gt 0 ]; do
+      case "$1" in
+        --region|--sse) shift 2 ;;
+        --*) shift ;;
+        *) files+=("$1"); shift ;;
+      esac
+    done
+    [ "${#files[@]}" -eq 2 ] || { echo "stub: s3 cp needs a source and a target" >&2; exit 2; }
+    key="${files[1]#s3://}"
+    mkdir -p "$root/s3/$(dirname "$key")"
+    cp "${files[0]}" "$root/s3/$key"
+    ;;
+  *) echo "stub: unsupported aws call: $*" >&2; exit 2 ;;
+esac

@@ -1,0 +1,73 @@
+# Fleet proxy (agent fleet spec P1, D5) on the EC2 host fleet-proxy.
+# Install: /etc/systemd/system/litellm-fleet.service (see README.md).
+#
+# The unit runs the pinned LiteLLM in /opt/litellm-fleet as the user
+# litellm-fleet, bound to the host's tailnet address on port 4001 only.
+# /etc/litellm-fleet/fleet.env comes from render-env.sh (root, mode 0600).
+# Stop rule: only `sudo systemctl stop litellm-fleet` stops the fleet proxy.
+# Any other exit restarts it.
+
+[Unit]
+Description=LiteLLM fleet proxy (cloud aliases, :4001 on the tailnet)
+Documentation=https://github.com/petralabx/local-inference/tree/main/deploy/fleet-proxy
+Wants=network-online.target
+After=network-online.target tailscaled.service postgresql.service
+# Keep restarting; never enter the failed state after a burst of restarts.
+StartLimitIntervalSec=0
+
+[Service]
+Type=simple
+User=litellm-fleet
+Group=litellm-fleet
+EnvironmentFile=/etc/litellm-fleet/fleet.env
+WorkingDirectory=/var/lib/litellm-fleet
+
+# Prisma, its Node runtime, npm and the LiteLLM migrations all write under
+# /var/lib/litellm-fleet, never under root's home or the read-only install.
+Environment=HOME=/var/lib/litellm-fleet
+Environment=XDG_CACHE_HOME=/var/lib/litellm-fleet/.cache
+Environment=PRISMA_HOME_DIR=/var/lib/litellm-fleet
+Environment=PRISMA_NODEENV_CACHE_DIR=/var/lib/litellm-fleet/.cache/prisma-python/nodeenv
+Environment=LITELLM_MIGRATION_DIR=/var/lib/litellm-fleet/migrations
+# LiteLLM runs the migrations with a bare `prisma` command, so the venv
+# comes first on PATH.
+Environment=PATH=/opt/litellm-fleet/venv/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+# Use the price map that ships with the pinned LiteLLM. The proxy does not
+# fetch a new map from GitHub at start.
+Environment=LITELLM_LOCAL_MODEL_COST_MAP=True
+# PRODUCTION: LiteLLM does not load a .env file from the working directory.
+Environment=LITELLM_MODE=PRODUCTION
+# Exit when a database migration fails (fail closed).
+Environment=ENFORCE_PRISMA_MIGRATION_CHECK=true
+Environment=DISABLE_ADMIN_UI=True
+Environment=PYTHONUNBUFFERED=1
+
+# 1. Refuse a config that breaks the P1 rules, or a bind address that is not
+#    on the tailnet (an empty FLEET_PROXY_HOST fails here).
+ExecStartPre=/opt/litellm-fleet/venv/bin/python /opt/litellm-fleet/check_fleet_config.py /opt/litellm-fleet/fleet.yaml --bind-host ${FLEET_PROXY_HOST}
+# 2. Generate the Prisma client as litellm-fleet. The install gives
+#    litellm-fleet write access to the venv's prisma package only.
+ExecStartPre=/opt/litellm-fleet/venv/bin/prisma generate --schema /opt/litellm-fleet/schema.prisma
+ExecStart=/opt/litellm-fleet/venv/bin/litellm --config /opt/litellm-fleet/fleet.yaml --host ${FLEET_PROXY_HOST} --port 4001 --num_workers 1
+
+Restart=always
+RestartSec=5
+# The first start downloads the Prisma engines and Node and runs migrations.
+TimeoutStartSec=900
+TimeoutStopSec=30
+
+# Hardening. /opt stays writable only where file modes allow it (the prisma
+# package directory); /usr, /boot and /etc are read-only.
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+ProtectSystem=full
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+LockPersonality=true
+UMask=0077
+
+[Install]
+WantedBy=multi-user.target

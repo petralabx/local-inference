@@ -1,0 +1,20 @@
+# Daily pg_dump of litellm_fleet to the S3 backup prefix (agent fleet spec P1).
+# Started by litellm-fleet-backup.timer. Runs as root, because only root
+# reaches the instance metadata service and so the instance profile.
+# Install: /etc/systemd/system/litellm-fleet-backup.service (see README.md).
+
+[Unit]
+Description=Back up the fleet proxy database (litellm_fleet) to S3
+Wants=network-online.target
+After=network-online.target postgresql.service
+
+[Service]
+Type=oneshot
+User=root
+EnvironmentFile=/etc/litellm-fleet/backup.env
+ExecStart=/opt/litellm-fleet/backup-db.sh
+TimeoutStartSec=1800
+# No ProtectHome: the AWS CLI may read its region from /root/.aws/config.
+PrivateTmp=true
+NoNewPrivileges=true
+UMask=0077
