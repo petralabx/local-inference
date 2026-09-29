@@ -1,0 +1,6 @@
+# Pinned install for the fleet proxy in /opt/litellm-fleet/venv (agent fleet spec P1).
+# The trading gateway keeps the root requirements.txt; this file does not touch it.
+# litellm[proxy] 1.102.1 pins litellm-proxy-extras==0.4.97 (the migrations).
+# prisma runs the Prisma CLI for `prisma generate` and the migrations.
+litellm[proxy]==1.102.1
+prisma==0.15.0

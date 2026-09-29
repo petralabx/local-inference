@@ -1,0 +1,15 @@
+# Runs litellm-fleet-backup.service once a day at 03:30 ET.
+# Install: /etc/systemd/system/litellm-fleet-backup.timer (see README.md).
+
+[Unit]
+Description=Daily backup of the fleet proxy database
+
+[Timer]
+OnCalendar=*-*-* 03:30:00 America/New_York
+RandomizedDelaySec=10min
+# Run a missed backup at the next boot.
+Persistent=true
+Unit=litellm-fleet-backup.service
+
+[Install]
+WantedBy=timers.target
