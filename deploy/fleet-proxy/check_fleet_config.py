@@ -12,6 +12,8 @@ the fleet proxy instead of serving. Rules:
 - No trace callback (F37).
 - The master key and the database URL come from the environment.
 - allow_requests_on_db_unavailable is absent or false (fail closed).
+- store_model_in_db is absent or false, so aliases come from this file only.
+- No top-level environment_variables block.
 - With --bind-host, the address is a tailnet (100.64.0.0/10) IPv4 address.
 
 Usage:
@@ -113,6 +115,15 @@ def check_config(config: object) -> list[str]:
         errors.append("general_settings.database_url must be os.environ/DATABASE_URL")
     if general.get("allow_requests_on_db_unavailable", False) is not False:
         errors.append("general_settings.allow_requests_on_db_unavailable must be false")
+    # With store_model_in_db, /model/new could add an alias (even local-driver)
+    # at run time, past this check.
+    if general.get("store_model_in_db", False) is not False:
+        errors.append("general_settings.store_model_in_db must be false")
+
+    # LiteLLM copies environment_variables into os.environ. A key or a
+    # LANGFUSE_* setting there would bypass the rules above.
+    if "environment_variables" in config:
+        errors.append("environment_variables is set; keys come from fleet.env only")
 
     return errors
 

@@ -29,6 +29,12 @@ Environment=XDG_CACHE_HOME=/var/lib/litellm-fleet/.cache
 Environment=PRISMA_HOME_DIR=/var/lib/litellm-fleet
 Environment=PRISMA_NODEENV_CACHE_DIR=/var/lib/litellm-fleet/.cache/prisma-python/nodeenv
 Environment=LITELLM_MIGRATION_DIR=/var/lib/litellm-fleet/migrations
+# LiteLLM runs the migrations with a bare `prisma` command, so the venv
+# comes first on PATH.
+Environment=PATH=/opt/litellm-fleet/venv/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+# Use the price map that ships with the pinned LiteLLM. The proxy does not
+# fetch a new map from GitHub at start.
+Environment=LITELLM_LOCAL_MODEL_COST_MAP=True
 # PRODUCTION: LiteLLM does not load a .env file from the working directory.
 Environment=LITELLM_MODE=PRODUCTION
 # Exit when a database migration fails (fail closed).

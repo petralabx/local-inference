@@ -15,7 +15,11 @@
 # - No trace callback. The fleet never sends traces to trading's Langfuse,
 #   and never to Langfuse Cloud (F37). Request and spend logs go to the
 #   fleet's own Postgres (litellm_fleet on localhost).
-# - allow_requests_on_db_unavailable stays false: no database, no requests.
+# - allow_requests_on_db_unavailable stays false (fail closed). Without the
+#   database the proxy does not start, and it refuses virtual-key requests
+#   during an outage. LiteLLM does not look up the master key in the
+#   database, so the master key stays with the operator; agents get
+#   virtual keys.
 #
 # Alias names: cloud-<family>-<tier> for a strong and a fast alias per
 # D11 provider. An agent names an alias, never a vendor model id.
@@ -104,7 +108,8 @@ litellm_settings:
 general_settings:
   master_key: os.environ/FLEET_LITELLM_MASTER_KEY
   database_url: os.environ/DATABASE_URL
-  # Fail closed: without the database the proxy refuses requests.
+  # Fail closed: without the database the proxy does not start and refuses
+  # virtual keys (see the header).
   allow_requests_on_db_unavailable: false
   # Aliases come from this file only, not from the database.
   store_model_in_db: false

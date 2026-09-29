@@ -20,6 +20,8 @@ in this folder runs on the Dell, and the Dell never reads these files.
 | `render-env.sh` | `/opt/litellm-fleet/render-env.sh` | Renders the env files from `prod/fleet-proxy` |
 | `backup-db.sh` | `/opt/litellm-fleet/backup-db.sh` | `pg_dump` to the S3 backup prefix |
 | `litellm-fleet-backup.service`, `litellm-fleet-backup.timer` | `/etc/systemd/system/` | Daily backup at 03:30 ET, as root |
+| `tests/test_check_fleet_config.py` | not installed | Unit tests for the config check |
+| `integration/` | not installed | Integration test in a disposable container (see "Tests") |
 
 ## Rules
 
@@ -34,8 +36,15 @@ in this folder runs on the Dell, and the Dell never reads these files.
 - No trace callback. The fleet sends no traces to trading's Langfuse or to
   Langfuse Cloud. Request and spend logs go to the local Postgres database
   `litellm_fleet`. Spend logs keep metadata and cost, not prompt text.
-- `allow_requests_on_db_unavailable` stays false: without the database, the
-  proxy refuses requests.
+- `allow_requests_on_db_unavailable` stays false (fail closed). Without the
+  database the proxy does not start: it exits and systemd retries until
+  PostgreSQL is back. During an outage it refuses virtual keys with HTTP 503
+  once its 60-second key cache expires. LiteLLM does not look up the master
+  key in the database, so the master key still works in an outage. Keep the
+  master key with the operator; agents get virtual keys.
+- `store_model_in_db` stays false and the config has no
+  `environment_variables` block, so aliases and keys come only from
+  `fleet.yaml` and `fleet.env`.
 - The unit binds one tailnet address. `check_fleet_config.py` refuses an
   empty address, `0.0.0.0`, loopback and any address outside `100.64.0.0/10`.
 - Stop rule: only `sudo systemctl stop litellm-fleet` stops the fleet proxy.
@@ -70,6 +79,10 @@ Manager):
 - `FLEET_BACKUP_S3_URI`: `s3://<bucket>/<prefix>`, the backup prefix that the
   instance role may write.
 
+The spec's operator step names the provider keys, the master key and
+`DATABASE_URL`. Add `FLEET_BACKUP_S3_URI` as well: `render-env.sh` fails
+without it.
+
 `render-env.sh` refuses a missing or empty field, a value with a space, quote
 or backslash, a database that is not on localhost, and a backup URI without a
 prefix.
@@ -83,7 +96,9 @@ bullet lists them. Then:
 1. Packages and users.
 
    ```bash
-   sudo apt-get install -y python3-venv postgresql git
+   # libatomic1: the Node runtime that Prisma installs needs it.
+   sudo apt-get update
+   sudo apt-get install -y python3-venv postgresql git libatomic1
    # Install AWS CLI v2 from the official installer.
    sudo useradd --system --home-dir /var/lib/litellm-fleet --shell /usr/sbin/nologin litellm-fleet
    sudo install -d -m 0700 -o litellm-fleet -g litellm-fleet /var/lib/litellm-fleet
@@ -136,12 +151,43 @@ bullet lists them. Then:
    ```
 
    The first start downloads the Prisma engines and a Node runtime into
-   `/var/lib/litellm-fleet/.cache` and runs the LiteLLM migrations. This can
-   take several minutes.
+   `/var/lib/litellm-fleet/.cache` and runs the LiteLLM migrations. In the
+   integration test it took under a minute; allow several minutes on a slow
+   link.
 
 To change aliases: merge a PR, then repeat the `fleet.yaml` install line from
 step 3 and run `sudo systemctl restart litellm-fleet`. To rotate a key: update
 `prod/fleet-proxy`, run `render-env.sh`, and restart the unit.
+
+## Backup
+
+`backup-db.sh` dumps `litellm_fleet`, restores the dump into a scratch
+database (`litellm_fleet_restore_check`), compares the table count, drops the
+scratch database, and only then uploads the dump with SSE. A dump that does
+not restore never reaches S3.
+
+## Tests
+
+Run these on a Linux build host, never on a trading host.
+
+```bash
+# Unit tests for check_fleet_config.py (needs PyYAML).
+python -m unittest discover -s deploy/fleet-proxy/tests -v
+
+# Integration test: needs Docker. It installs the fleet proxy in a disposable
+# Ubuntu 24.04 container with systemd and PostgreSQL, by the steps above,
+# with dummy keys and stubs for the AWS CLI and tailscale.
+bash deploy/fleet-proxy/integration/run.sh
+```
+
+The integration test disconnects the container from the network after the
+first start, so no request can reach a model provider. It points the
+`openai/` aliases at a fake upstream on 127.0.0.1. It checks the service
+user, the bind address, the env file modes, the aliases, the migrations,
+virtual keys, spend logs, the backup and its restore, the refusals during a
+database outage and at a start without the database, the restart after
+`systemctl kill`, the refusal of a bad bind address or config, and the stop
+rule.
 
 ## Check (P1 acceptance)
 
