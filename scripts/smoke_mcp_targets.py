@@ -300,14 +300,14 @@ async def _session_checks(
     """
     try:
         await _bounded(session.initialize(), startup.CHILD_START, timeouts)
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 -- SDK failures must retain their stage category
         raise _classify_stage_error(exc, "initialize") from None
     if log is not None:
         log.end(startup.OK)
         log.begin(startup.DISCOVERY)
     try:
         listed = await _bounded(session.list_tools(), startup.DISCOVERY, timeouts)
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 -- SDK failures must retain their stage category
         raise _classify_stage_error(exc, "list_tools") from None
     names = {tool.name for tool in listed.tools}
     needed = list(target.expected_tools)
@@ -323,7 +323,7 @@ async def _session_checks(
         result = await _bounded(
             session.call_tool(target.self_check_tool, {}), startup.SELF_CHECK, timeouts
         )
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 -- SDK failures must retain their stage category
         raise _classify_stage_error(exc, target.self_check_tool) from None
     _check_self_check(target, result, header_repo)
     if log is not None:
@@ -362,15 +362,12 @@ async def _run_target(
             )
             transport = streamable_http_client(spec["url"], http_client=http_client)
         try:
-            async with transport as streams:
-                async with ClientSession(streams[0], streams[1]) as session:
-                    await _session_checks(
-                        session, target, header_repo, log, timeouts
-                    )
+            async with transport as streams, ClientSession(streams[0], streams[1]) as session:
+                await _session_checks(session, target, header_repo, log, timeouts)
         finally:
             if http_client is not None:
                 await http_client.aclose()
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 -- SDK failures must retain their stage category
         raise _classify_stage_error(exc, "connect") from None
 
 
@@ -472,7 +469,7 @@ async def smoke_target(
             return Result(
                 target.name, failure.category, redact(detail), failure.failure_class, phase
             )
-        except Exception as exc:  # unexpected harness/SDK error
+        except Exception as exc:  # noqa: BLE001 -- classify unexpected harness/SDK errors
             phase = log.current_phase
             log.end(startup.FAIL, startup.UNKNOWN, f"unexpected {type(exc).__name__}")
             return Result(
