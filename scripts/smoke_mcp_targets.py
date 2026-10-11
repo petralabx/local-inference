@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import importlib.util
 import json
 import os
 import re
@@ -31,7 +32,15 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-REPO_ROOT = Path(__file__).resolve().parents[1]
+# Load beside this script even when imported by file path from offline tests.
+_root_spec = importlib.util.spec_from_file_location(
+    "mcp_roots", Path(__file__).resolve().with_name("mcp_roots.py")
+)
+roots = importlib.util.module_from_spec(_root_spec)
+sys.modules["mcp_roots"] = roots
+_root_spec.loader.exec_module(roots)
+
+REPO_ROOT = roots.SCRIPT_ROOT
 DEFAULT_CONFIG = REPO_ROOT / ".mcp.json"
 DEFAULT_SETTINGS = REPO_ROOT / ".claude" / "settings.json"
 SELF_CHECK_TOOL = "mc_self_check"
@@ -235,11 +244,11 @@ def _check_self_check(target: Target, result: Any, header_repo: str | None) -> N
 async def _session_checks(session: Any, target: Target, header_repo: str | None) -> None:
     try:
         await session.initialize()
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 -- SDK failures must retain their stage category
         raise _classify_stage_error(exc, "initialize") from None
     try:
         listed = await session.list_tools()
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 -- SDK failures must retain their stage category
         raise _classify_stage_error(exc, "list_tools") from None
     names = {tool.name for tool in listed.tools}
     needed = list(target.expected_tools)
@@ -250,7 +259,7 @@ async def _session_checks(session: Any, target: Target, header_repo: str | None)
         raise _SmokeFailure(DISCOVERY, f"missing tools: {', '.join(missing)}")
     try:
         result = await session.call_tool(target.self_check_tool, {})
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 -- SDK failures must retain their stage category
         raise _classify_stage_error(exc, target.self_check_tool) from None
     _check_self_check(target, result, header_repo)
 
@@ -279,13 +288,12 @@ async def _run_target(target: Target, env: Mapping[str, str], errlog: Any) -> No
             )
             transport = streamable_http_client(spec["url"], http_client=http_client)
         try:
-            async with transport as streams:
-                async with ClientSession(streams[0], streams[1]) as session:
-                    await _session_checks(session, target, header_repo)
+            async with transport as streams, ClientSession(streams[0], streams[1]) as session:
+                await _session_checks(session, target, header_repo)
         finally:
             if http_client is not None:
                 await http_client.aclose()
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 -- SDK failures must retain their stage category
         raise _classify_stage_error(exc, "connect") from None
 
 
@@ -310,7 +318,7 @@ async def smoke_target(
                 if tail:
                     detail += f" | server stderr: {tail}"
             return Result(target.name, failure.category, redact(detail))
-        except Exception as exc:  # unexpected harness/SDK error
+        except Exception as exc:  # noqa: BLE001 -- classify unexpected harness/SDK errors
             return Result(
                 target.name, PROTOCOL, redact(f"unexpected {type(exc).__name__}: {exc}")
             )
@@ -327,8 +335,7 @@ def format_result(result: Result) -> str:
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
-    parser.add_argument("--config", type=Path, default=DEFAULT_CONFIG)
-    parser.add_argument("--settings", type=Path, default=DEFAULT_SETTINGS)
+    roots.add_source_args(parser)
     parser.add_argument("--target", action="append", help="limit to named target(s)")
     parser.add_argument("--timeout", type=float, default=DEFAULT_TIMEOUT)
     parser.add_argument(
@@ -343,8 +350,9 @@ def main(argv: list[str] | None = None, env: Mapping[str, str] | None = None) ->
     args = parse_args(argv)
     env = os.environ if env is None else env
     try:
-        targets = load_targets(args.config, args.settings)
-    except SmokeConfigError as exc:
+        sources = roots.resolve_sources(args.root, args.config, args.settings, env=env)
+        targets = load_targets(sources.config, sources.settings)
+    except (SmokeConfigError, roots.RootError) as exc:
         print(f"config error: {exc}", file=sys.stderr)
         return 2
     if args.target:
