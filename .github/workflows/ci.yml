@@ -18,6 +18,8 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
+      - name: Install MCP SDK (offline smoke tests)
+        run: python -m pip install "$(grep '^mcp==' requirements.txt)"
       - name: Unit tests
         run: python -m unittest discover -s tests -v
       - name: Brand structure check

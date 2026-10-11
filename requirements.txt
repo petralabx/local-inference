@@ -1,3 +1,5 @@
 # Cloud / Linux agent venv deps for proxy tooling.
 # Dell Windows operators typically use .venv/Scripts via local install.
 litellm>=1.74.0
+# Official MCP SDK client for scripts/smoke_mcp_targets.py (protocol smoke tests).
+mcp==1.30.0
