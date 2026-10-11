@@ -1,0 +1,15 @@
+# Runs mcp-health-probe.service every 15 minutes.
+# Install: /etc/systemd/system/mcp-health-probe.timer (operator step, see
+# docs/runbooks/mcp-health-probe.md).
+
+[Unit]
+Description=Run the MCP health probe every 15 minutes
+
+[Timer]
+OnBootSec=2min
+OnUnitActiveSec=15min
+AccuracySec=30s
+Unit=mcp-health-probe.service
+
+[Install]
+WantedBy=timers.target
