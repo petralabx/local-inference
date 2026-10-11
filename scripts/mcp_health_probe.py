@@ -67,23 +67,23 @@ def default_state_path(env: Mapping[str, str] | None = None) -> Path:
     return base / "local-inference" / "mcp-health.json"
 
 
-def _inside_repo(path: Path) -> bool:
+def _inside_repo(path: Path, root: Path = REPO_ROOT) -> bool:
     try:
-        path.resolve().relative_to(REPO_ROOT)
+        path.resolve().relative_to(root)
     except ValueError:
         return False
     return True
 
 
 def utc_iso(moment: datetime) -> str:
-    return moment.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    return moment.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")  # noqa: UP017 -- retain Python 3.10 compatibility
 
 
 def parse_iso(text: str | None) -> datetime | None:
     if not text:
         return None
     try:
-        return datetime.strptime(text, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc)
+        return datetime.strptime(text, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc)  # noqa: UP017 -- retain Python 3.10 compatibility
     except ValueError:
         return None
 
@@ -111,7 +111,7 @@ def load_state(path: Path) -> tuple[dict[str, Any], str | None]:
     try:
         data = json.loads(path.read_text(encoding="utf-8"))
         if not isinstance(data, dict) or not isinstance(data.get("targets"), dict):
-            raise ValueError("unexpected state shape")
+            raise ValueError("unexpected state shape")  # noqa: TRY004 -- invalid persisted content is corrupt state
         return data, None
     except (OSError, ValueError) as exc:
         aside = path.with_name(path.name + ".corrupt")
@@ -183,7 +183,7 @@ class WebhookSink:
         try:
             with urllib.request.urlopen(request, timeout=self._timeout):
                 return True
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 -- failed delivery must remain retryable
             print(f"warning: webhook alert failed ({type(exc).__name__})", file=sys.stderr)
             return False
 
@@ -193,7 +193,9 @@ class MultiSink:
         self._sinks = sinks
 
     def emit(self, alert: dict[str, Any]) -> bool:
-        return all([sink.emit(alert) for sink in self._sinks])
+        # Emit to every sink even if an earlier delivery fails.
+        delivered = [sink.emit(alert) for sink in self._sinks]
+        return all(delivered)
 
 
 def build_sink(env: Mapping[str, str]) -> Any:
@@ -265,7 +267,7 @@ def run_probe(
     env: Mapping[str, str],
     sink: Any,
     *,
-    now_fn: Callable[[], datetime] = lambda: datetime.now(timezone.utc),
+    now_fn: Callable[[], datetime] = lambda: datetime.now(timezone.utc),  # noqa: UP017 -- retain Python 3.10 compatibility
     probe: Probe = real_probe,
     timeout: float = harness.DEFAULT_TIMEOUT,
     realert_after: timedelta = timedelta(hours=DEFAULT_REALERT_HOURS),
@@ -339,8 +341,7 @@ def any_failing(rows: list[dict[str, Any]], require_all: bool = False) -> bool:
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
-    parser.add_argument("--config", type=Path, default=harness.DEFAULT_CONFIG)
-    parser.add_argument("--settings", type=Path, default=harness.DEFAULT_SETTINGS)
+    harness.roots.add_source_args(parser)
     parser.add_argument("--state", type=Path, help=f"state file (default: ${STATE_ENV} or XDG/LOCALAPPDATA state dir)")
     parser.add_argument("--target", action="append", help="limit to named target(s)")
     parser.add_argument("--timeout", type=float, default=harness.DEFAULT_TIMEOUT)
@@ -363,8 +364,14 @@ def main(
 ) -> int:
     args = parse_args(argv)
     env = os.environ if env is None else env
+    try:
+        sources = harness.roots.resolve_sources(args.root, args.config, args.settings, env=env)
+    except harness.roots.RootError as exc:
+        print(f"config error: {exc}", file=sys.stderr)
+        return 2
+    args.config, args.settings = sources.config, sources.settings
     state_path = args.state or default_state_path(env)
-    if _inside_repo(state_path):
+    if _inside_repo(state_path) or (sources.root is not None and _inside_repo(state_path, sources.root)):
         print(f"config error: state file {state_path} is inside the repo tree", file=sys.stderr)
         return 2
     try:
@@ -393,7 +400,7 @@ def main(
         kwargs["now_fn"] = now_fn
     if probe:
         kwargs["probe"] = probe
-    state, alerts, warning = run_probe(
+    state, _alerts, warning = run_probe(
         args.config, args.settings, state_path, env, sink or build_sink(env),
         timeout=args.timeout, realert_after=timedelta(hours=args.realert_after),
         only=args.target, **kwargs,
