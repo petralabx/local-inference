@@ -1,0 +1,26 @@
+# One-shot MCP health probe (scripts/mcp_health_probe.py). Started by
+# mcp-health-probe.timer. Exits 1 while any enabled target is failing, so the
+# unit shows "failed" in systemctl; alerts are deduplicated in the probe itself.
+# Install: /etc/systemd/system/mcp-health-probe.service (operator step, see
+# docs/runbooks/mcp-health-probe.md). Adjust the paths and User to the checkout.
+
+[Unit]
+Description=Probe enabled MCP targets and record health state
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=oneshot
+User=mcp-health
+# Credentials (MC_MCP_API_KEY, optional MCP_HEALTH_WEBHOOK_URL) live here, mode 0600.
+EnvironmentFile=-/etc/local-inference/mcp-health.env
+StateDirectory=mcp-health
+Environment=MCP_HEALTH_STATE=/var/lib/mcp-health/state.json
+WorkingDirectory=/opt/local-inference
+ExecStart=/opt/local-inference/.venv/bin/python scripts/mcp_health_probe.py
+TimeoutStartSec=300
+PrivateTmp=true
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+UMask=0077
