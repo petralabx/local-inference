@@ -15,7 +15,7 @@ Repository: [petralabx/local-inference](https://github.com/petralabx/local-infer
 | `local-driver-nvfp4` | Bake-off only (example yaml). Spark B vLLM `:18091` | Do not cut over yet |
 | `local-glm52` | Retired on this proxy | Do not use for Organizer |
 
-Proxy: `http://100.103.33.54:4000/v1` · key: `LOCAL_LITELLM_MASTER_KEY` in repo `.env.local`
+Proxy: `http://100.92.253.61:4000/v1` · key: `LOCAL_LITELLM_MASTER_KEY` in repo `.env.local`
 
 Never curl `/v1/models` without `Authorization: Bearer $LOCAL_LITELLM_MASTER_KEY`. Unauthenticated list returns HTTP 500 even with `allow_requests_on_db_unavailable: true` already set in `litellm/config.yaml`. There is no extra one-line config fix; send the master key.
 

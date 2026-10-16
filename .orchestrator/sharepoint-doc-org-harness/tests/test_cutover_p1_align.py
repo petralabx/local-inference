@@ -21,7 +21,7 @@ from harness.naming import (
 
 def test_cutover_default_pins_spark_and_drops_ceiling() -> None:
     cfg = load_config(PACKAGE_ROOT / "config" / "default.yaml")
-    assert cfg.litellm.base_url == "http://100.103.33.54:4000/v1"
+    assert cfg.litellm.base_url == "http://100.92.253.61:4000/v1"
     assert cfg.litellm.classify_model == "local-driver"
     assert cfg.litellm.fallback_model == "local-coder"
     assert cfg.inbox_active_ceiling == 0

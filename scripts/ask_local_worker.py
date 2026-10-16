@@ -14,7 +14,15 @@ import urllib.request
 from pathlib import Path
 from typing import Any, Mapping
 
-DEFAULT_BASE_URL = "http://100.103.33.54:4000/v1"
+def default_base_url() -> str:
+    """LiteLLM on spark-b4ec. LOCAL_INFERENCE_BASE_URL overrides LOCAL_PROXY_BASE_URL."""
+    return (
+        os.environ.get("LOCAL_INFERENCE_BASE_URL")
+        or os.environ.get("LOCAL_PROXY_BASE_URL")
+        or "http://100.92.253.61:4000/v1"
+    )
+
+
 MASTER_KEY_ENV = "LOCAL_LITELLM_MASTER_KEY"
 MODEL_ALIASES = (
     "local-glm52",
@@ -53,7 +61,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     )
     parser.add_argument(
         "--base-url",
-        default=DEFAULT_BASE_URL,
+        default=default_base_url(),
         help="OpenAI-compatible /v1 base URL for the proxy.",
     )
     parser.add_argument(

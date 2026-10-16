@@ -6,7 +6,7 @@ Canonical guidance lives in `.cursor/rules/multi-device-cursor.mdc` and the
 ## Worker host vs compute fabric
 
 - **Cursor worker host:** Dell-VTA. Remote agents edit this checkout here.
-- **Compute fabric:** Dell LiteLLM proxy, the two DGX Sparks, and the AWS
+- **Compute fabric:** spark-b4ec LiteLLM proxy, the two DGX Sparks, and the AWS
   primitives already in the operator mesh (Mission Control, secrets, EC2,
   and related). See `docs/runbooks/dgx-spark-fleet.md` and
   `docs/runbooks/local-agent-governed-workflow.md`.

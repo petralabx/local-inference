@@ -1,4 +1,5 @@
-# One-shot chat via Dell LiteLLM proxy.
+# One-shot chat via LiteLLM on spark-b4ec.
+# Default base URL: LOCAL_INFERENCE_BASE_URL, else LOCAL_PROXY_BASE_URL, else http://100.92.253.61:4000/v1.
 # Models: local-driver (Spark B classify), local-coder (Spark A), local-primary / local-fast (Dell Qwen), local-glm52 (retired prose alias)
 #
 # Usage:
@@ -12,7 +13,7 @@ param(
     [string]$System = "",
     [ValidateSet("local-glm52", "local-primary", "local-coder", "local-fast", "local-driver")]
     [string]$Model = "local-glm52",
-    [string]$BaseUrl = "http://100.103.33.54:4000/v1",
+    [string]$BaseUrl = $(if ($env:LOCAL_INFERENCE_BASE_URL) { $env:LOCAL_INFERENCE_BASE_URL } elseif ($env:LOCAL_PROXY_BASE_URL) { $env:LOCAL_PROXY_BASE_URL } else { "http://100.92.253.61:4000/v1" }),
     [string]$EnvFile = "",
     [int]$MaxTokens = 2048,
     [double]$Temperature = 0.3,

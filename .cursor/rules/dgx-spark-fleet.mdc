@@ -13,9 +13,9 @@ Before changing LiteLLM config, DGX networking, NVIDIA Sync, QSFP clustering, or
 
 ## Stable client contract
 
-- Proxy URL: `http://100.103.33.54:4000/v1` (Tailscale; prefer over LAN)
+- Proxy URL: `http://100.92.253.61:4000/v1` (spark-b4ec Tailscale; prefer over LAN)
 - Aliases: `local-primary`, `local-fast`, `local-glm52-experimental`
-- Never point loops at Spark `:8000` directly — only the Dell proxy
+- Never point loops at a Spark model port (`:8000`) directly — only the LiteLLM proxy on spark-b4ec `:4000`
 
 ## Fleet (2026-06-28)
 

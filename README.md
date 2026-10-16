@@ -1,7 +1,7 @@
 # Local Inference Control Plane
 
-PLX platform repo for local LLM inference runtime and tooling: the Dell Tower
-control plane (LiteLLM proxy + vLLM backend) and the two-node DGX Spark GLM
+PLX platform repo for local LLM inference runtime and tooling: LiteLLM on
+spark-b4ec, the Dell Tower vLLM backend, and the two-node DGX Spark GLM
 cluster.
 
 - MC registry: `local-inference`
@@ -15,21 +15,18 @@ cluster.
 
 All loops and agents should call the proxy, not the direct backend:
 
-- Base URL (durable, survives ISP/router changes): `http://100.103.33.54:4000/v1` (Dell Tailscale IP)
-- Base URL (LAN — verify after any network change): `http://192.168.2.12:4000/v1`
-- Base URL (on the Dell itself): `http://127.0.0.1:4000/v1`
+- Base URL (durable, survives ISP/router changes): `http://100.92.253.61:4000/v1` (spark-b4ec Tailscale)
+- Base URL (on the proxy host, or Dell `127.0.0.1:4000` via the spark tunnel): `http://127.0.0.1:4000/v1`
+- Dell LAN `http://192.168.2.12:4000/v1` no longer serves
 - Model alias: `local-primary` (Dell Qwen3-32B — tools/JSON/code worker)
 - Code worker alias: `local-coder` (Qwen3-Coder — swap Dell container first)
 - Fallback alias: `local-fast`
 - DGX GLM alias: `local-glm52` (two-node DGX Spark cluster, live since 2026-07-02)
 - DGX smoke alias: `local-dgx-smoke` (small-model RPC path check)
 
-Prefer the Tailscale address for cross-machine clients: it is the tailnet
-identity and does NOT change when the local subnet/DHCP lease changes. The LAN
-IP can move when the router changes — it moved from `192.168.1.96` to
-`192.168.2.12` after the 2026-06-26 ISP/router swap (new subnet). Set a DHCP
-reservation for the Dell on the new router to pin `192.168.2.12`, and re-verify
-after any future network change.
+Prefer the spark-b4ec Tailscale address for cross-machine clients. Dell LAN
+`192.168.2.12` is the tower address, not the LiteLLM listener. That LAN address
+moved from `192.168.1.96` after the 2026-06-26 ISP/router swap.
 
 The backend can move from Dell `:8000` to DGX head `:8000` by editing
 `litellm/config.yaml`; client code should not change.
@@ -57,7 +54,7 @@ The master key is read from the environment (`LOCAL_LITELLM_MASTER_KEY` in
 - GPU: NVIDIA RTX PRO 5000 Blackwell, ~48GB VRAM
 - Docker: installed (Docker Desktop + WSL2 + GPU); vLLM serving via container
 - Direct backend port: `8000`
-- LiteLLM proxy port: `4000`
+- LiteLLM proxy: spark-b4ec `http://100.92.253.61:4000/v1` (Dell `:4000` no longer serves)
 
 ## Today: Dell path
 

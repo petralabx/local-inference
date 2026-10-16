@@ -45,7 +45,7 @@ Committed config: `.cursor/environment.json`. On Cloud Agent start it runs
   branch (or launch via API with `env.name`).
 - Cloud VMs are Linux. Use `.venv/bin/...`, never Dell Windows `.venv/Scripts/`.
 - Do not start Dell/DGX GPU backends in the cloud VM. Call the Tailscale proxy
-  at `http://100.103.33.54:4000/v1` via the request-scoped userspace proxy
+  at `http://100.92.253.61:4000/v1` via the request-scoped userspace proxy
   `http://127.0.0.1:1054` — never set global `HTTP(S)_PROXY` / `ALL_PROXY`.
 - Secrets (`LOCAL_LITELLM_MASTER_KEY`) belong in the dashboard environment
   Secrets tab, not in git.
@@ -72,7 +72,7 @@ steps.
 
 When you are on a laptop, the web, or a phone, use **My Machines** (worker
 on Dell-VTA) plus Cloud Agents. Dell is the Cursor tool-call host. Compute
-is the operator mesh: Dell LiteLLM proxy, the DGX Sparks, and the AWS
+is the operator mesh: the spark-b4ec LiteLLM proxy, the DGX Sparks, and the AWS
 primitives already in that mesh. See `.cursor/rules/multi-device-cursor.mdc`
 and `docs/runbooks/multi-device-cursor.md`.
 

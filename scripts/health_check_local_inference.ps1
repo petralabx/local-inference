@@ -1,7 +1,8 @@
-# Health check: Dell LiteLLM proxy + vLLM backend + optional chat smoke.
+# Health check: spark-b4ec LiteLLM proxy + Dell vLLM backend + optional chat smoke.
+# Proxy default: LOCAL_INFERENCE_BASE_URL, else LOCAL_PROXY_BASE_URL, else http://100.92.253.61:4000/v1.
 param(
     [switch]$SmokeChat,
-    [string]$ProxyBase = "http://100.103.33.54:4000/v1",
+    [string]$ProxyBase = $(if ($env:LOCAL_INFERENCE_BASE_URL) { $env:LOCAL_INFERENCE_BASE_URL } elseif ($env:LOCAL_PROXY_BASE_URL) { $env:LOCAL_PROXY_BASE_URL } else { "http://100.92.253.61:4000/v1" }),
     [string]$BackendBase = "http://100.103.33.54:8000/v1",
     [string]$EnvFile = ""
 )

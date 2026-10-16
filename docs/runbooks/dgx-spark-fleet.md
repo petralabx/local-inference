@@ -4,17 +4,19 @@
 > checklist. Agents and operators: read this before touching DGX networking or
 > LiteLLM cutover. Last verified: **2026-06-28**.
 
-## Client contract (unchanged)
+## Client contract
 
-All loops and agents call the **Dell LiteLLM proxy**, never Spark backends directly:
+All loops and agents call the **LiteLLM proxy on spark-b4ec**, never a Spark model port (`:8000`) directly:
 
 | Field | Value |
 |-------|--------|
-| Base URL (preferred) | `http://100.103.33.54:4000/v1` |
-| Base URL (LAN) | `http://192.168.2.12:4000/v1` |
+| Base URL (preferred) | `http://100.92.253.61:4000/v1` |
+| Base URL (on the proxy host) | `http://127.0.0.1:4000/v1` |
 | Primary alias | `local-primary` |
 | Fast fallback | `local-fast` |
 | GLM cluster (after cutover) | `local-glm52-experimental` |
+
+The Dell tailnet listener on port 4000 no longer serves. LiteLLM moved to spark-b4ec on 2026-10-15; there is no Dell portproxy. `127.0.0.1:4000` on the Dell still reaches spark through the existing tunnel.
 
 Control-plane repo: `C:\Users\vince\local-inference` (this tree).
 
@@ -22,9 +24,9 @@ Control-plane repo: `C:\Users\vince\local-inference` (this tree).
 
 | Node | Hostname | LAN IP | Tailscale IP | TS name | SSH user | Sync alias | DGX OS | Status |
 |------|----------|--------|--------------|---------|----------|------------|--------|--------|
-| Dell control plane | `VTA` | `192.168.2.12` | `100.103.33.54` | `vta` | `phsi\vince` / `vince` | — | Windows | LiteLLM `:4000`, vLLM `:8000` |
+| Dell control plane | `VTA` | `192.168.2.12` | `100.103.33.54` | `vta` | `phsi\vince` / `vince` | — | Windows | vLLM `:8000` (LiteLLM moved to spark-b4ec) |
 | Spark #1 | `spark-7d3d` | `192.168.2.17` | `100.111.220.1` | `phase-f-dgx-spark` | `vinnysachet` | `V_SACHET_TB` | 7.x | Online, Sync, Tailscale, `tag:dgx` |
-| Spark #2 | `spark-b4ec` | `192.168.2.21` | `100.92.253.61` | `spark-b4ec` | `vinnysachet2` | `spark-b4ec` (Sync) | 7.5.0 | Online, Sync, Tailscale, `tag:dgx` |
+| Spark #2 | `spark-b4ec` | `192.168.2.21` | `100.92.253.61` | `spark-b4ec` | `vinnysachet2` | `spark-b4ec` (Sync) | 7.5.0 | Online, Sync, Tailscale, `tag:dgx`, LiteLLM `:4000` |
 
 **Bell router:** gateway `192.168.2.1`. Subnet moved from `192.168.1.x` on 2026-06-26;
 do not use stale addresses (`192.168.1.93`, `192.168.137.x`, or `.local` until mDNS
@@ -43,7 +45,7 @@ Never route Spark internet through Dell ICS or a `Dell-Direct` link. Spark #1 ne
 ## Architecture target
 
 ```text
-All loops/agents → Dell LiteLLM :4000 (aliases)
+All loops/agents → spark-b4ec LiteLLM :4000 (aliases)
                       ├─ local-fast / local-primary → Dell vLLM :8000 (small models)
                       └─ local-glm52-experimental   → DGX cluster vLLM :8000 (GLM 5.2)
 

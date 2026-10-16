@@ -6,8 +6,9 @@ repo: petralabx/local-inference
 control_plane_host: dell-vta
 
 client_contract:
-  proxy_url_tailscale: http://100.103.33.54:4000/v1
-  proxy_url_lan: http://192.168.2.12:4000/v1
+  proxy_url_tailscale: http://100.92.253.61:4000/v1
+  # Dell 192.168.2.12:4000 no longer serves. Readers of this key get the spark-b4ec proxy.
+  proxy_url_lan: http://100.92.253.61:4000/v1
   proxy_url_local: http://127.0.0.1:4000/v1
   master_key_env: LOCAL_LITELLM_MASTER_KEY
 

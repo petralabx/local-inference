@@ -99,7 +99,7 @@ curl -sS http://127.0.0.1:4000/v1/chat/completions \
 ```
 
 Do not point loops at Spark `:18091` as a client contract. Clients stay on
-`http://100.103.33.54:4000/v1`.
+`http://100.92.253.61:4000/v1`.
 
 ## 4. Rollback
 
