@@ -16,7 +16,7 @@ folders, files, mail, location, naming, meta-tags, and versioning stay organized
 across Dell-VTA and the Dell laptop `taylorvalton`, with SharePoint as the only
 file system of record. Reuse useful parts of the existing Claude/Cowork corpus
 and taxonomy; replace the Cowork control plane. Local Qwen / Ornith lanes (via
-Dell LiteLLM) plus agents run wide-auto daily digest, historical cleanup, graph
+spark-b4ec LiteLLM) plus agents run wide-auto daily digest, historical cleanup, graph
 indexing, and ad-hoc provenance queries, with an easy reverse path.
 
 ## Lenses
@@ -179,8 +179,8 @@ Prefilled from user intake + plan docs + L1 answer.
 - Must work on **Dell-VTA** and **Dell laptop taylorvalton**.
 - Harness must be **first-class and durable** (repo-owned or equivalent operator
   surface with logs, idempotency, tests — not a Claude Projects folder).
-- Must **leverage DGX / local models** via the Dell LiteLLM proxy
-  (`http://100.103.33.54:4000/v1`). Current aliases in
+- Must **leverage DGX / local models** via the spark-b4ec LiteLLM proxy
+  (`http://100.92.253.61:4000/v1`). Current aliases in
   `local-inference` `litellm/config.yaml`: `local-primary` / `local-fast` (Qwen3
   on Dell), `local-coder` (Ornith-35B on Spark A), `local-driver` (Qwen3.6-A3B on
   Spark B). Exact lane split (classify vs rename suggest vs batch triage) still

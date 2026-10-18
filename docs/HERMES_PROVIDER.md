@@ -2,9 +2,9 @@
 
 Target:
 
-- Base URL: `http://127.0.0.1:4000/v1` on the Dell itself
-- Tailscale URL (prefer): `http://100.103.33.54:4000/v1`
-- LAN URL: `http://192.168.2.12:4000/v1` (verify after any network change)
+- Base URL: `http://127.0.0.1:4000/v1` on the Dell itself (tunnel to spark-b4ec)
+- Tailscale URL (prefer): `http://100.92.253.61:4000/v1`
+- Dell LAN `http://192.168.2.12:4000/v1` no longer serves
 - Model: `local-primary`
 
 Use Hermes custom-provider config once the proxy and backend are passing smoke tests. Exact Hermes config shape can change, so prefer `hermes config edit` and verify with `hermes config` / `hermes doctor`.

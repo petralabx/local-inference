@@ -16,7 +16,9 @@ STORAGE_KEY = (
 STATE_DB = Path(os.environ["APPDATA"]) / "Cursor" / "User" / "globalStorage" / "state.vscdb"
 BACKUP_GLOB = "cursor-local-glm52-keys-*.json"
 MODEL_NAME = "local-glm52"
-PROXY_BASE = "http://100.103.33.54:4000/v1"
+PROXY_BASE = os.environ.get("LOCAL_INFERENCE_BASE_URL") or os.environ.get(
+    "LOCAL_PROXY_BASE_URL", "http://100.92.253.61:4000/v1"
+)
 
 
 def latest_backup() -> Path | None:

@@ -4,7 +4,7 @@ param(
     [string]$Prompt,
     [string]$System = "",
     [string]$Model = "local-glm52",
-    [string]$BaseUrl = "http://100.103.33.54:4000/v1",
+    [string]$BaseUrl = $(if ($env:LOCAL_INFERENCE_BASE_URL) { $env:LOCAL_INFERENCE_BASE_URL } elseif ($env:LOCAL_PROXY_BASE_URL) { $env:LOCAL_PROXY_BASE_URL } else { "http://100.92.253.61:4000/v1" }),
     [string]$EnvFile = "C:\Users\vince\local-inference\.env.local",
     [int]$MaxTokens = 2048,
     [double]$Temperature = 0.3,

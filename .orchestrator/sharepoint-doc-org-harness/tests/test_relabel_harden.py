@@ -143,7 +143,7 @@ def test_litellm_classify_sends_max_tokens(monkeypatch: pytest.MonkeyPatch) -> N
         path=fixture,
         text=extract_text(fixture).text,
         rules=[],
-        litellm_base_url="http://100.103.33.54:4000/v1",
+        litellm_base_url="http://100.92.253.61:4000/v1",
         model="local-driver",
         forbid_host_substrings=["api.openai.com"],
     )

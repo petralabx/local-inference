@@ -10,7 +10,7 @@ capture_from_downloads_rel: "00_Inbox/_from_downloads"
 capture_from_mail_rel: "00_Inbox/_from_mail"
 
 litellm:
-  base_url: "http://100.103.33.54:4000/v1"
+  base_url: "http://100.92.253.61:4000/v1"
   classify_model: "local-driver"
   fallback_model: "local-coder"
   # Paid cloud bases are rejected by config validation

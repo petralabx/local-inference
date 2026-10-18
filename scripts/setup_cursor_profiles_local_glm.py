@@ -24,7 +24,9 @@ DEFAULT_DB = USER_DIR / "globalStorage" / "state.vscdb"
 STORAGE_JSON = USER_DIR / "globalStorage" / "storage.json"
 REPO_ROOT = Path(__file__).resolve().parent.parent
 ENV_LOCAL = REPO_ROOT / ".env.local"
-PROXY_BASE = "http://100.103.33.54:4000/v1"
+PROXY_BASE = os.environ.get("LOCAL_INFERENCE_BASE_URL") or os.environ.get(
+    "LOCAL_PROXY_BASE_URL", "http://100.92.253.61:4000/v1"
+)
 MODEL_NAME = "local-glm52"
 PROFILE_NAME = "Local GLM"
 

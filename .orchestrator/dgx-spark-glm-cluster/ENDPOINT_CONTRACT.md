@@ -7,7 +7,7 @@ MC-Checkout: dsp_mr24bm9au2e44s
 Use the existing LiteLLM control plane for repo-loop smoke testing:
 
 ```bash
-export OPENAI_BASE_URL="http://100.103.33.54:4000/v1"
+export OPENAI_BASE_URL="http://100.92.253.61:4000/v1"
 export OPENAI_API_KEY="$LOCAL_LITELLM_MASTER_KEY"
 export LOCAL_INFERENCE_MODEL="local-dgx-smoke"
 ```

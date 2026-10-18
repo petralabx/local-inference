@@ -34,7 +34,7 @@ def test_inbox_move_not_copy_and_idempotent(tmp_path: Path) -> None:
                 "confidence_boost": 2,
             }
         ],
-        litellm_base_url="http://100.103.33.54:4000/v1",
+        litellm_base_url="http://100.92.253.61:4000/v1",
         model="local-fast",
         forbid_host_substrings=["api.openai.com"],
         manifest_path=tmp_path / "manifest.json",
@@ -89,7 +89,7 @@ def test_inbox_skips_ledger_hash_not_in_manifest(tmp_path: Path) -> None:
         root=root,
         journal=journal,
         rules=[],
-        litellm_base_url="http://100.103.33.54:4000/v1",
+        litellm_base_url="http://100.92.253.61:4000/v1",
         model="local-fast",
         forbid_host_substrings=["api.openai.com"],
         manifest_path=tmp_path / "manifest.json",
@@ -139,7 +139,7 @@ def test_rule_hit_with_ledger_hash_still_moves(tmp_path: Path) -> None:
                 "confidence_boost": 2,
             }
         ],
-        litellm_base_url="http://100.103.33.54:4000/v1",
+        litellm_base_url="http://100.92.253.61:4000/v1",
         model="local-fast",
         forbid_host_substrings=["api.openai.com"],
         manifest_path=tmp_path / "manifest.json",

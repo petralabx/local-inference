@@ -242,7 +242,7 @@ Proxy:
 
 ```text
 http://127.0.0.1:4000/v1
-http://100.103.33.54:4000/v1
+Dell tailnet listener on port 4000 (retired; clients now use http://100.92.253.61:4000/v1, TASK-2974)
 ```
 
 Verified through LiteLLM:
