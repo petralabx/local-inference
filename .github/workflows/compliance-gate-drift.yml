@@ -1,6 +1,7 @@
 # Compliance gate drift-check (EN-007). plx-mc-compliance.yml in this repo is a
 # generated copy of the PLX MC compliance gate. The single source is
-# scripts/generate-compliance-gate.py in the PUBLIC petralabx/PLX_MC repo,
+# scripts/generate-compliance-gate.py in petralabx/PLX_MC (private; read with a
+# plx-readonly App token scoped to PLX_MC contents:read),
 # pinned to a commit SHA. This job fetches that generator, emits the downstream
 # variant, and diffs it against the committed gate — failing on drift.
 #
@@ -28,14 +29,25 @@ jobs:
       VERIFY_PATH: scripts/compliance-pr-verify.mjs
     steps:
       - uses: actions/checkout@v4
+      - name: Mint read-only PLX_MC token (plx-readonly App)
+        id: plxmc-token
+        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
+        with:
+          app-id: ${{ secrets.PLX_MC_READ_APP_ID }}
+          private-key: ${{ secrets.PLX_MC_READ_APP_KEY }}
+          owner: petralabx
+          repositories: PLX_MC
+          permission-contents: read
       - name: Verify gate matches the pinned PLX_MC source
+        env:
+          GH_TOKEN: ${{ steps.plxmc-token.outputs.token }}
         run: |
           set -euo pipefail
-          url="https://raw.githubusercontent.com/${GEN_REPO}/${GEN_SHA}/${GEN_PATH}"
+          url="repos/${GEN_REPO}/contents/${GEN_PATH}?ref=${GEN_SHA}"
           echo "source: $url"
           ok=
           for i in 1 2 3; do
-            if curl -fsSL "$url" -o /tmp/generate-compliance-gate.py; then ok=1; break; fi
+            if gh api -H "Accept: application/vnd.github.raw" "$url" > /tmp/generate-compliance-gate.py; then ok=1; break; fi
             echo "fetch attempt $i failed; retrying..."; sleep 3
           done
           [ -n "$ok" ] || { echo "::error::could not fetch the pinned generator from $url"; exit 1; }
@@ -48,17 +60,19 @@ jobs:
           fi
           echo "Compliance gate matches the PLX_MC source (pinned ${GEN_SHA})."
       - name: Verify compliance-pr-verify.mjs matches the pinned PLX_MC source
+        env:
+          GH_TOKEN: ${{ steps.plxmc-token.outputs.token }}
         run: |
           set -euo pipefail
           if [ ! -f "$VERIFY_PATH" ]; then
             echo "::error::Missing $VERIFY_PATH — scaffold from PLX_MC (scripts/scaffold-tracked-repo.sh)."
             exit 1
           fi
-          url="https://raw.githubusercontent.com/${GEN_REPO}/${GEN_SHA}/${VERIFY_PATH}"
+          url="repos/${GEN_REPO}/contents/${VERIFY_PATH}?ref=${GEN_SHA}"
           echo "source: $url"
           ok=
           for i in 1 2 3; do
-            if curl -fsSL "$url" -o /tmp/compliance-pr-verify.mjs; then ok=1; break; fi
+            if gh api -H "Accept: application/vnd.github.raw" "$url" > /tmp/compliance-pr-verify.mjs; then ok=1; break; fi
             echo "fetch attempt $i failed; retrying..."; sleep 3
           done
           [ -n "$ok" ] || { echo "::error::could not fetch pinned $VERIFY_PATH from $url"; exit 1; }
