@@ -32,7 +32,15 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-REPO_ROOT = Path(__file__).resolve().parents[1]
+# Load beside this script even when imported by file path from offline tests.
+_root_spec = importlib.util.spec_from_file_location(
+    "mcp_roots", Path(__file__).resolve().with_name("mcp_roots.py")
+)
+roots = importlib.util.module_from_spec(_root_spec)
+sys.modules["mcp_roots"] = roots
+_root_spec.loader.exec_module(roots)
+
+REPO_ROOT = roots.SCRIPT_ROOT
 DEFAULT_CONFIG = REPO_ROOT / ".mcp.json"
 DEFAULT_SETTINGS = REPO_ROOT / ".claude" / "settings.json"
 SELF_CHECK_TOOL = "mc_self_check"
@@ -489,8 +497,7 @@ def format_result(result: Result) -> str:
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
-    parser.add_argument("--config", type=Path, default=DEFAULT_CONFIG)
-    parser.add_argument("--settings", type=Path, default=DEFAULT_SETTINGS)
+    roots.add_source_args(parser)
     parser.add_argument("--target", action="append", help="limit to named target(s)")
     parser.add_argument("--timeout", type=float, default=DEFAULT_TIMEOUT,
                         help="overall cap per target (seconds)")
@@ -517,8 +524,9 @@ def main(argv: list[str] | None = None, env: Mapping[str, str] | None = None) ->
     args = parse_args(argv)
     env = os.environ if env is None else env
     try:
-        targets = load_targets(args.config, args.settings)
-    except SmokeConfigError as exc:
+        sources = roots.resolve_sources(args.root, args.config, args.settings, env=env)
+        targets = load_targets(sources.config, sources.settings)
+    except (SmokeConfigError, roots.RootError) as exc:
         print(f"config error: {exc}", file=sys.stderr)
         return 2
     if args.target:

@@ -5,7 +5,7 @@ pointer: [`docs/GOVERNANCE.md`](docs/GOVERNANCE.md) → `petralabx/PLX_MC`.
 
 ## What this repo is
 
-Dell LiteLLM proxy + vLLM backends and DGX Spark GLM tooling. Clients call the
+spark-b4ec LiteLLM proxy + vLLM backends and DGX Spark GLM tooling. Clients call the
 proxy (`local-primary` / `local-coder` / `local-glm52`), not raw `:8000`
 backends. Details: [`README.md`](README.md).
 
@@ -57,5 +57,5 @@ Before first edit or any PR_CREATE on `petralabx/local-inference`:
 
 ```bash
 # From a machine on the tailnet (adjust if proxy host moves)
-curl -sS http://100.103.33.54:4000/v1/models | head
+curl -sS http://100.92.253.61:4000/v1/models | head
 ```

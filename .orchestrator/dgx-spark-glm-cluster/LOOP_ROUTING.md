@@ -5,9 +5,9 @@ MC-Checkout: dsp_mr24bm9au2e44s
 ## Status Update (2026-07-03)
 
 First production consumer is live: Stage Rail escalation on TRADINGBOX routes
-through the Dell LiteLLM proxy to the DGX GLM lane.
+through the spark-b4ec LiteLLM proxy to the DGX GLM lane.
 
-- `STAGE_RAIL_ESCALATION_BASE_URL=http://100.103.33.54:4000/v1`
+- `STAGE_RAIL_ESCALATION_BASE_URL=http://100.92.253.61:4000/v1`
 - `STAGE_RAIL_ESCALATION_MODEL=local-glm52`
 - Exports live in TRADINGBOX `/home/ec2-user/load-secrets.sh` (sourced by the
   stage-rail-loop cron every 15 min); key never committed.
@@ -52,7 +52,7 @@ c:\Users\vince\local-inference
 Current known contract:
 
 ```bash
-OPENAI_BASE_URL=http://100.103.33.54:4000/v1
+OPENAI_BASE_URL=http://100.92.253.61:4000/v1
 LOCAL_INFERENCE_MODEL=local-primary
 ```
 
@@ -100,7 +100,7 @@ Recommended changes:
 1. Route Stage Rail first by setting:
 
    ```bash
-   STAGE_RAIL_ESCALATION_BASE_URL=http://100.103.33.54:4000/v1
+   STAGE_RAIL_ESCALATION_BASE_URL=http://100.92.253.61:4000/v1
    STAGE_RAIL_ESCALATION_MODEL=local-primary
    STAGE_RAIL_ESCALATION_API_KEY=$LOCAL_LITELLM_MASTER_KEY
    ```

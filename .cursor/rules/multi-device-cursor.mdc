@@ -15,8 +15,8 @@ phone.
 
 - **Cursor worker host:** Dell-VTA. File edits and terminals for this repo
   run here when you are remote.
-- **Compute fabric:** the operator mesh, not this tower alone. Dell LiteLLM
-  proxy, the two DGX Sparks, and the AWS primitives already in that mesh
+- **Compute fabric:** the operator mesh, not this tower alone. The spark-b4ec
+  LiteLLM proxy, the two DGX Sparks, and the AWS primitives already in that mesh
   (Mission Control, secrets, EC2, and related). Call them through existing
   contracts. See `docs/runbooks/dgx-spark-fleet.md`.
 
@@ -55,7 +55,7 @@ as the only machine that can run work.
 ## This repo specifics
 
 - Cloud VMs are Linux → use `.venv/bin/...`. Never assume Dell Windows paths.
-- Call the Tailscale proxy (`http://100.103.33.54:4000/v1`) via the
+- Call the Tailscale proxy (`http://100.92.253.61:4000/v1`) via the
   request-scoped userspace proxy. Never set global `HTTP(S)_PROXY` /
   `ALL_PROXY`.
 - Secrets stay in the Cursor dashboard environment Secrets tab or local

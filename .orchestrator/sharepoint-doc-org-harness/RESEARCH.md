@@ -13,7 +13,7 @@ Build a first-class durable harness that keeps Vince’s files and Outlook mail
 organized on **VincePersonal SharePoint only**, with wide-auto daily digest,
 historical cleanup to a research-chosen horizon, easy reverse, and
 knowledge-graph provenance. Local Qwen / Ornith judgment runs only through the
-Dell LiteLLM proxy after build (no paid tokens). Success order: provenance
+spark-b4ec LiteLLM proxy after build (no paid tokens). Success order: provenance
 queries → inbox drain → near-zero drift.
 
 **Retain:** `00_Inbox`–`06_Reference` taxonomy, naming shape
@@ -54,7 +54,7 @@ measured after daily digest.
 
 - `litellm/config.yaml` exposes `local-primary`, `local-fast` (Qwen3-32B-AWQ on
   Dell), `local-coder` (Ornith on Spark A), `local-driver` (Qwen3.6-A3B on Spark
-  B). Clients must call `http://100.103.33.54:4000/v1`, never Spark `:8000`.
+  B). Clients must call `http://100.92.253.61:4000/v1`, never Spark `:8000`.
 - This repo’s roots (`scripts/`, `litellm/`, `docs/`, `.cursor/`) are LiteLLM /
   DGX fleet tooling. A document-org harness does **not** belong as product code
   here without a costed migration that would blur repo purpose.
@@ -262,7 +262,7 @@ Why this wins:
   projection (Neo4j Community preferred; NetworkX rebuild acceptable as
   phase-0).
 - Maximizes OSS wrap (Docling, OCRmyPDF, fclones, msgraph-sdk-python) and keeps
-  steady-state inference on Dell LiteLLM only.
+  steady-state inference on spark-b4ec LiteLLM only.
 - Email and attachments fit Graph delegated APIs; files can use sync-root for
   bulk hash/dedupe without abandoning SharePoint identity.
 

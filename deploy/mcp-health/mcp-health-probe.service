@@ -2,7 +2,7 @@
 # mcp-health-probe.timer. Exits 1 while any enabled target is failing, so the
 # unit shows "failed" in systemctl; alerts are deduplicated in the probe itself.
 # Install: /etc/systemd/system/mcp-health-probe.service (operator step, see
-# docs/runbooks/mcp-health-probe.md). Adjust the paths and User to the checkout.
+# docs/runbooks/mcp-health-probe.md). Set LOCAL_INFERENCE_ROOT and User for the checkout.
 
 [Unit]
 Description=Probe enabled MCP targets and record health state
@@ -13,11 +13,15 @@ After=network-online.target
 Type=oneshot
 User=mcp-health
 # Credentials (MC_MCP_API_KEY, optional MCP_HEALTH_WEBHOOK_URL) live here, mode 0600.
+# Overridable default; EnvironmentFile or a drop-in can select another checkout.
+Environment=LOCAL_INFERENCE_ROOT=/opt/local-inference
 EnvironmentFile=-/etc/local-inference/mcp-health.env
 StateDirectory=mcp-health
 Environment=MCP_HEALTH_STATE=/var/lib/mcp-health/state.json
-WorkingDirectory=/opt/local-inference
-ExecStart=/opt/local-inference/.venv/bin/python scripts/mcp_health_probe.py
+# systemd does not expand environment variables in WorkingDirectory or argv[0].
+# $$ passes the variable to the shell; quoting supports roots containing spaces.
+WorkingDirectory=/
+ExecStart=/bin/sh -c 'cd "$${LOCAL_INFERENCE_ROOT}" && exec "$${LOCAL_INFERENCE_ROOT}/.venv/bin/python" scripts/mcp_health_probe.py'
 TimeoutStartSec=300
 PrivateTmp=true
 NoNewPrivileges=true

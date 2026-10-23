@@ -65,7 +65,7 @@ def test_relabel_keeps_current_folder(tmp_path: Path) -> None:
         root=root,
         journal=journal,
         rules=[],
-        litellm_base_url="http://100.103.33.54:4000/v1",
+        litellm_base_url="http://100.92.253.61:4000/v1",
         model="local-driver",
         forbid_host_substrings=["api.openai.com"],
         manifest_path=tmp_path / "manifest.json",
@@ -240,7 +240,7 @@ def test_digest_writes_organizer_name_and_ledger(tmp_path: Path) -> None:
                 "confidence_boost": 2,
             }
         ],
-        litellm_base_url="http://100.103.33.54:4000/v1",
+        litellm_base_url="http://100.92.253.61:4000/v1",
         model="local-driver",
         forbid_host_substrings=["api.openai.com"],
         manifest_path=tmp_path / "manifest.json",

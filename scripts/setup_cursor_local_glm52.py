@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
-"""Configure Cursor to use local-glm52 via the Dell LiteLLM proxy.
+"""Configure Cursor to use local-glm52 via LiteLLM on spark-b4ec.
 
 Updates Cursor's state.vscdb applicationUser blob:
   - useOpenAIKey = true
-  - openAIBaseUrl = http://100.103.33.54:4000/v1
+  - openAIBaseUrl = LOCAL_INFERENCE_BASE_URL, else LOCAL_PROXY_BASE_URL,
+    else http://100.92.253.61:4000/v1
   - cursorAuth/openAIKey = LOCAL_LITELLM_MASTER_KEY from .env.local
   - adds local-glm52 as a user model
 
@@ -28,7 +29,9 @@ STORAGE_KEY = (
 STATE_DB = Path(os.environ["APPDATA"]) / "Cursor" / "User" / "globalStorage" / "state.vscdb"
 REPO_ROOT = Path(__file__).resolve().parent.parent
 ENV_LOCAL = REPO_ROOT / ".env.local"
-PROXY_BASE = "http://100.103.33.54:4000/v1"
+PROXY_BASE = os.environ.get("LOCAL_INFERENCE_BASE_URL") or os.environ.get(
+    "LOCAL_PROXY_BASE_URL", "http://100.92.253.61:4000/v1"
+)
 MODEL_NAME = "local-glm52"
 
 

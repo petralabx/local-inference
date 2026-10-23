@@ -3,7 +3,7 @@
 Do not treat this as automated acceptance. Run after Graph delegated auth is ready.
 
 1. [ ] Confirm VincePersonal sync root path in `config/local.yaml`
-2. [ ] LiteLLM proxy reachable: `curl -sS http://100.103.33.54:4000/v1/models | head`
+2. [ ] LiteLLM proxy reachable: `curl -sS http://100.92.253.61:4000/v1/models | head`
 3. [ ] `python -m pytest -q` green on VTA
 4. [ ] `harness digest --dry-run --report …` — inspect counts, no paid-host errors
 5. [ ] Small inbox fixture (≤5 files) with `--report` (no dry-run); verify move-not-copy
