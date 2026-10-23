@@ -114,3 +114,9 @@ or `Unregister-ScheduledTask LocalInference-McpHealthProbe`. State file can be d
 
 `python -m pytest tests/test_mcp_health_probe.py` (offline: fake MCP server,
 fake clock, fake alert sink; no webhook is ever called).
+
+## Startup records and timeouts
+
+The probe inherits per-phase startup records (`MCP_STARTUP_LOG`) and phase
+timeouts (`MCP_STARTUP_TIMEOUT_*`) from the harness; see
+[mcp-startup-logs.md](mcp-startup-logs.md).

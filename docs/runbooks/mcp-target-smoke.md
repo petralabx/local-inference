@@ -41,3 +41,5 @@ export MC_OPERATOR_EMAIL=cos@petrasoap.com   # optional, matches .mcp.json defau
 ```
 
 Use `--target PLX-MC-Hub` to limit scope and `--timeout N` to adjust (default 30s).
+
+Per-phase structured logs and timeout flags: [mcp-startup-logs.md](mcp-startup-logs.md).
