@@ -120,7 +120,9 @@ class RootTests(unittest.TestCase):
     def test_both_entrypoints_no_checkout_exit_with_tried_paths(self):
         detached = self.tmp / "detached"
         detached.mkdir()
-        for name in ("mcp_roots.py", "smoke_mcp_targets.py", "mcp_health_probe.py"):
+        for name in (
+            "mcp_roots.py", "mcp_startup_log.py", "smoke_mcp_targets.py", "mcp_health_probe.py"
+        ):
             shutil.copyfile(SCRIPTS / name, detached / name)
         for name in ("smoke_mcp_targets.py", "mcp_health_probe.py"):
             with self.subTest(script=name):
