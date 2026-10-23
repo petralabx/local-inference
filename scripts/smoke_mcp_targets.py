@@ -46,6 +46,21 @@ DEFAULT_SETTINGS = REPO_ROOT / ".claude" / "settings.json"
 SELF_CHECK_TOOL = "mc_self_check"
 DEFAULT_TIMEOUT = 30.0
 
+def _load_sibling(name: str):
+    existing = sys.modules.get(name)
+    if existing is not None:
+        return existing
+    spec = importlib.util.spec_from_file_location(
+        name, Path(__file__).resolve().parent / f"{name}.py"
+    )
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[name] = module
+    spec.loader.exec_module(module)
+    return module
+
+
+startup = _load_sibling("mcp_startup_log")
+
 STARTUP = "STARTUP"
 PROTOCOL = "PROTOCOL"
 DISCOVERY = "DISCOVERY"
@@ -69,6 +84,9 @@ class Target:
     required_env: list[str] = field(default_factory=list)
     expected_tools: list[str] = field(default_factory=list)
     self_check_tool: str = SELF_CHECK_TOOL
+    # Optional ``smoke.secretFetch`` {"env": VAR, "command": [argv...]}: run
+    # (bounded) to obtain VAR when it is not already set in the environment.
+    secret_fetch: dict[str, Any] | None = None
 
 
 @dataclass
@@ -76,6 +94,8 @@ class Result:
     name: str
     status: str  # PASS, SKIPPED or a failure category
     detail: str = ""
+    failure_class: str | None = None  # mcp_startup_log.FAILURE_CLASSES
+    phase: str | None = None  # startup phase that failed
 
 
 def _walk_strings(value: Any):
@@ -155,6 +175,8 @@ def load_targets(config_path: Path, settings_path: Path) -> list[Target]:
                 required_env=referenced_required_vars(spec),
                 expected_tools=list(expected),
                 self_check_tool=smoke.get("selfCheckTool", SELF_CHECK_TOOL),
+                secret_fetch=smoke.get("secretFetch")
+                if isinstance(smoke.get("secretFetch"), dict) else None,
             )
         )
     return targets
@@ -171,6 +193,14 @@ def make_redactor(secrets: list[str]):
     return redact
 
 
+_CLASS_FOR_CATEGORY = {
+    STARTUP: startup.SPAWN,
+    PROTOCOL: startup.PROTOCOL,
+    DISCOVERY: startup.CONFIG,
+    AUTH: startup.AUTH,
+}
+
+
 def _flatten(exc: BaseException):
     if isinstance(exc, BaseExceptionGroup):
         for sub in exc.exceptions:
@@ -180,22 +210,44 @@ def _flatten(exc: BaseException):
 
 
 class _SmokeFailure(Exception):
-    def __init__(self, category: str, detail: str):
+    def __init__(self, category: str, detail: str, failure_class: str | None = None):
         super().__init__(detail)
         self.category = category
         self.detail = detail
+        self.failure_class = failure_class or _CLASS_FOR_CATEGORY.get(
+            category, startup.UNKNOWN
+        )
+
+
+def _phase_timeout(phase: str, seconds: float) -> _SmokeFailure:
+    return _SmokeFailure(
+        STARTUP,
+        f"{phase} timed out after {seconds:g}s ({startup.timeout_hint(phase)})",
+        startup.TIMEOUT,
+    )
+
+
+async def _bounded(coro: Any, phase: str, timeouts: Any) -> Any:
+    """Await ``coro`` for at most the phase timeout; cancelling it on expiry."""
+    if timeouts is None:
+        return await coro
+    seconds = timeouts.for_phase(phase)
+    try:
+        return await asyncio.wait_for(coro, seconds)
+    except TimeoutError:
+        raise _phase_timeout(phase, seconds) from None
 
 
 def _classify_stage_error(exc: BaseException, stage: str) -> _SmokeFailure:
     """Map an SDK/transport exception raised during ``stage`` to a category."""
-    import httpx
-    from mcp.shared.exceptions import McpError
-    from pydantic import ValidationError
-
     leaves = list(_flatten(exc))
     for leaf in leaves:
         if isinstance(leaf, _SmokeFailure):
             return leaf
+    import httpx
+    from mcp.shared.exceptions import McpError
+    from pydantic import ValidationError
+
     for leaf in leaves:
         if isinstance(leaf, httpx.HTTPStatusError):
             code = leaf.response.status_code
@@ -241,13 +293,28 @@ def _check_self_check(target: Target, result: Any, header_repo: str | None) -> N
         )
 
 
-async def _session_checks(session: Any, target: Target, header_repo: str | None) -> None:
+async def _session_checks(
+    session: Any,
+    target: Target,
+    header_repo: str | None,
+    log: Any = None,
+    timeouts: Any = None,
+) -> None:
+    """Run initialize, discovery and self-check; each phase is bounded and logged.
+
+    ``child_start`` is opened by the caller (before the child is spawned) and
+    closed here once ``initialize`` answers. A phase left open on error is
+    closed by the caller with the failure's class.
+    """
     try:
-        await session.initialize()
+        await _bounded(session.initialize(), startup.CHILD_START, timeouts)
     except Exception as exc:  # noqa: BLE001 -- SDK failures must retain their stage category
         raise _classify_stage_error(exc, "initialize") from None
+    if log is not None:
+        log.end(startup.OK)
+        log.begin(startup.DISCOVERY)
     try:
-        listed = await session.list_tools()
+        listed = await _bounded(session.list_tools(), startup.DISCOVERY, timeouts)
     except Exception as exc:  # noqa: BLE001 -- SDK failures must retain their stage category
         raise _classify_stage_error(exc, "list_tools") from None
     names = {tool.name for tool in listed.tools}
@@ -257,14 +324,27 @@ async def _session_checks(session: Any, target: Target, header_repo: str | None)
     missing = [n for n in needed if n not in names]
     if missing:
         raise _SmokeFailure(DISCOVERY, f"missing tools: {', '.join(missing)}")
+    if log is not None:
+        log.end(startup.OK)
+        log.begin(startup.SELF_CHECK)
     try:
-        result = await session.call_tool(target.self_check_tool, {})
+        result = await _bounded(
+            session.call_tool(target.self_check_tool, {}), startup.SELF_CHECK, timeouts
+        )
     except Exception as exc:  # noqa: BLE001 -- SDK failures must retain their stage category
         raise _classify_stage_error(exc, target.self_check_tool) from None
     _check_self_check(target, result, header_repo)
+    if log is not None:
+        log.end(startup.OK)
 
 
-async def _run_target(target: Target, env: Mapping[str, str], errlog: Any) -> None:
+async def _run_target(
+    target: Target,
+    env: Mapping[str, str],
+    errlog: Any,
+    log: Any = None,
+    timeouts: Any = None,
+) -> None:
     import httpx
     from mcp import ClientSession, StdioServerParameters
     from mcp.client.stdio import stdio_client
@@ -272,6 +352,8 @@ async def _run_target(target: Target, env: Mapping[str, str], errlog: Any) -> No
 
     spec = expand(target.spec, env)
     header_repo = (spec.get("headers") or {}).get("x-mc-repo")
+    if log is not None:
+        log.begin(startup.CHILD_START)
     try:
         if target.transport == "stdio":
             params = StdioServerParameters(
@@ -289,7 +371,7 @@ async def _run_target(target: Target, env: Mapping[str, str], errlog: Any) -> No
             transport = streamable_http_client(spec["url"], http_client=http_client)
         try:
             async with transport as streams, ClientSession(streams[0], streams[1]) as session:
-                await _session_checks(session, target, header_repo)
+                await _session_checks(session, target, header_repo, log, timeouts)
         finally:
             if http_client is not None:
                 await http_client.aclose()
@@ -297,30 +379,110 @@ async def _run_target(target: Target, env: Mapping[str, str], errlog: Any) -> No
         raise _classify_stage_error(exc, "connect") from None
 
 
+def _fetch_target_secret(
+    target: Target, env: Mapping[str, str], timeouts: Any, log: Any
+) -> dict[str, str] | Result:
+    """Resolve ``smoke.secretFetch`` (bounded). Returns env additions or a failed Result."""
+    spec = target.secret_fetch
+    if not spec:
+        return {}
+    var = spec.get("env")
+    if not isinstance(var, str) or not var:
+        return {}
+    if env.get(var):
+        return {}  # already provided by the environment; nothing to fetch
+    log.begin(startup.SECRET_FETCH)
+    try:
+        value = startup.fetch_secret(
+            spec.get("command"), timeouts.secret_fetch, env=dict(env)
+        )
+    except startup.SecretFetchError as err:
+        log.end(
+            startup.TIMED_OUT if err.failure_class == startup.TIMEOUT else startup.FAIL,
+            err.failure_class,
+            err.detail,
+        )
+        detail = err.detail
+        if err.failure_class == startup.TIMEOUT:
+            detail += f" ({startup.timeout_hint(startup.SECRET_FETCH)})"
+        return Result(
+            target.name, STARTUP if err.failure_class != startup.AUTH else AUTH,
+            detail, err.failure_class, startup.SECRET_FETCH,
+        )
+    log.add_secrets([value])
+    log.end(startup.OK)
+    return {var: value}
+
+
 async def smoke_target(
-    target: Target, env: Mapping[str, str], timeout: float
+    target: Target,
+    env: Mapping[str, str],
+    timeout: float,
+    timeouts: Any = None,
+    log: Any = None,
 ) -> Result:
+    """Smoke one target. ``timeout`` caps the whole run; ``timeouts`` bounds each phase.
+
+    One startup record per phase goes to ``log`` (default: sink from
+    ``MCP_STARTUP_LOG`` in ``env``; off when unset).
+    """
+    try:
+        timeouts = timeouts or startup.resolve_timeouts(env)
+    except ValueError as exc:
+        return Result(target.name, STARTUP, f"config error: {exc}", startup.CONFIG)
+    if log is None:
+        log = startup.StartupLog(target.name, startup.make_sink(env.get(startup.LOG_ENV)))
+    env = dict(env)
+    fetched = _fetch_target_secret(target, env, timeouts, log)
+    if isinstance(fetched, Result):
+        return fetched
+    env.update(fetched)
+    fetched_now = bool(fetched)
     missing = [name for name in target.required_env if not env.get(name)]
     if missing:
+        log.end(startup.SKIPPED, detail="no credential", phase=startup.SECRET_FETCH)
         return Result(target.name, SKIPPED, "no credential")
     secrets = [env[name] for name in target.required_env]
     redact = make_redactor(secrets)
+    log.add_secrets(secrets)
+    if target.required_env and not fetched_now:
+        log.end(startup.OK, phase=startup.SECRET_FETCH)  # credential came from env
     with tempfile.TemporaryFile("w+", encoding="utf-8", errors="replace") as errlog:
         try:
-            await asyncio.wait_for(_run_target(target, env, errlog), timeout)
+            await asyncio.wait_for(
+                _run_target(target, env, errlog, log, timeouts), timeout
+            )
         except TimeoutError:
-            return Result(target.name, STARTUP, f"timed out after {timeout:g}s")
+            phase = log.current_phase or startup.CHILD_START
+            log.end(startup.TIMED_OUT, detail=f"overall timeout {timeout:g}s", phase=phase)
+            return Result(
+                target.name, STARTUP,
+                f"timed out after {timeout:g}s in {phase} "
+                f"(raise --timeout or {startup.timeout_hint(phase)})",
+                startup.TIMEOUT, phase,
+            )
         except _SmokeFailure as failure:
+            phase = log.current_phase
+            log.end(
+                startup.TIMED_OUT if failure.failure_class == startup.TIMEOUT else startup.FAIL,
+                failure.failure_class,
+                failure.detail,
+            )
             detail = failure.detail
-            if failure.category == STARTUP:
+            if failure.category == STARTUP and failure.failure_class != startup.TIMEOUT:
                 errlog.seek(0)
                 tail = errlog.read()[-300:].strip()
                 if tail:
                     detail += f" | server stderr: {tail}"
-            return Result(target.name, failure.category, redact(detail))
-        except Exception as exc:  # noqa: BLE001 -- classify unexpected harness/SDK errors
             return Result(
-                target.name, PROTOCOL, redact(f"unexpected {type(exc).__name__}: {exc}")
+                target.name, failure.category, redact(detail), failure.failure_class, phase
+            )
+        except Exception as exc:  # noqa: BLE001 -- classify unexpected harness/SDK errors
+            phase = log.current_phase
+            log.end(startup.FAIL, startup.UNKNOWN, f"unexpected {type(exc).__name__}")
+            return Result(
+                target.name, PROTOCOL, redact(f"unexpected {type(exc).__name__}: {exc}"),
+                startup.UNKNOWN, phase,
             )
     return Result(target.name, PASS, f"{len(target.expected_tools)} expected tools present")
 
@@ -337,7 +499,19 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     roots.add_source_args(parser)
     parser.add_argument("--target", action="append", help="limit to named target(s)")
-    parser.add_argument("--timeout", type=float, default=DEFAULT_TIMEOUT)
+    parser.add_argument("--timeout", type=float, default=DEFAULT_TIMEOUT,
+                        help="overall cap per target (seconds)")
+    for phase in startup.PHASES:
+        parser.add_argument(
+            f"--{phase.replace('_', '-')}-timeout", dest=f"{phase}_timeout",
+            type=float, metavar="SECONDS",
+            help=f"{phase} bound (default {startup.DEFAULT_TIMEOUTS[phase]:g}, "
+                 f"env {startup.TIMEOUT_ENV[phase]})",
+        )
+    parser.add_argument(
+        "--startup-log", metavar="PATH",
+        help=f"append JSON startup records to PATH ('-' = stderr; env {startup.LOG_ENV})",
+    )
     parser.add_argument(
         "--require-all",
         action="store_true",
@@ -367,8 +541,19 @@ def main(argv: list[str] | None = None, env: Mapping[str, str] | None = None) ->
         print("config error: official MCP SDK missing (pip install -r requirements.txt)", file=sys.stderr)
         return 2
 
+    try:
+        timeouts = startup.resolve_timeouts(
+            env, {p: getattr(args, f"{p}_timeout") for p in startup.PHASES}
+        )
+    except ValueError as exc:
+        print(f"config error: {exc}", file=sys.stderr)
+        return 2
+    sink = startup.make_sink(args.startup_log or env.get(startup.LOG_ENV))
     results = [
-        asyncio.run(smoke_target(t, env, args.timeout)) for t in targets
+        asyncio.run(smoke_target(
+            t, env, args.timeout, timeouts, startup.StartupLog(t.name, sink)
+        ))
+        for t in targets
     ]
     for result in results:
         print(format_result(result))
