@@ -1,0 +1,42 @@
+name: ai-review
+
+# The commit status "ai-review/verdict" for this repo (TASK-3902). The rule is in ai-review-verdict-shared.yml
+# on PLX_MC main, pinned there so a PR cannot change the rule that grades it. Every petralabx repo but the
+# portal calls it with this same file; only base_branch changes. Trusted markers: the plx-agents app, and
+# petralabx members other than the PR's author (Vince, 2026-10-25).
+# pull_request_target runs this file from the base branch, which is safe because nothing checks out PR code.
+# pull_request_review runs it from the PR's merge ref, so the shared rule posts nothing unless this file is
+# the base branch's.
+
+on:
+  pull_request_target:
+    types: [opened, reopened, synchronize, edited, ready_for_review]
+    branches: [main]
+  issue_comment:
+    types: [created, edited, deleted]
+  pull_request_review:
+    types: [submitted, edited, dismissed]
+  workflow_dispatch:
+  schedule:
+    - cron: "*/30 * * * *"
+  merge_group:
+    types: [checks_requested]
+
+permissions:
+  statuses: write
+  pull-requests: read
+  issues: read
+  contents: read
+
+# One global group: runs never overlap, so an older run cannot post after a newer one. merge_group runs get
+# their own group per queued commit, or a sweep could replace a pending queue run and stall the queue.
+concurrency:
+  group: ${{ github.event_name == 'merge_group' && format('ai-review-verdict-mg-{0}', github.event.merge_group.head_sha) || 'ai-review-verdict' }}
+  cancel-in-progress: false
+
+jobs:
+  verdict:
+    uses: petralabx/PLX_MC/.github/workflows/ai-review-verdict-shared.yml@main
+    with:
+      base_branch: main
+      trust_org_members: true
