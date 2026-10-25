@@ -1,0 +1,319 @@
+# Ported from petralabx/plx-customer-portal@538cf6d (staging) for TASK-3905 (D9 option a); base branch staging -> main.
+name: ai-review
+
+# Required check for main: commit STATUS "ai-review/verdict" (a status, not a check run).
+# Passes when at least MIN_REVIEWERS (default 1) reviewers from APPROVED_REVIEWERS (default "sol-6.1,astra,claude")
+# have a clean plx-agents[bot] (type Bot) marker for the PR's CURRENT head SHA: files_read > 0, no open P0/P1, no error.
+# Any ONE approved reviewer is enough. The PR author's own family (from the commits' "Agent:" trailers, e.g.
+# claude/*, claude-* (e.g. claude-code/*) -> claude, codex/* or sol* -> sol-6.1, astra/* -> astra) does not count toward the pass; if no family can be
+# determined nothing is excluded. A blocking (P0/P1) or errored marker from ANY reviewer on the head fails, approved or not.
+# Several markers for the same SHA and reviewer: the worst wins (max open_p0/open_p1; any error fails).
+# Marker (PR comment, review body or PR description), see docs/ci/ai-review-verdict.md:
+#   <!-- ai-review {"reviewer":"astra","sha":"<40-char head sha>","open_p0":0,"open_p1":0} -->
+# Every trigger recomputes the verdict and posts the status on the PR head itself.
+# No checkout of PR code, GITHUB_TOKEN only, statuses: write is the only write scope.
+#
+# TASK-2933: every run re-scores ALL open PRs, so it must run main's definition of this file.
+# `pull_request` would run the copy in the PR's merge ref, which can predate a rule change on
+# main (seen 2026-10-14: refs from before #2429 reset every PR to "no marker") or carry an
+# unmerged edit of this file. `pull_request_target` always runs main's copy; that is safe here
+# because the job never checks out or runs PR code, it only reads markers through the API.
+# `pull_request_review` has no _target form, so the script skips posting when its copy differs.
+
+on:
+  pull_request_target:
+    types: [opened, reopened, synchronize, edited, ready_for_review]
+    branches: [main]
+  issue_comment:
+    types: [created, edited, deleted]
+  pull_request_review:
+    types: [submitted, edited, dismissed]
+  workflow_dispatch:
+  schedule:
+    - cron: "*/30 * * * *"
+  # Merge queue (inert until a queue is enabled on main). A merge_group run grades the PR(s) in the
+  # queued group and posts ai-review/verdict on the group's merge commit (merge_group.head_sha); see below.
+  merge_group:
+    types: [checks_requested]
+
+permissions:
+  statuses: write
+  pull-requests: read
+  issues: read
+  contents: read # the definition check below reads this file at two refs
+
+# One global group: runs never overlap, so an older run cannot post after a newer one.
+# A queued run superseded by a newer one is dropped; the newer run recomputes from fresh data.
+# merge_group runs get their own group per queued commit: in the shared group a pending queue run could be
+# replaced by a sweep or comment run, the queue sha would never get a status and the queue would stall.
+concurrency:
+  group: ${{ github.event_name == 'merge_group' && format('ai-review-verdict-mg-{0}', github.event.merge_group.head_sha) || 'ai-review-verdict' }}
+  cancel-in-progress: false
+
+jobs:
+  verdict:
+    name: ai-review-status
+    if: github.event_name != 'issue_comment' || github.event.issue.pull_request
+    timeout-minutes: 15 # merge_group: a hung run ends, and merge-group-backstop then posts failure
+    runs-on: ubuntu-latest
+    env:
+      # Reviewers whose clean marker on the current head can pass the gate (comma list, case-insensitive).
+      APPROVED_REVIEWERS: sol-6.1,astra,claude
+      # How many distinct approved reviewers (outside the PR author's family) must be clean.
+      MIN_REVIEWERS: 1
+    steps:
+      - uses: actions/github-script@v7
+        with:
+          script: |
+            const { owner, repo } = context.repo;
+            // Integrity fix (#2116): ONLY the plx-agents GitHub App (Astra's posting identity) may post a marker.
+            // It is matched by exact login (case-sensitive) AND user.type 'Bot'. author_association is ignored:
+            // OWNER/MEMBER/COLLABORATOR humans (including the PR author) can no longer satisfy this gate.
+            const trustedBot = 'plx-agents[bot]';
+            const approved = new Set(String(process.env.APPROVED_REVIEWERS || 'sol-6.1,astra,claude').split(',').map(s => s.trim().toLowerCase()).filter(Boolean));
+            const minReviewers = Math.max(1, parseInt(process.env.MIN_REVIEWERS || '1', 10) || 1);
+            // Author family from a commit's "Agent:" trailer (first path segment). Unknown agents (cursor/*, humans) map to none.
+            const familyOf = agent => {
+              const a = String(agent || '').trim().toLowerCase();
+              if (/^claude([\/-]|$)/.test(a)) return 'claude'; // claude/*, claude-code/*, any claude-* runtime
+              if (/^(codex|sol)([\/-]|$)/.test(a)) return 'sol-6.1';
+              if (/^astra(\/|$)/.test(a)) return 'astra';
+              return null;
+            };
+            // Every counted marker must carry integer files_read > 0 (changed files named in the review output, written by
+            // ai-review-comment.sh), else it counts as an error. (The 2026-10-19 CUTOVER exemption for older bare markers is retired.)
+            const provedRead = v => Number.isInteger(v.files_read) && v.files_read > 0;
+            const re = /<!--\s*ai-review\s+(\{[\s\S]*?\})\s*-->/g;
+            const runUrl = `${context.serverUrl}/${owner}/${repo}/actions/runs/${context.runId}`;
+
+            // TASK-2933: a run whose definition comes from a PR merge ref (pull_request_review, or a
+            // pull_request trigger if one is ever added back) posts nothing unless that copy of this file
+            // is main's: a stale or unmerged copy would re-score every open PR with its own rule.
+            // The 30-minute sweep, a PR comment or a PR event (pull_request_target) recomputes instead.
+            if (context.eventName === 'pull_request_review' || context.eventName === 'pull_request') {
+              const path = '.github/workflows/ai-review-verdict.yml';
+              const blob = async ref => (await github.rest.repos.getContent({ owner, repo, path, ref })).data.sha;
+              let own, base;
+              try {
+                [own, base] = await Promise.all([blob(process.env.GITHUB_WORKFLOW_SHA || context.sha), blob('main')]);
+              } catch (e) {
+                core.warning(`Could not compare this run's ${path} with main's (${e.message}); posting nothing.`);
+                return;
+              }
+              if (own !== base) {
+                core.notice(`This run's ${path} (blob ${own}) is not main's (blob ${base}); posting nothing.`);
+                return;
+              }
+            }
+
+            // Every run recomputes ALL open main PRs (the event's PR first): with one global concurrency
+            // group a queued run can be replaced by another PR's event, so no run may handle only its own PR.
+            const eventPr = context.payload.issue?.number || context.payload.pull_request?.number;
+            let prs;
+            try {
+              prs = await github.paginate(github.rest.pulls.list, { owner, repo, state: 'open', base: 'main', per_page: 100 });
+            } catch (e) {
+              // merge_group: the required status must still be posted, or the group waits for the queue timeout.
+              if (context.eventName !== 'merge_group') throw e;
+              await github.rest.repos.createCommitStatus({ owner, repo, sha: context.payload.merge_group.head_sha, state: 'failure',
+                context: 'ai-review/verdict', description: `Could not list open PRs for the merge group: ${e.message}`.slice(0, 140), target_url: runUrl });
+              core.setFailed(`ai-review merge_group: could not list open PRs: ${e.message}`);
+              return;
+            }
+            prs.sort((a, b) => (b.number === eventPr) - (a.number === eventPr));
+
+            const isTrustedBot = u => u?.login === trustedBot && u?.type === 'Bot';
+
+            async function verdict(pr, collect = false) {
+              const sha = pr.head.sha;
+              const texts = [];
+              if (pr.body) texts.push({ body: pr.body, at: null, assoc: pr.author_association, login: pr.user?.login, type: pr.user?.type });
+              const comments = await github.paginate(github.rest.issues.listComments, { owner, repo, issue_number: pr.number, per_page: 100 });
+              for (const c of comments) texts.push({ body: c.body || '', at: c.updated_at || c.created_at, assoc: c.author_association, login: c.user?.login, type: c.user?.type });
+              const reviews = await github.paginate(github.rest.pulls.listReviews, { owner, repo, pull_number: pr.number, per_page: 100 });
+              for (const r of reviews) if (r.state !== 'DISMISSED') texts.push({ body: r.body || '', at: r.submitted_at, assoc: r.author_association, login: r.user?.login, type: r.user?.type });
+              const agg = {};
+              for (const t of texts) {
+                if (!isTrustedBot({ login: t.login, type: t.type })) continue;
+                for (const m of t.body.matchAll(re)) {
+                  let v; try { v = JSON.parse(m[1]); } catch { continue; }
+                  const who = String(v.reviewer || '').toLowerCase();
+                  if (!who || v.sha !== sha) continue;
+                  // Worst marker wins; a malformed count is treated as 1 (fail-safe); error is sticky.
+                  const n = k => (typeof v[k] === 'number' && Number.isInteger(v[k]) && v[k] >= 0) ? v[k] : 1;
+                  // A bare marker (no integer files_read > 0) did not prove a diff read: error, regardless of date
+                  // (files_read is required of approved reviewers; another reviewer's marker is only read for P0/P1/error.)
+                  const err = v.error === true || String(v.verdict || '').toLowerCase() === 'error' || (approved.has(who) && !provedRead(v));
+                  const p = agg[who] || { open_p0: 0, open_p1: 0, error: false, markers: 0 };
+                  agg[who] = { open_p0: Math.max(p.open_p0, n('open_p0')), open_p1: Math.max(p.open_p1, n('open_p1')),
+                               error: p.error || err, markers: p.markers + 1 };
+                }
+              }
+              const got = Object.keys(agg);
+              let state = 'success', desc;
+              const errored = got.filter(w => agg[w].error);
+              const blocking = got.filter(w => agg[w].open_p0 > 0 || agg[w].open_p1 > 0);
+              const own = new Set();
+              let commitsTruncated = false;
+              if (got.length) {
+                // pulls.listCommits stops at 250 commits even when paginated. At 250+ use the compare API (paged, reports
+                // total_commits); if it still returns fewer than total_commits, fail closed (a family could be missed).
+                let commits = await github.paginate(github.rest.pulls.listCommits, { owner, repo, pull_number: pr.number, per_page: 100 });
+                if (commits.length >= 250) {
+                  commits = []; let total = Infinity;
+                  for (let page = 1; commits.length < total && page <= 100; page++) {
+                    const d = (await github.rest.repos.compareCommitsWithBasehead({ owner, repo, basehead: `${pr.base.sha}...${sha}`, per_page: 100, page })).data;
+                    total = d.total_commits; if (!d.commits?.length) break; commits.push(...d.commits);
+                  }
+                  commitsTruncated = !(commits.length >= total);
+                }
+                for (const cm of commits) for (const m of String(cm.commit?.message || '').matchAll(/^Agent:[ \t]*(\S+)/gmi)) { const f = familyOf(m[1]); if (f) own.add(f); }
+              }
+              const counted = got.filter(w => approved.has(w) && !own.has(w) && !agg[w].error && !agg[w].open_p0 && !agg[w].open_p1);
+              const ownNote = own.size ? ` (author family ${[...own].join(', ')} not counted)` : '';
+              if (commitsTruncated) { state = 'failure'; desc = `Could not read every commit of the PR to find the author family on ${sha.slice(0, 7)} (fail closed)`; }
+              else if (errored.length) { state = 'failure'; desc = `Errored or unproven review (counts as fail): ${errored.join(', ')}`; }
+              else if (blocking.length) { state = 'failure'; desc = 'Open ' + blocking.map(w => `${w} P0=${agg[w].open_p0} P1=${agg[w].open_p1}`).join('; '); }
+              else if (counted.length < minReviewers) { state = 'pending'; desc = `Need ${minReviewers} clean approved review on ${sha.slice(0, 7)}, have ${counted.length}${ownNote}`; }
+              else desc = `Clean: ${counted.join(', ')} on ${sha.slice(0, 7)} (no open P0/P1)${ownNote}`;
+              const description = desc.slice(0, 140);
+              // Head moved while computing: skip; the push's own run (or the next sweep) covers the new head.
+              const now = (await github.rest.pulls.get({ owner, repo, pull_number: pr.number })).data;
+              if (now.head.sha !== sha) { core.info(`#${pr.number}: head moved ${sha} -> ${now.head.sha}; skipped`); return; }
+              if (collect) return { state, desc, sha }; // merge_group: graded, not posted on the PR head
+              // Post only on change (statuses are capped at 1000 per SHA per context; newest first).
+              const existing = (await github.rest.repos.listCommitStatusesForRef({ owner, repo, ref: sha, per_page: 100 })).data
+                .find(x => x.context === 'ai-review/verdict');
+              if (existing && existing.state === state && existing.description === description) {
+                core.info(`#${pr.number} ${sha} unchanged (${state}); not reposted`);
+              } else {
+                await github.rest.repos.createCommitStatus({ owner, repo, sha, state, context: 'ai-review/verdict', description, target_url: runUrl });
+              }
+              core.summary.addHeading(`#${pr.number} ${state}`, 3).addRaw(`Head ${sha}: ${desc}\n\n`).addCodeBlock(JSON.stringify(agg, null, 2), 'json');
+              core.info(`#${pr.number} ${sha} ${state}: ${desc}`);
+            }
+
+            // Merge queue: grade every PR in the queued group with the same rule as above and post ONE status on the
+            // group's merge commit. Every path posts (success or failure) so the required context never goes missing;
+            // anything short of success (pending, failure, error, unresolved PR) is failure, which ejects the group.
+            if (context.eventName === 'merge_group') {
+              const mg = context.payload.merge_group || {};
+              const mgSha = mg.head_sha;
+              const mgPost = async (state, d) => {
+                await github.rest.repos.createCommitStatus({ owner, repo, sha: mgSha, state, context: 'ai-review/verdict',
+                  description: d.slice(0, 140), target_url: runUrl });
+                core.summary.addHeading(`merge_group ${state}`, 3).addRaw(`${mgSha}: ${d}\n\n`);
+                core.info(`merge_group ${mgSha} ${state}: ${d}`);
+              };
+              try {
+                // This run's definition comes from the queued commit. A group that edits this file must not grade itself.
+                const path = '.github/workflows/ai-review-verdict.yml';
+                const blob = async ref => (await github.rest.repos.getContent({ owner, repo, path, ref })).data.sha;
+                const [own, base] = await Promise.all([blob(process.env.GITHUB_WORKFLOW_SHA || mgSha), blob(mg.base_ref || 'main')]);
+                if (own !== base) {
+                  await mgPost('failure', `Group changes ${path}; it cannot grade itself. Land it outside the queue (Vince).`);
+                } else {
+                  // Queue membership (same algorithm as scripts/merge-group-members.mjs, inlined because this run must
+                  // not execute code from the queued commit): queue ref PR N + the PAGINATED base_sha...head_sha commits,
+                  // walking the first-parent chain of queue merge commits; parents[1] of each is one member's head,
+                  // mapped with commits/{sha}/pulls to an open PR on the base whose head is exactly that sha. Unqueued
+                  // ancestor PRs are reachable but never a chain merge parent, so they are excluded. Anything else throws.
+                  const get = async p => (await github.request(`GET ${p}`)).data;
+                  const qm = String(mg.head_ref || '').match(/^(?:refs\/heads\/)?gh-readonly-queue\/(.+)\/pr-(\d+)-[0-9a-f]{40}$/);
+                  if (!qm) throw new Error(`not a merge queue ref: ${mg.head_ref || '(none)'}`);
+                  const qBase = String(mg.base_ref || qm[1]).replace(/^refs\/heads\//, '');
+                  if (qBase !== qm[1]) throw new Error(`queue ref base ${qm[1]} != base_ref ${qBase}`);
+                  const commits = new Map();
+                  let total = null;
+                  for (let page = 1; page <= 100; page++) {
+                    const cmp = await get(`/repos/${owner}/${repo}/compare/${mg.base_sha}...${mgSha}?per_page=100&page=${page}`);
+                    if (total === null) total = Number(cmp.total_commits);
+                    for (const x of cmp.commits || []) commits.set(x.sha, x);
+                    if (commits.size >= total || !(cmp.commits || []).length) break;
+                  }
+                  if (!Number.isFinite(total) || commits.size !== total) throw new Error(`comparison incomplete: ${commits.size}/${total} commits`);
+                  const members = [];
+                  for (let sha = mgSha, seen = new Set(); sha !== mg.base_sha;) {
+                    const c = commits.get(sha);
+                    if (!c || seen.has(sha)) throw new Error(`first-parent chain left the group at ${sha.slice(0, 7)}`);
+                    seen.add(sha);
+                    const parents = (c.parents || []).map(x => x.sha);
+                    if (parents.length !== 2) throw new Error(`queue commit ${sha.slice(0, 7)} is not a merge commit (queue must use the merge-commit method)`);
+                    // Open, or already merged into the base (a predecessor that landed after the group was built).
+                    const hit = ((await get(`/repos/${owner}/${repo}/commits/${parents[1]}/pulls?per_page=100`)) || [])
+                      .filter(x => (x.state === 'open' || x.merged_at) && x.base?.ref === qBase && x.head?.sha === parents[1]);
+                    if (hit.length !== 1) throw new Error(`queue commit ${sha.slice(0, 7)}: ${hit.length} open or merged ${qBase} PRs with head ${parents[1].slice(0, 7)}`);
+                    members.push({ number: hit[0].number, head_sha: parents[1], merged: Boolean(hit[0].merged_at) });
+                    sha = parents[0];
+                  }
+                  if (!members.length) throw new Error('empty merge group');
+                  if (members[0].number !== Number(qm[2])) throw new Error(`head commit merges #${members[0].number}, queue ref names #${qm[2]}`);
+                  if (members[0].merged) throw new Error(`queue-ref PR #${qm[2]} is already merged`);
+                  members.reverse();
+                  {
+                    const bad = [], ok = [];
+                    for (const mem of members) {
+                      // A merged predecessor already passed this gate in its own queue entry; it is landed code.
+                      if (mem.merged) { ok.push(`#${mem.number} (merged)`); continue; }
+                      const pr = prs.find(x => x.number === mem.number);
+                      if (!pr) { bad.push(`#${mem.number} not an open main PR`); continue; }
+                      if (pr.head.sha !== mem.head_sha) { bad.push(`#${mem.number} head moved`); continue; }
+                      const r = await verdict(pr, true);
+                      if (!r) bad.push(`#${mem.number} head moved`);
+                      else if (r.state !== 'success') bad.push(`#${mem.number} ${r.desc}`);
+                      else ok.push(`#${mem.number}`);
+                    }
+                    if (bad.length) await mgPost('failure', `Queue: ${bad.join('; ')}`);
+                    else await mgPost('success', `Queue: clean ${ok.join(', ')}`);
+                  }
+                }
+              } catch (e) {
+                core.error(e.stack || e.message);
+                try { await mgPost('failure', `Verdict could not be computed for the merge group: ${e.message}`); }
+                catch (e2) { core.error(`could not post merge_group status: ${e2.message}`); }
+                await core.summary.write();
+                core.setFailed(`ai-review merge_group verdict failed: ${e.message}`);
+                return;
+              }
+              await core.summary.write();
+              return;
+            }
+
+            const errors = [];
+            for (const pr of prs) {
+              if (pr.base.ref !== 'main' || pr.state !== 'open') continue;
+              try { await verdict(pr); }
+              catch (e) {
+                errors.push(`#${pr.number}: ${e.message}`); core.error(`#${pr.number}: ${e.stack || e.message}`);
+                // Best-effort: never leave a stale success on a head we could not evaluate.
+                try {
+                  await github.rest.repos.createCommitStatus({ owner, repo, sha: pr.head.sha, state: 'error', context: 'ai-review/verdict',
+                    description: `Verdict could not be computed: ${e.message}`.slice(0, 140), target_url: runUrl });
+                } catch (e2) { core.error(`#${pr.number}: could not post error status: ${e2.message}`); }
+              }
+            }
+            await core.summary.write();
+            if (errors.length) core.setFailed(`ai-review verdict failed for ${errors.length} PR(s): ${errors.join('; ')}`);
+
+  # merge_group backstop: if ai-review-status did not finish with success (crash, timeout, cancellation, a skip
+  # or any error path that could not post), post a terminal FAILURE on the queued commit so the group is ejected
+  # promptly instead of waiting for the queue timeout. A success run already posted its own status.
+  merge-group-backstop:
+    name: ai-review-merge-group-backstop
+    needs: verdict
+    if: always() && github.event_name == 'merge_group' && needs.verdict.result != 'success'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/github-script@v7
+        env:
+          VERDICT_RESULT: ${{ needs.verdict.result }}
+        with:
+          script: |
+            const { owner, repo } = context.repo;
+            const sha = context.payload.merge_group.head_sha;
+            const result = process.env.VERDICT_RESULT;
+            await github.rest.repos.createCommitStatus({ owner, repo, sha, state: 'failure', context: 'ai-review/verdict',
+              description: `ai-review-status ended ${result}; merge group not graded`.slice(0, 140),
+              target_url: `${context.serverUrl}/${owner}/${repo}/actions/runs/${context.runId}` });
+            core.info(`merge_group ${sha}: backstop posted failure (ai-review-status ${result})`);
