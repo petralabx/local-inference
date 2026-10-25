@@ -27,7 +27,7 @@ Owner: PLX Repo Maintainers
 **Rules**
 
 1. **Never push directly to the integration branch.** Open a PR.
-2. Every PR runs the **PLX MC Compliance Gate** (`.github/workflows/plx-mc-compliance.yml`).
+2. Every PR runs the **PLX MC Compliance Gate**, the org-required workflow from PLX_MC that reports `compliance`.
 3. Agent-driven PRs must include `MC-Checkout: dsp_…` in the body (see COLLABORATOR-SOP).
 4. Non-docs PRs need a `## Rollback Plan` section.
 
@@ -79,7 +79,7 @@ python -m unittest discover -s tests -v
 python scripts/check-brand-repo-structure.py
 ```
 
-Required GitHub checks: **CI**, **PLX MC Compliance Gate**, **Compliance Gate Drift**.
+Required GitHub checks: **CI** and the org-required **PLX MC Compliance Gate**.
 
 ---
 
