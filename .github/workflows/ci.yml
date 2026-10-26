@@ -6,6 +6,8 @@ on:
     types: [opened, synchronize, reopened]
   push:
     branches: [main]
+  merge_group:
+    types: [checks_requested]
 
 permissions:
   contents: read
@@ -24,3 +26,19 @@ jobs:
         run: python -m unittest discover -s tests -v
       - name: Brand structure check
         run: python scripts/check-brand-repo-structure.py
+
+  # One roll-up check per repo (TASK-3902): the one org ruleset requires `ci` in
+  # every repo instead of each repo's job names.
+  ci:
+    name: ci
+    if: always()
+    needs: [test]
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Every required job passed or was skipped
+        env:
+          RESULTS: ${{ toJSON(needs.*.result) }}
+        run: |
+          echo "$RESULTS"
+          echo "$RESULTS" | jq -e 'all(.[]; . == "success" or . == "skipped")' > /dev/null
