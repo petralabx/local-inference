@@ -1,0 +1,20 @@
+---
+description: Format for workstream handoff notes in docs/workstreams/
+globs: docs/workstreams/**
+alwaysApply: false
+---
+
+# Workstream notes
+
+- One note per workstream: `docs/workstreams/<slug>.md`, slug in lowercase kebab-case.
+- Follow `docs/workstreams/_template.md`: the header list (Slug, Owner, Branches, MC tasks,
+  SharePoint handoff), then every section in this order, even when one says "None": Goal,
+  Status, Done, Next steps, Decisions and why, Open questions, Files / areas touched, How to run
+  the tests, Blockers or dependencies on other workstreams, Last updated.
+- Status is `active`, `blocked`, `paused` or `done`, with a date. Last updated starts with a
+  YYYY-MM-DD date.
+- Replace stale text instead of appending a diary. Git history keeps the old versions.
+- Change the index row in `README.md` only when a workstream opens, closes or changes status.
+- SharePoint `Agent Handoffs/` is the system of record. When it disagrees with a note, fix the
+  note.
+- Run `node scripts/workstream-note.mjs check` after editing.

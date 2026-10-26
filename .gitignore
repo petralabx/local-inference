@@ -13,3 +13,7 @@ __pycache__/
 *.log
 logs/
 .DS_Store
+
+# Local worktrees (workstream protocol, TASK-3953)
+.worktrees/
+.claude/worktrees/

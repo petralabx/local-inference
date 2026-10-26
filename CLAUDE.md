@@ -53,6 +53,17 @@ Before first edit or any PR_CREATE on `petralabx/local-inference`:
 5. **Last commit → `mc_complete_task`** (summary + verificationCommands + rollback) **→ freeze**. Anyone with write access then lands the green PR with a merge commit; never squash, never bypass. A PR that touches money, migrations or workflows lands only with a signed MC merge approval of its exact head (Vince, 2026-10-25, TASK-3901). Next slice = new branch from the integration branch.
 6. If Hub MCP and the HTTP fallback both fail: stop; CoS/CIP paste `prBodyLine`.
 
+## Workstream protocol
+
+Sessions are disposable. What the next session or a teammate needs lives in
+[`docs/workstreams/`](docs/workstreams/README.md) and travels with the code (Vince, 2026-10-26, TASK-3953).
+
+- One workstream per branch and worktree. Flag any edit outside your workstream's scope before you make it. A one-PR change needs no workstream.
+- At session start, read your workstream's note, `docs/workstreams/<slug>.md`. The index in `docs/workstreams/README.md` maps branches to slugs.
+- Before you end a session, and after any significant decision, update that note in the same branch (`/handoff` in Claude Code and Cursor; `/resume-workstream` picks it up).
+- Change the index row (owner, branch, status, dependencies) only when a workstream opens, closes or changes status.
+- SharePoint `Agent Handoffs/` stays the system of record for durable handoffs. The note is the agents' working copy; when they disagree, SharePoint wins.
+
 ## Smoke
 
 ```bash
