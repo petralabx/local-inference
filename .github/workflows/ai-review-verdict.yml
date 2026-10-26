@@ -90,7 +90,8 @@ jobs:
             // pull_request trigger if one is ever added back) posts nothing unless that copy of this file
             // is main's: a stale or unmerged copy would re-score every open PR with its own rule.
             // The 30-minute sweep, a PR comment or a PR event (pull_request_target) recomputes instead.
-            if (context.eventName === 'pull_request_review' || context.eventName === 'pull_request') {
+            // workflow_dispatch can be started on any ref (--ref <branch>) and then runs that ref's copy, so it is checked too.
+            if (context.eventName === 'pull_request_review' || context.eventName === 'pull_request' || context.eventName === 'workflow_dispatch') {
               const path = '.github/workflows/ai-review-verdict.yml';
               const blob = async ref => (await github.rest.repos.getContent({ owner, repo, path, ref })).data.sha;
               let own, base;
@@ -124,17 +125,63 @@ jobs:
 
             const isTrustedBot = u => u?.login === trustedBot && u?.type === 'Bot';
 
+            // Fork and Dependabot events get a read-only GITHUB_TOKEN, so createCommitStatus answers 403. That is not a
+            // verdict: log it clearly and post nothing (the required status stays missing, never a fake pass). The next
+            // 30-minute sweep or pull_request_target run (base-repo token) posts the real status.
+            const readOnlyEvent = context.actor === 'dependabot[bot]' || Boolean(context.payload.pull_request?.head?.repo?.fork);
+            if (readOnlyEvent && context.eventName === 'pull_request_review') {
+              core.notice(`Event ${context.eventName} by ${context.actor} (fork or Dependabot) has a read-only token; posting nothing. The next sweep posts ai-review/verdict.`);
+              return;
+            }
+            const skipped403 = [];
+            async function postStatus(params, prNumber) {
+              try { await github.rest.repos.createCommitStatus(params); return true; }
+              catch (e) {
+                if (e.status !== 403) throw e;
+                skipped403.push(`#${prNumber}`);
+                core.warning(`#${prNumber}: 403 posting ai-review/verdict on ${String(params.sha).slice(0, 7)} (read-only token: event ${context.eventName}, actor ${context.actor}; fork or Dependabot). Skipped, not passed; the next sweep posts it.`);
+                return false;
+              }
+            }
+
+            // Statuses live on the SHA, not the PR: two open PRs with the same head would overwrite each other's
+            // ai-review/verdict. Such heads get one fixed failure naming every PR, so no PR can inherit another's pass.
+            const headPrs = new Map();
+            for (const p of prs) { const l = headPrs.get(p.head.sha) || []; l.push(p.number); headPrs.set(p.head.sha, l); }
+
+            // Edited markers: the REST author is the comment's ORIGINAL author, so a marker edited by someone else could
+            // pass. Read lastEditedAt/editor (GraphQL) for every trusted-bot text; an edit by anyone but the trusted bot
+            // (or an unknown editor) drops the marker. A failed lookup throws, and the PR gets an error status (fail closed).
+            const trustedEditorLogin = trustedBot.replace(/\[bot\]$/, '');
+            async function editsOk(nodeIds) {
+              const bad = new Set();
+              for (let i = 0; i < nodeIds.length; i += 50) {
+                const ids = nodeIds.slice(i, i + 50);
+                const q = `query($ids:[ID!]!){nodes(ids:$ids){id ... on Comment{lastEditedAt editor{login __typename}}}}`;
+                const res = await github.graphql(q, { ids });
+                for (const n of res.nodes || []) {
+                  if (!n) continue;
+                  if (n.lastEditedAt && !(n.editor && n.editor.__typename === 'Bot' && n.editor.login === trustedEditorLogin)) bad.add(n.id);
+                }
+                if ((res.nodes || []).length !== ids.length) throw new Error('edit-history lookup returned fewer nodes than asked');
+              }
+              return bad;
+            }
+
             async function verdict(pr, collect = false) {
               const sha = pr.head.sha;
               const texts = [];
-              if (pr.body) texts.push({ body: pr.body, at: null, assoc: pr.author_association, login: pr.user?.login, type: pr.user?.type });
+              if (pr.body) texts.push({ node: pr.node_id, body: pr.body, at: null, assoc: pr.author_association, login: pr.user?.login, type: pr.user?.type });
               const comments = await github.paginate(github.rest.issues.listComments, { owner, repo, issue_number: pr.number, per_page: 100 });
-              for (const c of comments) texts.push({ body: c.body || '', at: c.updated_at || c.created_at, assoc: c.author_association, login: c.user?.login, type: c.user?.type });
+              for (const c of comments) texts.push({ node: c.node_id, edited: Boolean(c.updated_at && c.created_at && c.updated_at !== c.created_at), body: c.body || '', at: c.updated_at || c.created_at, assoc: c.author_association, login: c.user?.login, type: c.user?.type });
               const reviews = await github.paginate(github.rest.pulls.listReviews, { owner, repo, pull_number: pr.number, per_page: 100 });
-              for (const r of reviews) if (r.state !== 'DISMISSED') texts.push({ body: r.body || '', at: r.submitted_at, assoc: r.author_association, login: r.user?.login, type: r.user?.type });
+              for (const r of reviews) if (r.state !== 'DISMISSED') texts.push({ node: r.node_id, body: r.body || '', at: r.submitted_at, assoc: r.author_association, login: r.user?.login, type: r.user?.type });
               const agg = {};
+              const markerRe = /<!--\s*ai-review\s/;
+              const editedBad = await editsOk(texts.filter(t => t.node && isTrustedBot({ login: t.login, type: t.type }) && markerRe.test(t.body)).map(t => t.node));
               for (const t of texts) {
                 if (!isTrustedBot({ login: t.login, type: t.type })) continue;
+                if (t.node ? editedBad.has(t.node) : t.edited) { core.warning(`#${pr.number}: marker text ${t.node || '(no node id)'} was edited by someone other than ${trustedBot}; ignored`); continue; }
                 for (const m of t.body.matchAll(re)) {
                   let v; try { v = JSON.parse(m[1]); } catch { continue; }
                   const who = String(v.reviewer || '').toLowerCase();
@@ -176,18 +223,23 @@ jobs:
               else if (blocking.length) { state = 'failure'; desc = 'Open ' + blocking.map(w => `${w} P0=${agg[w].open_p0} P1=${agg[w].open_p1}`).join('; '); }
               else if (counted.length < minReviewers) { state = 'pending'; desc = `Need ${minReviewers} clean approved review on ${sha.slice(0, 7)}, have ${counted.length}${ownNote}`; }
               else desc = `Clean: ${counted.join(', ')} on ${sha.slice(0, 7)} (no open P0/P1)${ownNote}`;
-              const description = desc.slice(0, 140);
               // Head moved while computing: skip; the push's own run (or the next sweep) covers the new head.
               const now = (await github.rest.pulls.get({ owner, repo, pull_number: pr.number })).data;
               if (now.head.sha !== sha) { core.info(`#${pr.number}: head moved ${sha} -> ${now.head.sha}; skipped`); return; }
               if (collect) return { state, desc, sha }; // merge_group: graded, not posted on the PR head
+              const sharers = headPrs.get(sha) || [];
+              if (sharers.length > 1) {
+                state = 'failure';
+                desc = `Head ${sha.slice(0, 7)} is shared by open PRs ${sharers.map(n => '#' + n).join(', ')}; the status cannot be scoped per PR. Close the duplicates.`;
+              }
+              const description = desc.slice(0, 140);
               // Post only on change (statuses are capped at 1000 per SHA per context; newest first).
               const existing = (await github.rest.repos.listCommitStatusesForRef({ owner, repo, ref: sha, per_page: 100 })).data
                 .find(x => x.context === 'ai-review/verdict');
               if (existing && existing.state === state && existing.description === description) {
                 core.info(`#${pr.number} ${sha} unchanged (${state}); not reposted`);
               } else {
-                await github.rest.repos.createCommitStatus({ owner, repo, sha, state, context: 'ai-review/verdict', description, target_url: runUrl });
+                await postStatus({ owner, repo, sha, state, context: 'ai-review/verdict', description, target_url: runUrl }, pr.number);
               }
               core.summary.addHeading(`#${pr.number} ${state}`, 3).addRaw(`Head ${sha}: ${desc}\n\n`).addCodeBlock(JSON.stringify(agg, null, 2), 'json');
               core.info(`#${pr.number} ${sha} ${state}: ${desc}`);
@@ -287,11 +339,12 @@ jobs:
                 errors.push(`#${pr.number}: ${e.message}`); core.error(`#${pr.number}: ${e.stack || e.message}`);
                 // Best-effort: never leave a stale success on a head we could not evaluate.
                 try {
-                  await github.rest.repos.createCommitStatus({ owner, repo, sha: pr.head.sha, state: 'error', context: 'ai-review/verdict',
-                    description: `Verdict could not be computed: ${e.message}`.slice(0, 140), target_url: runUrl });
+                  await postStatus({ owner, repo, sha: pr.head.sha, state: 'error', context: 'ai-review/verdict',
+                    description: `Verdict could not be computed: ${e.message}`.slice(0, 140), target_url: runUrl }, pr.number);
                 } catch (e2) { core.error(`#${pr.number}: could not post error status: ${e2.message}`); }
               }
             }
+            if (skipped403.length) core.notice(`ai-review/verdict not posted (403, read-only token) for ${skipped403.join(', ')}; not a pass.`);
             await core.summary.write();
             if (errors.length) core.setFailed(`ai-review verdict failed for ${errors.length} PR(s): ${errors.join('; ')}`);
 
